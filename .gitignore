@@ -1,0 +1,20 @@
+# .NET build output
+bin/
+obj/
+
+# Publish artifacts
+publish/
+*.zip
+
+# User/local environment files
+.DS_Store
+*.user
+*.suo
+*.rsuser
+
+# IDE folders
+.vs/
+.vscode/
+
+# Logs
+*.log

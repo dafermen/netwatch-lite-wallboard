@@ -1,0 +1,28 @@
+{
+  "appTitle": "GTSG Monitoring",
+  "rotationEnabled": true,
+  "rotationSeconds": 20,
+  "defaultLayout": 4,
+  "panels": [
+    {
+      "name": "NGSS NYELF",
+      "url": "/wallboard-sample.html?panel=NGSS%20NYELF&site=Elmsford&version=3.0",
+      "refreshSeconds": 10
+    },
+    {
+      "name": "NGSS NYFOS",
+      "url": "/wallboard-sample.html?panel=NGSS%20NYFOS&site=Foster%20Avenue&version=2.2",
+      "refreshSeconds": 12
+    },
+    {
+      "name": "NGSS NYMNS",
+      "url": "/wallboard-sample.html?panel=NGSS%20NYMNS&site=Manhattan%20South&version=2.2",
+      "refreshSeconds": 14
+    },
+    {
+      "name": "NGSS NYYON",
+      "url": "/wallboard-sample.html?panel=NGSS%20NYYON&site=Yonkers%20SSE&version=2.2",
+      "refreshSeconds": 16
+    }
+  ]
+}

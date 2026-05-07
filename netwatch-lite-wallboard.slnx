@@ -1,0 +1,5 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/NetWatchLite.Wallboard.WebView2/NetWatchLite.Wallboard.WebView2.csproj" />
+  </Folder>
+</Solution>

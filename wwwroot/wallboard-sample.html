@@ -1,0 +1,238 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>NetWatch Lite Wallboard Sample</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --cyan: #00d9ff;
+      --green: #00e83a;
+      --amber: #ffae00;
+      --line: #39424f;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      background: #000;
+      color: #fff;
+      font-family: Arial, Helvetica, sans-serif;
+      margin: 0;
+      min-height: 100vh;
+      overflow: hidden;
+      padding: 18px;
+    }
+
+    header {
+      align-items: center;
+      border-bottom: 1px solid #d5a100;
+      display: grid;
+      grid-template-columns: auto 1fr auto;
+      gap: 18px;
+      padding-bottom: 12px;
+    }
+
+    .shield {
+      align-items: center;
+      background: linear-gradient(145deg, #7b4a08, #f7b733);
+      border: 3px solid #f7d17a;
+      border-radius: 14px;
+      color: #251500;
+      display: flex;
+      font-size: 28px;
+      font-weight: 900;
+      height: 76px;
+      justify-content: center;
+      width: 76px;
+    }
+
+    h1 {
+      color: var(--amber);
+      font-size: 40px;
+      line-height: 1;
+      margin: 0;
+      text-align: center;
+    }
+
+    h2 {
+      color: var(--cyan);
+      font-size: 20px;
+      margin: 8px 0 0;
+      text-align: center;
+    }
+
+    .health {
+      color: #fff;
+      font-size: 24px;
+      font-weight: 800;
+      text-align: right;
+    }
+
+    .subhead {
+      align-items: center;
+      display: flex;
+      font-size: 22px;
+      font-weight: 800;
+      gap: 10px;
+      padding: 10px 0;
+    }
+
+    .subhead span {
+      color: var(--amber);
+    }
+
+    main {
+      margin: 14px auto 0;
+      max-width: 980px;
+    }
+
+    .section-title {
+      color: var(--amber);
+      font-size: 18px;
+      font-weight: 800;
+      margin-bottom: 8px;
+    }
+
+    .lane {
+      border-top: 1px solid var(--line);
+      display: grid;
+      gap: 14px;
+      grid-template-columns: 70px 1fr 1.2fr;
+      padding: 12px 0;
+    }
+
+    .lane strong {
+      color: #fff;
+    }
+
+    .pill {
+      background: #00c72e;
+      border: 1px solid #67ff7d;
+      border-radius: 4px;
+      color: #fff;
+      display: inline-block;
+      font-size: 13px;
+      font-weight: 800;
+      margin: 2px;
+      padding: 2px 6px;
+    }
+
+    .muted-pill {
+      background: #667085;
+      border-color: #a3aab6;
+    }
+
+    .status {
+      color: var(--green);
+      font-weight: 800;
+    }
+
+    footer {
+      align-items: center;
+      bottom: 12px;
+      color: #7f8794;
+      display: flex;
+      font-size: 14px;
+      justify-content: space-between;
+      left: 18px;
+      position: fixed;
+      right: 18px;
+    }
+
+    .db {
+      align-items: center;
+      color: var(--green);
+      display: inline-flex;
+      gap: 7px;
+    }
+
+    .db::before {
+      background: var(--green);
+      border-radius: 50%;
+      content: "";
+      display: inline-block;
+      height: 16px;
+      width: 16px;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="shield">UPS</div>
+    <div>
+      <h1 id="title">Next Generation Small Sort</h1>
+      <h2>Corporate BaSE DSC</h2>
+    </div>
+    <div class="health">Health</div>
+  </header>
+
+  <div class="subhead">
+    <strong id="date"></strong>
+    <span id="sort"></span>
+    <strong id="site"></strong>
+  </div>
+
+  <main>
+    <div class="section-title">Primary</div>
+    <div id="lanes"></div>
+  </main>
+
+  <footer>
+    <span class="db">DB Connection OK</span>
+    <span id="updated"></span>
+    <span>SUPCONSOLE-NGSS v4.5 | Sample panel</span>
+  </footer>
+
+  <script>
+    const params = new URLSearchParams(location.search);
+    const panel = params.get("panel") || "NGSS SAMPLE";
+    const site = params.get("site") || "Sample Site";
+    const version = params.get("version") || "3.0";
+    const now = new Date();
+
+    document.title = panel;
+    document.querySelector("#title").textContent = `Next Generation Small Sort ${version}`;
+    document.querySelector("#date").textContent = now.toLocaleDateString(undefined, { weekday: "short", month: "short", day: "2-digit", year: "numeric" });
+    document.querySelector("#sort").textContent = `${panel} ACTIVE`;
+    document.querySelector("#site").textContent = site;
+    document.querySelector("#updated").textContent = `Last updated on ${now.toLocaleString()}`;
+
+    const lanes = Array.from({ length: 4 }, (_, index) => {
+      const lane = String(index + 1).padStart(2, "0");
+      return `
+        <div class="lane">
+          <strong>P${lane}</strong>
+          <div>
+            <strong>KEYPADS:</strong>
+            <span class="pill">I/O</span>
+            <span class="pill">Key 1</span>
+            <span class="pill">Key 2</span>
+            <span class="pill">Key 3</span>
+            <span class="pill">Key 4</span><br>
+            <strong>CHATS:</strong>
+            <span class="pill">STATS</span><br>
+            <strong>MODULES:</strong>
+            <span class="pill">ASX</span>
+            <span class="pill">CAM</span>
+            <span class="pill">CTRL</span>
+            <span class="pill">PRN</span>
+          </div>
+          <div>
+            <strong>ASX Status:</strong>
+            <span class="status">10.21.${index + 10}.${Math.floor(Math.random() * 200)}:18962:Connection Ok</span><br>
+            <strong>Sort - Plan - State:</strong>
+            <span class="status">${panel} - Sort</span><br>
+            <strong>Last Reported:</strong>
+            <span class="status">${new Date().toLocaleTimeString()} (${index + 1}s ago)</span>
+          </div>
+        </div>`;
+    });
+
+    document.querySelector("#lanes").innerHTML = lanes.join("");
+  </script>
+</body>
+</html>
