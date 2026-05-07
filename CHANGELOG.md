@@ -11,6 +11,7 @@ All notable changes to NetWatch Lite Wallboard are documented here.
 - Documented MIT license usage.
 - Added 1, 3, 6, and 8 panel layouts alongside the existing 2 and 4 panel layouts.
 - Expanded the neutral sample configuration to eight panels for layout and rotation testing.
+- Added a downloadable Windows x64 portable ZIP under `releases/`.
 
 ## v0.1.0 - 2026-05-07
 

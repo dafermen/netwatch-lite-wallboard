@@ -95,6 +95,14 @@ dotnet build
 dotnet run --project .\src\NetWatchLite.Wallboard.WebView2\NetWatchLite.Wallboard.WebView2.csproj
 ```
 
+## Portable Download
+
+A Windows x64 portable ZIP is available in the repository:
+
+[releases/NetWatch-Lite-Wallboard-WebView2-win-x64-2026-05-07-a1f3195.zip](releases/NetWatch-Lite-Wallboard-WebView2-win-x64-2026-05-07-a1f3195.zip)
+
+Extract the ZIP on Windows and run `NetWatch-Lite-Wallboard.exe`. The editable `wallboard.json` file is included beside the executable.
+
 ## Publish Portable Build
 
 ```powershell
