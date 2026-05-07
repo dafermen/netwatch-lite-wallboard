@@ -23,6 +23,26 @@
       "name": "Team Portal",
       "url": "https://github.com/",
       "refreshSeconds": 16
+    },
+    {
+      "name": "Incident Queue",
+      "url": "https://example.org/",
+      "refreshSeconds": 18
+    },
+    {
+      "name": "Service Metrics",
+      "url": "https://example.net/",
+      "refreshSeconds": 20
+    },
+    {
+      "name": "Network Map",
+      "url": "https://www.iana.org/domains/reserved",
+      "refreshSeconds": 22
+    },
+    {
+      "name": "Change Calendar",
+      "url": "https://www.rfc-editor.org/",
+      "refreshSeconds": 24
     }
   ]
 }

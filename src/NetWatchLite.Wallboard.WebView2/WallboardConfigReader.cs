@@ -8,6 +8,7 @@ namespace NetWatchLite.Wallboard.WebView2;
 internal static class WallboardConfigReader
 {
     private const string WallboardFileName = "wallboard.json";
+    private static readonly int[] SupportedLayouts = [1, 2, 3, 4, 6, 8];
 
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
@@ -104,7 +105,7 @@ internal static class WallboardConfigReader
                 : configuration.AppTitle.Trim(),
             RotationEnabled = configuration.RotationEnabled,
             RotationSeconds = configuration.RotationSeconds <= 0 ? 20 : configuration.RotationSeconds,
-            DefaultLayout = configuration.DefaultLayout == 2 ? 2 : 4,
+            DefaultLayout = NormalizeLayout(configuration.DefaultLayout),
             Panels = panels.Count == 0 ? CreateDefaultConfiguration().Panels : panels
         };
     }
@@ -154,5 +155,15 @@ internal static class WallboardConfigReader
                 }
             ]
         };
+    }
+
+    /// <summary>
+    /// Converts a JSON layout value into one of the supported wallboard layouts.
+    /// </summary>
+    /// <param name="layout">Panel count requested by configuration.</param>
+    /// <returns>The requested layout when supported; otherwise four panels.</returns>
+    private static int NormalizeLayout(int layout)
+    {
+        return SupportedLayouts.Contains(layout) ? layout : 4;
     }
 }

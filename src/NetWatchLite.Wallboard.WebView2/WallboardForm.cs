@@ -7,11 +7,12 @@ namespace NetWatchLite.Wallboard.WebView2;
 /// </summary>
 internal sealed class WallboardForm : Form
 {
+    private static readonly int[] SupportedLayouts = [1, 2, 3, 4, 6, 8];
+
     private readonly Panel _topBar = new();
     private readonly Label _titleLabel = new();
     private readonly Label _pageLabel = new();
-    private readonly Button _layoutTwoButton = new();
-    private readonly Button _layoutFourButton = new();
+    private readonly Dictionary<int, Button> _layoutButtons = [];
     private readonly Button _refreshButton = new();
     private readonly Button _reloadButton = new();
     private readonly CheckBox _rotationCheckBox = new();
@@ -83,16 +84,21 @@ internal sealed class WallboardForm : Form
             Dock = DockStyle.Left,
             FlowDirection = FlowDirection.LeftToRight,
             WrapContents = false,
-            Width = 430
+            Width = 560
         };
 
-        ConfigureButton(_layoutFourButton, "4 Panels");
-        ConfigureButton(_layoutTwoButton, "2 Panels");
+        foreach (var layout in SupportedLayouts)
+        {
+            var button = new Button();
+            ConfigureButton(button, layout.ToString(), 44);
+            button.Click += (_, _) => SetLayout(layout);
+            _layoutButtons[layout] = button;
+            leftPanel.Controls.Add(button);
+        }
+
         ConfigureButton(_refreshButton, "Refresh");
         ConfigureButton(_reloadButton, "Reload JSON");
 
-        _layoutFourButton.Click += (_, _) => SetLayout(4);
-        _layoutTwoButton.Click += (_, _) => SetLayout(2);
         _refreshButton.Click += (_, _) => RefreshVisiblePanels();
         _reloadButton.Click += async (_, _) => await ReloadConfigurationAsync();
 
@@ -103,8 +109,6 @@ internal sealed class WallboardForm : Form
         _rotationCheckBox.CheckedChanged += (_, _) => ScheduleRotation();
 
         leftPanel.Controls.AddRange([
-            _layoutFourButton,
-            _layoutTwoButton,
             _refreshButton,
             _reloadButton,
             _rotationCheckBox
@@ -158,7 +162,7 @@ internal sealed class WallboardForm : Form
     private async Task ReloadConfigurationAsync()
     {
         _configuration = await WallboardConfigReader.LoadAsync();
-        _layout = _configuration.DefaultLayout == 2 ? 2 : 4;
+        _layout = NormalizeLayout(_configuration.DefaultLayout);
         _currentPage = 0;
         _titleLabel.Text = _configuration.AppTitle;
         _rotationCheckBox.Checked = _configuration.RotationEnabled;
@@ -181,10 +185,14 @@ internal sealed class WallboardForm : Form
         _grid.Controls.Clear();
         _grid.ColumnStyles.Clear();
         _grid.RowStyles.Clear();
-        _grid.ColumnCount = 2;
-        _grid.RowCount = _layout == 4 ? 2 : 1;
-        _grid.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50));
-        _grid.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50));
+        var (columns, rows) = GetGridDimensions(_layout);
+        _grid.ColumnCount = columns;
+        _grid.RowCount = rows;
+
+        for (var column = 0; column < _grid.ColumnCount; column++)
+        {
+            _grid.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F / _grid.ColumnCount));
+        }
 
         for (var row = 0; row < _grid.RowCount; row++)
         {
@@ -197,7 +205,7 @@ internal sealed class WallboardForm : Form
         {
             var control = new WebViewPanelControl();
             _activePanels.Add(control);
-            _grid.Controls.Add(control, index % 2, index / 2);
+            _grid.Controls.Add(control, index % _grid.ColumnCount, index / _grid.ColumnCount);
             await control.LoadPanelAsync(panels[index], _webViewEnvironment);
         }
 
@@ -206,12 +214,12 @@ internal sealed class WallboardForm : Form
     }
 
     /// <summary>
-    /// Switches between two-panel and four-panel layouts.
+    /// Switches between supported panel layouts.
     /// </summary>
-    /// <param name="layout">Requested layout size. Supported values are 2 and 4.</param>
+    /// <param name="layout">Requested layout size. Supported values are 1, 2, 3, 4, 6, and 8.</param>
     private void SetLayout(int layout)
     {
-        _layout = layout;
+        _layout = NormalizeLayout(layout);
         _currentPage = 0;
         _ = RenderCurrentPageAsync();
         ScheduleRotation();
@@ -288,8 +296,12 @@ internal sealed class WallboardForm : Form
     /// </summary>
     private void UpdateLayoutButtons()
     {
-        _layoutFourButton.BackColor = _layout == 4 ? Color.FromArgb(0, 80, 96) : Color.FromArgb(23, 29, 36);
-        _layoutTwoButton.BackColor = _layout == 2 ? Color.FromArgb(0, 80, 96) : Color.FromArgb(23, 29, 36);
+        foreach (var (layout, button) in _layoutButtons)
+        {
+            button.BackColor = _layout == layout
+                ? Color.FromArgb(0, 80, 96)
+                : Color.FromArgb(23, 29, 36);
+        }
     }
 
     /// <summary>
@@ -371,15 +383,44 @@ internal sealed class WallboardForm : Form
     /// </summary>
     /// <param name="button">Button to style.</param>
     /// <param name="text">Button label.</param>
-    private static void ConfigureButton(Button button, string text)
+    private static void ConfigureButton(Button button, string text, int? width = null)
     {
         button.FlatStyle = FlatStyle.Flat;
         button.ForeColor = Color.White;
         button.Margin = new Padding(0, 0, 8, 0);
         button.Text = text;
-        button.Width = text.Length > 9 ? 98 : 82;
+        button.Width = width ?? (text.Length > 9 ? 98 : 82);
         button.Height = 32;
         button.BackColor = Color.FromArgb(23, 29, 36);
         button.FlatAppearance.BorderColor = Color.FromArgb(61, 74, 88);
+    }
+
+    /// <summary>
+    /// Converts a requested layout into one of the supported wallboard sizes.
+    /// </summary>
+    /// <param name="layout">Requested number of panels visible at once.</param>
+    /// <returns>The requested layout when supported; otherwise four panels.</returns>
+    private static int NormalizeLayout(int layout)
+    {
+        return SupportedLayouts.Contains(layout) ? layout : 4;
+    }
+
+    /// <summary>
+    /// Maps the active panel count to a dense NOC-friendly grid.
+    /// </summary>
+    /// <param name="layout">Number of panels visible at once.</param>
+    /// <returns>Column and row counts for the table layout.</returns>
+    private static (int Columns, int Rows) GetGridDimensions(int layout)
+    {
+        return layout switch
+        {
+            1 => (1, 1),
+            2 => (2, 1),
+            3 => (3, 1),
+            4 => (2, 2),
+            6 => (3, 2),
+            8 => (4, 2),
+            _ => (2, 2)
+        };
     }
 }

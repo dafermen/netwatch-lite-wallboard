@@ -12,7 +12,7 @@ GitHub repository: [https://github.com/dafermen/netwatch-lite-wallboard](https:/
 - Embedded Windows executable icon for portable builds.
 - Microsoft Edge WebView2 per panel.
 - JSON-driven configuration.
-- 2-panel and 4-panel layouts.
+- 1, 2, 3, 4, 6, and 8 panel layouts.
 - Automatic page rotation.
 - Independent refresh interval per panel.
 - Manual refresh for visible panels.
@@ -64,6 +64,11 @@ The application reads `wallboard.json` from the same folder as `NetWatch-Lite-Wa
       "name": "Operations Overview",
       "url": "https://example.com/",
       "refreshSeconds": 10
+    },
+    {
+      "name": "Application Status",
+      "url": "https://dotnet.microsoft.com/",
+      "refreshSeconds": 12
     }
   ]
 }
@@ -124,8 +129,10 @@ NetWatch Lite Wallboard is released under the [MIT License](LICENSE). You can us
 
 ## Operational Notes
 
+- Use `defaultLayout: 1` for one large focus panel.
+- Use `defaultLayout: 2` or `3` for large side-by-side panels.
 - Use `defaultLayout: 4` for 2x2 NOC screens.
-- Use `defaultLayout: 2` for large side-by-side panels.
+- Use `defaultLayout: 6` or `8` for dense TV or ultrawide monitoring walls.
 - Keep `refreshSeconds` reasonable for internal monitoring pages.
 - WebView2 loads pages as native browser views, so pages that fail inside iframe-based dashboards usually work here.
 - Some authentication flows may still require interactive login in the WebView2 session.

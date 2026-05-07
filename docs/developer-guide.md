@@ -40,7 +40,7 @@ Lookup order:
 Normalization:
 
 - Empty `appTitle` becomes `NetWatch Lite Wallboard`.
-- `defaultLayout` accepts only `2` or `4`; other values become `4`.
+- `defaultLayout` accepts `1`, `2`, `3`, `4`, `6`, or `8`; other values become `4`.
 - `rotationSeconds <= 0` becomes `20`.
 - `refreshSeconds <= 0` becomes `30`.
 - Invalid panels are ignored.
@@ -91,6 +91,7 @@ Responsibilities:
 - Loads configuration.
 - Creates visible `WebViewPanelControl` instances.
 - Handles layout switching.
+- Maps layouts to dense grids: `1x1`, `2x1`, `3x1`, `2x2`, `3x2`, and `4x2`.
 - Handles automatic page rotation.
 - Handles fullscreen mode.
 - Handles keyboard shortcuts.
@@ -115,6 +116,17 @@ Responsibilities:
 | `F` | Toggle fullscreen. |
 | `R` | Refresh visible panels. |
 | `ESC` | Exit fullscreen. |
+
+## Layouts
+
+| Layout | Grid | Typical Use |
+|---|---|---|
+| `1` | `1x1` | One focused operational screen. |
+| `2` | `2x1` | Two large side-by-side panels. |
+| `3` | `3x1` | Three wide panels on large displays. |
+| `4` | `2x2` | Standard NOC grid. |
+| `6` | `3x2` | Dense TV dashboards. |
+| `8` | `4x2` | Ultrawide or high-density wallboards. |
 
 ## Publishing
 

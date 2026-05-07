@@ -21,7 +21,7 @@ internal sealed class WallboardConfiguration
     public int RotationSeconds { get; set; } = 20;
 
     /// <summary>
-    /// Default number of panels shown at once. Supported values are 2 and 4.
+    /// Default number of panels shown at once. Supported values are 1, 2, 3, 4, 6, and 8.
     /// </summary>
     public int DefaultLayout { get; set; } = 4;
 
