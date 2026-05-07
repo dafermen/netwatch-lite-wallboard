@@ -76,7 +76,7 @@ Important methods:
 - `LoadAsync`: loads and normalizes configuration.
 - `ResolveWallboardFilePath`: locates runtime or development JSON.
 - `Normalize`: applies safe defaults.
-- `IsValidPanel`: accepts absolute HTTP/HTTPS URLs and root-relative local URLs.
+- `IsValidPanel`: accepts absolute HTTP/HTTPS URLs and optional root-relative local URLs.
 
 ### WallboardForm
 
@@ -103,7 +103,7 @@ Responsibilities:
 - Shows panel title and status.
 - Provides an individual refresh button.
 - Runs an independent refresh timer.
-- Resolves local sample URLs to file URIs.
+- Resolves optional root-relative local URLs to file URIs.
 - Renders a friendly error page on navigation failure.
 
 ## Keyboard Shortcuts
@@ -131,13 +131,12 @@ The publish output includes:
 
 - `NetWatch-Lite-Wallboard.exe`
 - `wallboard.json`
-- `wwwroot/wallboard-sample.html`
 - WebView2 loader/runtime support assemblies
 - .NET runtime dependencies
 
 ## Operational Notes
 
-- Root-relative sample URLs are resolved from the published `wwwroot` folder.
+- Root-relative URLs are resolved from a published `wwwroot` folder if you choose to add local static pages.
 - Remote HTTP/HTTPS URLs are loaded directly by WebView2.
 - WebView2 user data is stored under `%LOCALAPPDATA%\NetWatchLite\WallboardWebView2`.
 - Authentication cookies and sessions can persist through that WebView2 user data folder.

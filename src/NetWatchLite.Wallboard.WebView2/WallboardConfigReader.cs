@@ -148,8 +148,8 @@ internal static class WallboardConfigReader
             [
                 new WallboardPanel
                 {
-                    Name = "Sample Panel",
-                    Url = "/wallboard-sample.html?panel=Sample%20Panel",
+                    Name = "Operations Overview",
+                    Url = "https://example.com/",
                     RefreshSeconds = 30
                 }
             ]

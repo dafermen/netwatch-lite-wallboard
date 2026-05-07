@@ -2,6 +2,12 @@
 
 All notable changes to NetWatch Lite Wallboard are documented here.
 
+## v0.1.1 - 2026-05-07
+
+- Removed the bundled local sample wallboard HTML.
+- Replaced all example configuration values with neutral public placeholders.
+- Updated README and developer documentation for public repository use.
+
 ## v0.1.0 - 2026-05-07
 
 - Initial standalone Windows WebView2 wallboard release.
@@ -10,5 +16,5 @@ All notable changes to NetWatch Lite Wallboard are documented here.
 - Added automatic page rotation.
 - Added independent panel refresh timers.
 - Added fullscreen and keyboard shortcuts.
-- Added local sample monitoring panel.
+- Added neutral example panel configuration.
 - Added programmer documentation.

@@ -21,7 +21,7 @@ GitHub repository: [https://github.com/dafermen/netwatch-lite-wallboard](https:/
   - `F`: toggle fullscreen.
   - `R`: refresh visible panels.
   - `ESC`: exit fullscreen.
-- Root-relative local sample pages for testing.
+- Optional root-relative local pages for teams that want to ship static wallboard assets beside the executable.
 - Friendly panel-level error display when navigation fails.
 
 ## Project Structure
@@ -41,8 +41,6 @@ netwatch-lite-wallboard/
 │       ├── WallboardForm.cs
 │       ├── WallboardPanel.cs
 │       └── WebViewPanelControl.cs
-├── wwwroot/
-│   └── wallboard-sample.html
 ├── CHANGELOG.md
 ├── LICENSE
 └── README.md
@@ -54,14 +52,14 @@ The application reads `wallboard.json` from the same folder as `NetWatch-Lite-Wa
 
 ```json
 {
-  "appTitle": "GTSG Monitoring",
+  "appTitle": "NetWatch Lite Wallboard",
   "rotationEnabled": true,
   "rotationSeconds": 20,
   "defaultLayout": 4,
   "panels": [
     {
-      "name": "NGSS NYELF",
-      "url": "https://your-monitoring-page.example/health",
+      "name": "Operations Overview",
+      "url": "https://example.com/",
       "refreshSeconds": 10
     }
   ]
@@ -71,7 +69,7 @@ The application reads `wallboard.json` from the same folder as `NetWatch-Lite-Wa
 Panel URLs can be:
 
 - Absolute HTTP/HTTPS URLs.
-- Root-relative local sample URLs such as `/wallboard-sample.html?panel=Demo`.
+- Root-relative local URLs when you add your own static files beside the executable, for example `/status/index.html`.
 
 ## Requirements
 
@@ -106,7 +104,6 @@ Expected output:
 publish/wallboard-webview2-win-x64/
 ├── NetWatch-Lite-Wallboard.exe
 ├── wallboard.json
-├── wwwroot/
 └── runtime dependencies...
 ```
 

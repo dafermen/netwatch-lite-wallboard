@@ -227,7 +227,7 @@ internal sealed class WebViewPanelControl : UserControl
     }
 
     /// <summary>
-    /// Resolves an absolute URL or root-relative sample URL into a URI WebView2 can navigate.
+    /// Resolves an absolute URL or root-relative local URL into a URI WebView2 can navigate.
     /// </summary>
     /// <param name="url">Panel URL from JSON.</param>
     /// <returns>Absolute URI for WebView2 navigation.</returns>
