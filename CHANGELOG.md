@@ -7,6 +7,8 @@ All notable changes to NetWatch Lite Wallboard are documented here.
 - Removed the bundled local sample wallboard HTML.
 - Replaced all example configuration values with neutral public placeholders.
 - Updated README and developer documentation for public repository use.
+- Added a Windows executable icon for portable builds.
+- Documented MIT license usage.
 
 ## v0.1.0 - 2026-05-07
 

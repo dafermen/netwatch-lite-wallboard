@@ -9,6 +9,7 @@ GitHub repository: [https://github.com/dafermen/netwatch-lite-wallboard](https:/
 ## Features
 
 - Native Windows executable.
+- Embedded Windows executable icon for portable builds.
 - Microsoft Edge WebView2 per panel.
 - JSON-driven configuration.
 - 2-panel and 4-panel layouts.
@@ -28,6 +29,8 @@ GitHub repository: [https://github.com/dafermen/netwatch-lite-wallboard](https:/
 
 ```text
 netwatch-lite-wallboard/
+├── Assets/
+│   └── netwatch-lite.ico
 ├── Data/
 │   └── wallboard.json
 ├── docs/
@@ -114,6 +117,10 @@ Run:
 ```
 
 Edit `wallboard.json` beside the executable to change panels without recompiling.
+
+## License
+
+NetWatch Lite Wallboard is released under the [MIT License](LICENSE). You can use, copy, modify, merge, publish, distribute, sublicense, and sell copies of the software under the license terms.
 
 ## Operational Notes
 

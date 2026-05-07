@@ -25,6 +25,8 @@ Microsoft Edge WebView2
 
 The app is intentionally separate from the ASP.NET dashboard. It exists because browser iframes cannot load many operational monitoring pages that set anti-embedding headers.
 
+The executable icon is stored at `Assets/netwatch-lite.ico` and is referenced through the project file `ApplicationIcon` property.
+
 ## Configuration Flow
 
 `WallboardConfigReader.LoadAsync` resolves and reads `wallboard.json`.
