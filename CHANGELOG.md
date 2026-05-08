@@ -2,6 +2,14 @@
 
 All notable changes to NetWatch Lite Wallboard are documented here.
 
+## v0.2.1 - 2026-05-08
+
+- Increased the top-bar Settings button width so the label is fully visible.
+- Made the settings window resizable and maximizable like a standard Windows dialog.
+- Updated the settings window to a lighter slate theme for better contrast.
+- Styled the panel grid headers, rows, alternating rows, and selection colors for readable text.
+- Updated README and developer documentation for the settings window polish.
+
 ## v0.2.0 - 2026-05-08
 
 - Added a visual settings window for managing `wallboard.json` inside the app.

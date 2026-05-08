@@ -108,6 +108,8 @@ Secondary configuration window.
 Responsibilities:
 
 - Edits the wallboard title, default layout, automatic rotation, and rotation interval.
+- Uses a resizable/maximizable standard Windows form.
+- Uses a slate color palette and explicit grid row/header styles for readability.
 - Lists configured panels in a table.
 - Adds, updates, duplicates, deletes, and reorders panel declarations.
 - Validates panel names, HTTP/HTTPS URLs, root-relative local URLs, and refresh intervals.

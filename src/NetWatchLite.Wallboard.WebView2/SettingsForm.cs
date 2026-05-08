@@ -6,6 +6,15 @@ namespace NetWatchLite.Wallboard.WebView2;
 internal sealed class SettingsForm : Form
 {
     private static readonly int[] SupportedLayouts = [1, 2, 3, 4, 6, 8];
+    private static readonly Color WindowBackColor = Color.FromArgb(17, 24, 39);
+    private static readonly Color SurfaceColor = Color.FromArgb(31, 41, 55);
+    private static readonly Color InputColor = Color.FromArgb(15, 23, 42);
+    private static readonly Color BorderColor = Color.FromArgb(75, 85, 99);
+    private static readonly Color PrimaryTextColor = Color.FromArgb(243, 244, 246);
+    private static readonly Color SecondaryTextColor = Color.FromArgb(209, 213, 219);
+    private static readonly Color MutedTextColor = Color.FromArgb(156, 163, 175);
+    private static readonly Color AccentColor = Color.FromArgb(8, 145, 178);
+    private static readonly Color SelectionColor = Color.FromArgb(14, 116, 144);
 
     private readonly TextBox _titleTextBox = new();
     private readonly CheckBox _rotationCheckBox = new();
@@ -28,13 +37,14 @@ internal sealed class SettingsForm : Form
         _configuration = CloneConfiguration(configuration);
 
         Text = "Wallboard Settings";
-        BackColor = Color.FromArgb(5, 7, 10);
-        ForeColor = Color.White;
+        BackColor = WindowBackColor;
+        ForeColor = PrimaryTextColor;
         Font = new Font("Segoe UI", 9F);
-        FormBorderStyle = FormBorderStyle.FixedDialog;
-        MaximizeBox = false;
+        FormBorderStyle = FormBorderStyle.Sizable;
+        MaximizeBox = true;
         MinimizeBox = false;
         MinimumSize = new Size(980, 640);
+        Size = new Size(1120, 720);
         StartPosition = FormStartPosition.CenterParent;
 
         BuildLayout();
@@ -53,7 +63,7 @@ internal sealed class SettingsForm : Form
             ColumnCount = 1,
             RowCount = 4,
             Padding = new Padding(14),
-            BackColor = Color.FromArgb(5, 7, 10)
+            BackColor = WindowBackColor
         };
         root.RowStyles.Add(new RowStyle(SizeType.Absolute, 104));
         root.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
@@ -65,7 +75,7 @@ internal sealed class SettingsForm : Form
 
         _filePathLabel.AutoEllipsis = true;
         _filePathLabel.Dock = DockStyle.Fill;
-        _filePathLabel.ForeColor = Color.FromArgb(139, 155, 173);
+        _filePathLabel.ForeColor = MutedTextColor;
         _filePathLabel.TextAlign = ContentAlignment.MiddleLeft;
 
         var footer = BuildFooter();
@@ -95,21 +105,21 @@ internal sealed class SettingsForm : Form
         };
 
         _titleTextBox.Width = 300;
-        _titleTextBox.BackColor = Color.FromArgb(12, 17, 23);
-        _titleTextBox.ForeColor = Color.White;
+        _titleTextBox.BackColor = InputColor;
+        _titleTextBox.ForeColor = PrimaryTextColor;
         _titleTextBox.BorderStyle = BorderStyle.FixedSingle;
 
         _rotationCheckBox.Text = "Auto rotation";
         _rotationCheckBox.AutoSize = true;
-        _rotationCheckBox.ForeColor = Color.White;
+        _rotationCheckBox.ForeColor = PrimaryTextColor;
         _rotationCheckBox.Margin = new Padding(18, 5, 10, 0);
 
         ConfigureNumericInput(_rotationSecondsInput, minimum: 1, maximum: 3600, width: 74);
 
         _defaultLayoutComboBox.DropDownStyle = ComboBoxStyle.DropDownList;
         _defaultLayoutComboBox.Width = 82;
-        _defaultLayoutComboBox.BackColor = Color.FromArgb(12, 17, 23);
-        _defaultLayoutComboBox.ForeColor = Color.White;
+        _defaultLayoutComboBox.BackColor = InputColor;
+        _defaultLayoutComboBox.ForeColor = PrimaryTextColor;
         foreach (var layout in SupportedLayouts)
         {
             _defaultLayoutComboBox.Items.Add(layout);
@@ -160,15 +170,31 @@ internal sealed class SettingsForm : Form
         _panelGrid.AllowUserToDeleteRows = false;
         _panelGrid.AllowUserToResizeRows = false;
         _panelGrid.AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill;
-        _panelGrid.BackgroundColor = Color.FromArgb(5, 7, 10);
+        _panelGrid.BackgroundColor = SurfaceColor;
         _panelGrid.BorderStyle = BorderStyle.None;
+        _panelGrid.CellBorderStyle = DataGridViewCellBorderStyle.SingleHorizontal;
         _panelGrid.ColumnHeadersHeightSizeMode = DataGridViewColumnHeadersHeightSizeMode.AutoSize;
         _panelGrid.Dock = DockStyle.Fill;
         _panelGrid.EditMode = DataGridViewEditMode.EditProgrammatically;
+        _panelGrid.EnableHeadersVisualStyles = false;
+        _panelGrid.GridColor = BorderColor;
         _panelGrid.MultiSelect = false;
         _panelGrid.ReadOnly = true;
         _panelGrid.RowHeadersVisible = false;
+        _panelGrid.RowTemplate.Height = 30;
         _panelGrid.SelectionMode = DataGridViewSelectionMode.FullRowSelect;
+        _panelGrid.ColumnHeadersDefaultCellStyle.BackColor = Color.FromArgb(55, 65, 81);
+        _panelGrid.ColumnHeadersDefaultCellStyle.ForeColor = PrimaryTextColor;
+        _panelGrid.ColumnHeadersDefaultCellStyle.SelectionBackColor = Color.FromArgb(55, 65, 81);
+        _panelGrid.ColumnHeadersDefaultCellStyle.SelectionForeColor = PrimaryTextColor;
+        _panelGrid.DefaultCellStyle.BackColor = SurfaceColor;
+        _panelGrid.DefaultCellStyle.ForeColor = PrimaryTextColor;
+        _panelGrid.DefaultCellStyle.SelectionBackColor = SelectionColor;
+        _panelGrid.DefaultCellStyle.SelectionForeColor = Color.White;
+        _panelGrid.AlternatingRowsDefaultCellStyle.BackColor = Color.FromArgb(24, 34, 50);
+        _panelGrid.AlternatingRowsDefaultCellStyle.ForeColor = PrimaryTextColor;
+        _panelGrid.AlternatingRowsDefaultCellStyle.SelectionBackColor = SelectionColor;
+        _panelGrid.AlternatingRowsDefaultCellStyle.SelectionForeColor = Color.White;
         _panelGrid.SelectionChanged += (_, _) => LoadSelectedPanelIntoEditor();
 
         _panelGrid.Columns.Add(CreateTextColumn("Name", "Name", 24));
@@ -249,7 +275,7 @@ internal sealed class SettingsForm : Form
 
         var saveButton = CreateCommandButton("Save", async (_, _) => await SaveConfigurationAsync());
         saveButton.Width = 110;
-        saveButton.BackColor = Color.FromArgb(0, 80, 96);
+        saveButton.BackColor = AccentColor;
 
         var cancelButton = CreateCommandButton("Cancel", (_, _) => Close());
         cancelButton.Width = 110;
@@ -603,9 +629,9 @@ internal sealed class SettingsForm : Form
         {
             Dock = DockStyle.Fill,
             Text = text,
-            ForeColor = Color.FromArgb(230, 237, 243),
+            ForeColor = SecondaryTextColor,
             Padding = new Padding(8),
-            BackColor = Color.FromArgb(5, 7, 10)
+            BackColor = WindowBackColor
         };
     }
 
@@ -629,7 +655,7 @@ internal sealed class SettingsForm : Form
             Dock = DockStyle.Top,
             Height = 20,
             Text = label,
-            ForeColor = Color.FromArgb(139, 155, 173)
+            ForeColor = MutedTextColor
         };
 
         control.Dock = DockStyle.Bottom;
@@ -665,9 +691,9 @@ internal sealed class SettingsForm : Form
     /// <param name="textBox">Text box to configure.</param>
     private static void ConfigureTextInput(TextBox textBox)
     {
-        textBox.BackColor = Color.FromArgb(12, 17, 23);
+        textBox.BackColor = InputColor;
         textBox.BorderStyle = BorderStyle.FixedSingle;
-        textBox.ForeColor = Color.White;
+        textBox.ForeColor = PrimaryTextColor;
         textBox.Width = 300;
     }
 
@@ -684,8 +710,8 @@ internal sealed class SettingsForm : Form
         int maximum,
         int width)
     {
-        input.BackColor = Color.FromArgb(12, 17, 23);
-        input.ForeColor = Color.White;
+        input.BackColor = InputColor;
+        input.ForeColor = PrimaryTextColor;
         input.Minimum = minimum;
         input.Maximum = maximum;
         input.Width = width;
@@ -703,13 +729,13 @@ internal sealed class SettingsForm : Form
         {
             Text = text,
             FlatStyle = FlatStyle.Flat,
-            ForeColor = Color.White,
-            BackColor = Color.FromArgb(23, 29, 36),
+            ForeColor = PrimaryTextColor,
+            BackColor = SurfaceColor,
             Height = 34,
             Width = 120,
             Margin = new Padding(4)
         };
-        button.FlatAppearance.BorderColor = Color.FromArgb(61, 74, 88);
+        button.FlatAppearance.BorderColor = BorderColor;
         button.Click += handler;
         return button;
     }

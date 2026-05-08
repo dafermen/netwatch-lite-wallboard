@@ -85,7 +85,7 @@ internal sealed class WallboardForm : Form
             Dock = DockStyle.Left,
             FlowDirection = FlowDirection.LeftToRight,
             WrapContents = false,
-            Width = 560
+            Width = 720
         };
 
         foreach (var layout in SupportedLayouts)
@@ -97,9 +97,9 @@ internal sealed class WallboardForm : Form
             leftPanel.Controls.Add(button);
         }
 
-        ConfigureButton(_refreshButton, "Refresh");
-        ConfigureButton(_reloadButton, "Reload JSON");
-        ConfigureButton(_settingsButton, "Settings");
+        ConfigureButton(_refreshButton, "Refresh", 92);
+        ConfigureButton(_reloadButton, "Reload JSON", 112);
+        ConfigureButton(_settingsButton, "Settings", 110);
 
         _refreshButton.Click += (_, _) => RefreshVisiblePanels();
         _reloadButton.Click += async (_, _) => await ReloadConfigurationAsync();

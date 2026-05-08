@@ -10,7 +10,7 @@ GitHub repository: [https://github.com/dafermen/netwatch-lite-wallboard](https:/
 
 Download the latest Windows x64 portable ZIP from GitHub Releases:
 
-[Download NetWatch Lite Wallboard v0.2.0 for Windows x64](https://github.com/dafermen/netwatch-lite-wallboard/releases/download/v0.2.0/NetWatch-Lite-Wallboard-WebView2-win-x64-v0.2.0.zip)
+[Download NetWatch Lite Wallboard v0.2.1 for Windows x64](https://github.com/dafermen/netwatch-lite-wallboard/releases/download/v0.2.1/NetWatch-Lite-Wallboard-WebView2-win-x64-v0.2.1.zip)
 
 ## Screenshots
 
@@ -42,6 +42,7 @@ Use this layout for a classic wallboard view with multiple web applications on o
 - JSON-driven configuration.
 - Visual settings window for editing `wallboard.json`.
 - Panel CRUD actions for adding, editing, duplicating, deleting, and reordering panels.
+- Resizable and maximizable settings window with a readable slate theme.
 - 1, 2, 3, 4, 6, and 8 panel layouts.
 - Automatic page rotation.
 - Independent refresh interval per panel.
@@ -89,7 +90,7 @@ netwatch-lite-wallboard/
 
 The application reads `wallboard.json` from the same folder as `NetWatch-Lite-Wallboard.exe`. During development, it falls back to `Data/wallboard.json`.
 
-Use the top-bar **Settings** button or press `Ctrl+,` to edit the wallboard visually. The settings window can update the wallboard title, default layout, rotation options, and the panel list. Saving writes `wallboard.json`, creates a `wallboard.backup.json` copy of the previous file, and reloads the wallboard.
+Use the top-bar **Settings** button or press `Ctrl+,` to edit the wallboard visually. The settings window can be resized or maximized, and can update the wallboard title, default layout, rotation options, and the panel list. Saving writes `wallboard.json`, creates a `wallboard.backup.json` copy of the previous file, and reloads the wallboard.
 
 ```json
 {
