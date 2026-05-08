@@ -6,6 +6,12 @@ It renders multiple monitoring pages as native WebView2 browser panels. This avo
 
 GitHub repository: [https://github.com/dafermen/netwatch-lite-wallboard](https://github.com/dafermen/netwatch-lite-wallboard)
 
+## Download
+
+Download the latest Windows x64 portable ZIP from GitHub Releases:
+
+[Download NetWatch Lite Wallboard v0.1.1 for Windows x64](https://github.com/dafermen/netwatch-lite-wallboard/releases/download/v0.1.1/NetWatch-Lite-Wallboard-WebView2-win-x64-v0.1.1.zip)
+
 ## Screenshots
 
 NetWatch Lite Wallboard is designed for operations rooms, TVs, and support teams that need several live pages visible at the same time.
