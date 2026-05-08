@@ -6,6 +6,28 @@ It renders multiple monitoring pages as native WebView2 browser panels. This avo
 
 GitHub repository: [https://github.com/dafermen/netwatch-lite-wallboard](https://github.com/dafermen/netwatch-lite-wallboard)
 
+## Screenshots
+
+NetWatch Lite Wallboard is designed for operations rooms, TVs, and support teams that need several live pages visible at the same time.
+
+### 1 Panel Focus Mode
+
+Use this layout when one application or dashboard needs full attention.
+
+![NetWatch Lite Wallboard one panel layout](docs/images/wallboard-one-panel.png)
+
+### 2 Panel Split View
+
+Use this layout to compare two operational systems side by side.
+
+![NetWatch Lite Wallboard two panel layout](docs/images/wallboard-two-panels.png)
+
+### 4 Panel NOC View
+
+Use this layout for a classic wallboard view with multiple web applications on one screen.
+
+![NetWatch Lite Wallboard four panel layout](docs/images/wallboard-four-panels.png)
+
 ## Features
 
 - Native Windows executable.
@@ -34,6 +56,10 @@ netwatch-lite-wallboard/
 ├── Data/
 │   └── wallboard.json
 ├── docs/
+│   ├── images/
+│   │   ├── wallboard-four-panels.png
+│   │   ├── wallboard-one-panel.png
+│   │   └── wallboard-two-panels.png
 │   └── developer-guide.md
 ├── src/
 │   └── NetWatchLite.Wallboard.WebView2/
@@ -99,9 +125,15 @@ dotnet run --project .\src\NetWatchLite.Wallboard.WebView2\NetWatchLite.Wallboar
 
 A Windows x64 portable ZIP is available in the repository:
 
-[Download NetWatch Lite Wallboard portable ZIP](https://github.com/dafermen/netwatch-lite-wallboard/raw/refs/heads/main/releases/NetWatch-Lite-Wallboard-WebView2-win-x64-2026-05-07-aa7c4d2.zip)
+[Download NetWatch Lite Wallboard portable ZIP](https://raw.githubusercontent.com/dafermen/netwatch-lite-wallboard/main/releases/NetWatch-Lite-Wallboard-WebView2-win-x64-2026-05-07-aa7c4d2.zip)
 
 Extract the ZIP on Windows and run `NetWatch-Lite-Wallboard.exe`. The editable `wallboard.json` file is included beside the executable. Use the direct download link above instead of saving the GitHub preview page as a ZIP file.
+
+The ZIP should be about 67 MB. If the downloaded file is about 220 KB, the browser saved a GitHub HTML page instead of the portable ZIP. Use the direct link above or download from a terminal:
+
+```powershell
+curl.exe -L -o NetWatch-Lite-Wallboard-WebView2-win-x64.zip "https://raw.githubusercontent.com/dafermen/netwatch-lite-wallboard/main/releases/NetWatch-Lite-Wallboard-WebView2-win-x64-2026-05-07-aa7c4d2.zip"
+```
 
 ## Publish Portable Build
 
