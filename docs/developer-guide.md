@@ -9,7 +9,7 @@ NetWatch Lite Wallboard is a WinForms desktop application targeting `net8.0-wind
 ```text
 NetWatch-Lite-Wallboard.exe
   |
-  | reads wallboard.json
+  | reads/writes wallboard.json
   v
 WallboardConfigReader
   |
@@ -45,6 +45,8 @@ Normalization:
 - `refreshSeconds <= 0` becomes `30`.
 - Invalid panels are ignored.
 
+`WallboardConfigReader.SaveAsync` writes the normalized configuration back to the same resolved path. If an existing JSON file is present, it first copies it to `wallboard.backup.json`.
+
 ## Classes
 
 ### Program
@@ -76,6 +78,8 @@ Static configuration reader.
 Important methods:
 
 - `LoadAsync`: loads and normalizes configuration.
+- `SaveAsync`: creates a backup and writes normalized configuration JSON.
+- `GetConfigurationFilePath`: exposes the active JSON path for the settings UI.
 - `ResolveWallboardFilePath`: locates runtime or development JSON.
 - `Normalize`: applies safe defaults.
 - `IsValidPanel`: accepts absolute HTTP/HTTPS URLs and optional root-relative local URLs.
@@ -95,6 +99,19 @@ Responsibilities:
 - Handles automatic page rotation.
 - Handles fullscreen mode.
 - Handles keyboard shortcuts.
+- Opens `SettingsForm` and reloads configuration after saving.
+
+### SettingsForm
+
+Secondary configuration window.
+
+Responsibilities:
+
+- Edits the wallboard title, default layout, automatic rotation, and rotation interval.
+- Lists configured panels in a table.
+- Adds, updates, duplicates, deletes, and reorders panel declarations.
+- Validates panel names, HTTP/HTTPS URLs, root-relative local URLs, and refresh intervals.
+- Saves changes through `WallboardConfigReader.SaveAsync`.
 
 ### WebViewPanelControl
 
@@ -115,6 +132,7 @@ Responsibilities:
 |---|---|
 | `F` | Toggle fullscreen. |
 | `R` | Refresh visible panels. |
+| `Ctrl+,` | Open settings. |
 | `ESC` | Exit fullscreen. |
 
 ## Layouts
@@ -152,5 +170,6 @@ The publish output includes:
 
 - Root-relative URLs are resolved from a published `wwwroot` folder if you choose to add local static pages.
 - Remote HTTP/HTTPS URLs are loaded directly by WebView2.
+- The first settings save creates `wallboard.backup.json` beside the active JSON file.
 - WebView2 user data is stored under `%LOCALAPPDATA%\NetWatchLite\WallboardWebView2`.
 - Authentication cookies and sessions can persist through that WebView2 user data folder.

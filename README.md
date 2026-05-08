@@ -10,7 +10,7 @@ GitHub repository: [https://github.com/dafermen/netwatch-lite-wallboard](https:/
 
 Download the latest Windows x64 portable ZIP from GitHub Releases:
 
-[Download NetWatch Lite Wallboard v0.1.1 for Windows x64](https://github.com/dafermen/netwatch-lite-wallboard/releases/download/v0.1.1/NetWatch-Lite-Wallboard-WebView2-win-x64-v0.1.1.zip)
+[Download NetWatch Lite Wallboard v0.2.0 for Windows x64](https://github.com/dafermen/netwatch-lite-wallboard/releases/download/v0.2.0/NetWatch-Lite-Wallboard-WebView2-win-x64-v0.2.0.zip)
 
 ## Screenshots
 
@@ -40,6 +40,8 @@ Use this layout for a classic wallboard view with multiple web applications on o
 - Embedded Windows executable icon for portable builds.
 - Microsoft Edge WebView2 per panel.
 - JSON-driven configuration.
+- Visual settings window for editing `wallboard.json`.
+- Panel CRUD actions for adding, editing, duplicating, deleting, and reordering panels.
 - 1, 2, 3, 4, 6, and 8 panel layouts.
 - Automatic page rotation.
 - Independent refresh interval per panel.
@@ -49,6 +51,7 @@ Use this layout for a classic wallboard view with multiple web applications on o
 - Keyboard shortcuts:
   - `F`: toggle fullscreen.
   - `R`: refresh visible panels.
+  - `Ctrl+,`: open settings.
   - `ESC`: exit fullscreen.
 - Optional root-relative local pages for teams that want to ship static wallboard assets beside the executable.
 - Friendly panel-level error display when navigation fails.
@@ -71,6 +74,7 @@ netwatch-lite-wallboard/
 │   └── NetWatchLite.Wallboard.WebView2/
 │       ├── NetWatchLite.Wallboard.WebView2.csproj
 │       ├── Program.cs
+│       ├── SettingsForm.cs
 │       ├── WallboardConfigReader.cs
 │       ├── WallboardConfiguration.cs
 │       ├── WallboardForm.cs
@@ -84,6 +88,8 @@ netwatch-lite-wallboard/
 ## Configuration
 
 The application reads `wallboard.json` from the same folder as `NetWatch-Lite-Wallboard.exe`. During development, it falls back to `Data/wallboard.json`.
+
+Use the top-bar **Settings** button or press `Ctrl+,` to edit the wallboard visually. The settings window can update the wallboard title, default layout, rotation options, and the panel list. Saving writes `wallboard.json`, creates a `wallboard.backup.json` copy of the previous file, and reloads the wallboard.
 
 ```json
 {
@@ -155,7 +161,7 @@ Run:
 .\NetWatch-Lite-Wallboard.exe
 ```
 
-Edit `wallboard.json` beside the executable to change panels without recompiling.
+Use the Settings window or edit `wallboard.json` beside the executable to change panels without recompiling.
 
 ## License
 

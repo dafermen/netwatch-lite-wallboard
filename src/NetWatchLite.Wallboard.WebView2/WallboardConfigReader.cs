@@ -49,6 +49,53 @@ internal static class WallboardConfigReader
     }
 
     /// <summary>
+    /// Saves a normalized <c>wallboard.json</c> to the active runtime or development path.
+    /// </summary>
+    /// <param name="configuration">Configuration to persist.</param>
+    /// <param name="cancellationToken">Token used to cancel JSON file IO.</param>
+    /// <returns>Absolute path to the saved JSON file.</returns>
+    public static async Task<string> SaveAsync(
+        WallboardConfiguration configuration,
+        CancellationToken cancellationToken = default)
+    {
+        var filePath = ResolveWallboardFilePath();
+        var normalized = Normalize(configuration);
+        var directory = Path.GetDirectoryName(filePath);
+
+        if (!string.IsNullOrWhiteSpace(directory))
+        {
+            Directory.CreateDirectory(directory);
+        }
+
+        if (File.Exists(filePath))
+        {
+            var backupPath = Path.Combine(
+                Path.GetDirectoryName(filePath) ?? string.Empty,
+                $"{Path.GetFileNameWithoutExtension(filePath)}.backup.json");
+            File.Copy(filePath, backupPath, overwrite: true);
+        }
+
+        var temporaryPath = $"{filePath}.tmp";
+
+        await using (var stream = File.Create(temporaryPath))
+        {
+            await JsonSerializer.SerializeAsync(stream, normalized, JsonOptions, cancellationToken);
+        }
+
+        File.Move(temporaryPath, filePath, overwrite: true);
+        return filePath;
+    }
+
+    /// <summary>
+    /// Returns the active JSON path used by the app.
+    /// </summary>
+    /// <returns>Absolute path to <c>wallboard.json</c>.</returns>
+    public static string GetConfigurationFilePath()
+    {
+        return ResolveWallboardFilePath();
+    }
+
+    /// <summary>
     /// Resolves the runtime configuration path, with a development fallback for local debugging.
     /// </summary>
     /// <returns>Absolute path to the wallboard JSON file that should be read.</returns>

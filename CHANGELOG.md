@@ -2,6 +2,16 @@
 
 All notable changes to NetWatch Lite Wallboard are documented here.
 
+## v0.2.0 - 2026-05-08
+
+- Added a visual settings window for managing `wallboard.json` inside the app.
+- Added panel CRUD actions for adding, updating, duplicating, deleting, and reordering monitoring panels.
+- Added editable wallboard title, default layout, rotation toggle, and rotation interval controls.
+- Added a top-bar Settings button and `Ctrl+,` keyboard shortcut.
+- Added JSON save support with a local `wallboard.backup.json` backup before overwriting.
+- Reloaded the wallboard automatically after saving settings.
+- Updated README and developer documentation for the visual configuration workflow.
+
 ## v0.1.1 - 2026-05-07
 
 - Removed the bundled local sample wallboard HTML.

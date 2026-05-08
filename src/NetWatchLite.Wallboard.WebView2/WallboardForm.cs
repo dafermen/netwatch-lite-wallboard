@@ -15,6 +15,7 @@ internal sealed class WallboardForm : Form
     private readonly Dictionary<int, Button> _layoutButtons = [];
     private readonly Button _refreshButton = new();
     private readonly Button _reloadButton = new();
+    private readonly Button _settingsButton = new();
     private readonly CheckBox _rotationCheckBox = new();
     private readonly TableLayoutPanel _grid = new();
     private readonly System.Windows.Forms.Timer _rotationTimer = new();
@@ -98,9 +99,11 @@ internal sealed class WallboardForm : Form
 
         ConfigureButton(_refreshButton, "Refresh");
         ConfigureButton(_reloadButton, "Reload JSON");
+        ConfigureButton(_settingsButton, "Settings");
 
         _refreshButton.Click += (_, _) => RefreshVisiblePanels();
         _reloadButton.Click += async (_, _) => await ReloadConfigurationAsync();
+        _settingsButton.Click += async (_, _) => await OpenSettingsAsync();
 
         _rotationCheckBox.Text = "Auto";
         _rotationCheckBox.AutoSize = true;
@@ -111,6 +114,7 @@ internal sealed class WallboardForm : Form
         leftPanel.Controls.AddRange([
             _refreshButton,
             _reloadButton,
+            _settingsButton,
             _rotationCheckBox
         ]);
 
@@ -131,7 +135,7 @@ internal sealed class WallboardForm : Form
             AutoSize = true,
             ForeColor = Color.FromArgb(230, 237, 243),
             Margin = new Padding(0, 8, 0, 0),
-            Text = "F: Fullscreen · R: Refresh · ESC: Exit"
+            Text = "F: Fullscreen · R: Refresh · Ctrl+,: Settings · ESC"
         };
 
         _pageLabel.AutoSize = true;
@@ -168,6 +172,19 @@ internal sealed class WallboardForm : Form
         _rotationCheckBox.Checked = _configuration.RotationEnabled;
         await RenderCurrentPageAsync();
         ScheduleRotation();
+    }
+
+    /// <summary>
+    /// Opens the visual JSON editor and reloads the wallboard when changes are saved.
+    /// </summary>
+    private async Task OpenSettingsAsync()
+    {
+        using var settingsForm = new SettingsForm(_configuration);
+
+        if (settingsForm.ShowDialog(this) == DialogResult.OK)
+        {
+            await ReloadConfigurationAsync();
+        }
     }
 
     /// <summary>
@@ -356,6 +373,13 @@ internal sealed class WallboardForm : Form
         if (e.KeyCode == Keys.R)
         {
             RefreshVisiblePanels();
+            e.Handled = true;
+            return;
+        }
+
+        if (e.Control && e.KeyCode == Keys.Oemcomma)
+        {
+            _ = OpenSettingsAsync();
             e.Handled = true;
             return;
         }
