@@ -45,7 +45,7 @@ Normalization:
 - `refreshSeconds <= 0` becomes `30`.
 - Invalid panels are ignored.
 
-`WallboardConfigReader.SaveAsync` writes the normalized configuration back to the same resolved path. If an existing JSON file is present, it first copies it to `wallboard.backup.json`.
+`WallboardConfigReader.SaveAsync` writes the normalized configuration back to the same resolved path. If an existing JSON file is present, it first copies it to `wallboard.backup.json`. After writing, it reads the JSON back and verifies the saved content before reporting success.
 
 ## Classes
 
@@ -78,7 +78,7 @@ Static configuration reader.
 Important methods:
 
 - `LoadAsync`: loads and normalizes configuration.
-- `SaveAsync`: creates a backup and writes normalized configuration JSON.
+- `SaveAsync`: creates a backup, writes normalized configuration JSON, and verifies the saved file.
 - `GetConfigurationFilePath`: exposes the active JSON path for the settings UI.
 - `ResolveWallboardFilePath`: locates runtime or development JSON.
 - `Normalize`: applies safe defaults.
@@ -112,6 +112,9 @@ Responsibilities:
 - Uses a slate color palette and explicit grid row/header styles for readability.
 - Lists configured panels in a table.
 - Adds, updates, duplicates, deletes, and reorders panel declarations.
+- Applies the visible selected-panel editor values before **Save Changes** writes JSON.
+- Adds a completed new panel during **Save Changes** when the editor has values and no row is selected.
+- Shows status text for unsaved edits.
 - Validates panel names, HTTP/HTTPS URLs, root-relative local URLs, and refresh intervals.
 - Saves changes through `WallboardConfigReader.SaveAsync`.
 

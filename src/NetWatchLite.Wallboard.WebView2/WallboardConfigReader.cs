@@ -76,13 +76,18 @@ internal static class WallboardConfigReader
         }
 
         var temporaryPath = $"{filePath}.tmp";
+        var expectedJson = JsonSerializer.Serialize(normalized, JsonOptions);
 
-        await using (var stream = File.Create(temporaryPath))
+        await File.WriteAllTextAsync(temporaryPath, expectedJson, cancellationToken);
+        File.Move(temporaryPath, filePath, overwrite: true);
+
+        var savedJson = await File.ReadAllTextAsync(filePath, cancellationToken);
+
+        if (!string.Equals(savedJson, expectedJson, StringComparison.Ordinal))
         {
-            await JsonSerializer.SerializeAsync(stream, normalized, JsonOptions, cancellationToken);
+            throw new IOException("The saved JSON could not be verified after writing.");
         }
 
-        File.Move(temporaryPath, filePath, overwrite: true);
         return filePath;
     }
 

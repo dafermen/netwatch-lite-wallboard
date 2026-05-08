@@ -2,6 +2,15 @@
 
 All notable changes to NetWatch Lite Wallboard are documented here.
 
+## v0.2.2 - 2026-05-08
+
+- Made **Save Changes** apply the selected panel editor values before writing `wallboard.json`.
+- Renamed panel editor buttons to clearer labels: **New Panel**, **Add Panel**, and **Apply**.
+- Added status text for unsaved panel/settings edits.
+- Added save verification that reads the JSON back after writing before showing the success message.
+- Allowed **Save Changes** to add a completed new panel when the editor has values but no selected row.
+- Updated README and developer documentation for the more intuitive save flow.
+
 ## v0.2.1 - 2026-05-08
 
 - Increased the top-bar Settings button width so the label is fully visible.

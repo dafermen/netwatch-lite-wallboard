@@ -25,6 +25,7 @@ internal sealed class SettingsForm : Form
     private readonly TextBox _panelUrlTextBox = new();
     private readonly NumericUpDown _panelRefreshInput = new();
     private readonly Label _filePathLabel = new();
+    private readonly Label _statusLabel = new();
     private readonly WallboardConfiguration _configuration;
     private bool _isLoadingSelection;
 
@@ -50,6 +51,8 @@ internal sealed class SettingsForm : Form
         BuildLayout();
         LoadConfigurationIntoControls();
         RefreshPanelGrid();
+        WireChangeHandlers();
+        SetStatus("Ready");
     }
 
     /// <summary>
@@ -82,10 +85,35 @@ internal sealed class SettingsForm : Form
 
         root.Controls.Add(settingsGroup, 0, 0);
         root.Controls.Add(body, 0, 1);
-        root.Controls.Add(_filePathLabel, 0, 2);
+        root.Controls.Add(BuildStatusRow(), 0, 2);
         root.Controls.Add(footer, 0, 3);
 
         Controls.Add(root);
+    }
+
+    /// <summary>
+    /// Builds the status row with the JSON path and unsaved-change feedback.
+    /// </summary>
+    /// <returns>Status row layout.</returns>
+    private TableLayoutPanel BuildStatusRow()
+    {
+        var statusRow = new TableLayoutPanel
+        {
+            Dock = DockStyle.Fill,
+            ColumnCount = 2,
+            RowCount = 1
+        };
+        statusRow.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 72));
+        statusRow.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 28));
+
+        _statusLabel.AutoEllipsis = true;
+        _statusLabel.Dock = DockStyle.Fill;
+        _statusLabel.ForeColor = SecondaryTextColor;
+        _statusLabel.TextAlign = ContentAlignment.MiddleRight;
+
+        statusRow.Controls.Add(_filePathLabel, 0, 0);
+        statusRow.Controls.Add(_statusLabel, 1, 0);
+        return statusRow;
     }
 
     /// <summary>
@@ -239,9 +267,9 @@ internal sealed class SettingsForm : Form
         commandGrid.RowStyles.Add(new RowStyle(SizeType.Absolute, 42));
         commandGrid.RowStyles.Add(new RowStyle(SizeType.Absolute, 42));
 
-        commandGrid.Controls.Add(CreateCommandButton("New", (_, _) => ClearPanelEditor()), 0, 0);
-        commandGrid.Controls.Add(CreateCommandButton("Add", (_, _) => AddPanel()), 1, 0);
-        commandGrid.Controls.Add(CreateCommandButton("Update", (_, _) => UpdateSelectedPanel()), 0, 1);
+        commandGrid.Controls.Add(CreateCommandButton("New Panel", (_, _) => ClearPanelEditor()), 0, 0);
+        commandGrid.Controls.Add(CreateCommandButton("Add Panel", (_, _) => AddPanel()), 1, 0);
+        commandGrid.Controls.Add(CreateCommandButton("Apply", (_, _) => ApplySelectedPanel()), 0, 1);
         commandGrid.Controls.Add(CreateCommandButton("Duplicate", (_, _) => DuplicateSelectedPanel()), 1, 1);
         commandGrid.Controls.Add(CreateCommandButton("Move Up", (_, _) => MoveSelectedPanel(-1)), 0, 2);
         commandGrid.Controls.Add(CreateCommandButton("Move Down", (_, _) => MoveSelectedPanel(1)), 1, 2);
@@ -273,8 +301,8 @@ internal sealed class SettingsForm : Form
             WrapContents = false
         };
 
-        var saveButton = CreateCommandButton("Save", async (_, _) => await SaveConfigurationAsync());
-        saveButton.Width = 110;
+        var saveButton = CreateCommandButton("Save Changes", async (_, _) => await SaveConfigurationAsync());
+        saveButton.Width = 140;
         saveButton.BackColor = AccentColor;
 
         var cancelButton = CreateCommandButton("Cancel", (_, _) => Close());
@@ -283,6 +311,20 @@ internal sealed class SettingsForm : Form
         footer.Controls.Add(saveButton);
         footer.Controls.Add(cancelButton);
         return footer;
+    }
+
+    /// <summary>
+    /// Wires change handlers after initial values have been loaded.
+    /// </summary>
+    private void WireChangeHandlers()
+    {
+        _titleTextBox.TextChanged += (_, _) => MarkUnsavedChanges();
+        _rotationCheckBox.CheckedChanged += (_, _) => MarkUnsavedChanges();
+        _rotationSecondsInput.ValueChanged += (_, _) => MarkUnsavedChanges();
+        _defaultLayoutComboBox.SelectedIndexChanged += (_, _) => MarkUnsavedChanges();
+        _panelNameTextBox.TextChanged += (_, _) => ApplySelectedPanelEditorChanges(showValidation: false);
+        _panelUrlTextBox.TextChanged += (_, _) => ApplySelectedPanelEditorChanges(showValidation: false);
+        _panelRefreshInput.ValueChanged += (_, _) => ApplySelectedPanelEditorChanges(showValidation: false);
     }
 
     /// <summary>
@@ -345,9 +387,19 @@ internal sealed class SettingsForm : Form
         }
 
         var panel = _configuration.Panels[index];
-        _panelNameTextBox.Text = panel.Name;
-        _panelUrlTextBox.Text = panel.Url;
-        _panelRefreshInput.Value = Math.Clamp(panel.RefreshSeconds, 1, 3600);
+
+        _isLoadingSelection = true;
+
+        try
+        {
+            _panelNameTextBox.Text = panel.Name;
+            _panelUrlTextBox.Text = panel.Url;
+            _panelRefreshInput.Value = Math.Clamp(panel.RefreshSeconds, 1, 3600);
+        }
+        finally
+        {
+            _isLoadingSelection = false;
+        }
     }
 
     /// <summary>
@@ -374,28 +426,78 @@ internal sealed class SettingsForm : Form
 
         _configuration.Panels.Add(panel);
         RefreshPanelGrid(_configuration.Panels.Count - 1);
+        MarkUnsavedChanges("Panel added");
     }
 
     /// <summary>
-    /// Updates the selected panel from editor fields.
+    /// Applies editor fields to the selected panel.
     /// </summary>
-    private void UpdateSelectedPanel()
+    private void ApplySelectedPanel()
     {
+        if (ApplySelectedPanelEditorChanges(showValidation: true))
+        {
+            SetStatus("Panel edits applied");
+        }
+    }
+
+    /// <summary>
+    /// Applies editor fields to the selected panel.
+    /// </summary>
+    /// <param name="showValidation">Shows validation messages when true.</param>
+    /// <returns>True when there is no selected panel or the selected panel was updated.</returns>
+    private bool ApplySelectedPanelEditorChanges(bool showValidation)
+    {
+        if (_isLoadingSelection)
+        {
+            return true;
+        }
+
         var index = GetSelectedPanelIndex();
 
         if (index < 0)
         {
-            ShowValidationMessage("Select a panel to update.");
-            return;
+            if (!PanelEditorHasContent())
+            {
+                return true;
+            }
+
+            if (!showValidation)
+            {
+                MarkUnsavedChanges();
+                return true;
+            }
+
+            if (!TryReadPanelEditor(out var newPanel, showValidation))
+            {
+                return false;
+            }
+
+            _configuration.Panels.Add(newPanel);
+            RefreshPanelGrid(_configuration.Panels.Count - 1);
+            MarkUnsavedChanges("Panel added");
+            return true;
         }
 
-        if (!TryReadPanelEditor(out var panel))
+        if (!TryReadPanelEditor(out var panel, showValidation))
         {
-            return;
+            return false;
         }
 
         _configuration.Panels[index] = panel;
-        RefreshPanelGrid(index);
+        UpdatePanelGridRow(index, panel);
+        MarkUnsavedChanges();
+        return true;
+    }
+
+    /// <summary>
+    /// Checks whether the new-panel editor contains any user-entered value.
+    /// </summary>
+    /// <returns>True when any panel editor field has a non-default value.</returns>
+    private bool PanelEditorHasContent()
+    {
+        return !string.IsNullOrWhiteSpace(_panelNameTextBox.Text)
+            || !string.IsNullOrWhiteSpace(_panelUrlTextBox.Text)
+            || _panelRefreshInput.Value != 30;
     }
 
     /// <summary>
@@ -419,6 +521,7 @@ internal sealed class SettingsForm : Form
             RefreshSeconds = source.RefreshSeconds
         });
         RefreshPanelGrid(index + 1);
+        MarkUnsavedChanges("Panel duplicated");
     }
 
     /// <summary>
@@ -448,6 +551,7 @@ internal sealed class SettingsForm : Form
 
         _configuration.Panels.RemoveAt(index);
         RefreshPanelGrid(Math.Min(index, _configuration.Panels.Count - 1));
+        MarkUnsavedChanges("Panel deleted");
     }
 
     /// <summary>
@@ -467,6 +571,7 @@ internal sealed class SettingsForm : Form
         (_configuration.Panels[index], _configuration.Panels[targetIndex]) =
             (_configuration.Panels[targetIndex], _configuration.Panels[index]);
         RefreshPanelGrid(targetIndex);
+        MarkUnsavedChanges("Panel reordered");
     }
 
     /// <summary>
@@ -475,6 +580,11 @@ internal sealed class SettingsForm : Form
     private async Task SaveConfigurationAsync()
     {
         if (!TryReadWallboardSettings())
+        {
+            return;
+        }
+
+        if (!ApplySelectedPanelEditorChanges(showValidation: true))
         {
             return;
         }
@@ -490,7 +600,7 @@ internal sealed class SettingsForm : Form
             var savedPath = await WallboardConfigReader.SaveAsync(_configuration);
             MessageBox.Show(
                 this,
-                $"Saved wallboard configuration.\n\n{savedPath}",
+                $"Saved and verified wallboard configuration.\n\n{savedPath}",
                 "Settings Saved",
                 MessageBoxButtons.OK,
                 MessageBoxIcon.Information);
@@ -535,7 +645,7 @@ internal sealed class SettingsForm : Form
     /// </summary>
     /// <param name="panel">Panel produced from controls.</param>
     /// <returns>True when fields produce a valid panel.</returns>
-    private bool TryReadPanelEditor(out WallboardPanel panel)
+    private bool TryReadPanelEditor(out WallboardPanel panel, bool showValidation = true)
     {
         var name = _panelNameTextBox.Text.Trim();
         var url = _panelUrlTextBox.Text.Trim();
@@ -543,15 +653,23 @@ internal sealed class SettingsForm : Form
 
         if (string.IsNullOrWhiteSpace(name))
         {
-            ShowValidationMessage("Enter a panel name.");
-            _panelNameTextBox.Focus();
+            if (showValidation)
+            {
+                ShowValidationMessage("Enter a panel name.");
+                _panelNameTextBox.Focus();
+            }
+
             return false;
         }
 
         if (!IsValidPanelUrl(url))
         {
-            ShowValidationMessage("Enter an HTTP/HTTPS URL or a root-relative local path such as /status/index.html.");
-            _panelUrlTextBox.Focus();
+            if (showValidation)
+            {
+                ShowValidationMessage("Enter an HTTP/HTTPS URL or a root-relative local path such as /status/index.html.");
+                _panelUrlTextBox.Focus();
+            }
+
             return false;
         }
 
@@ -562,6 +680,41 @@ internal sealed class SettingsForm : Form
             RefreshSeconds = (int)_panelRefreshInput.Value
         };
         return true;
+    }
+
+    /// <summary>
+    /// Updates a grid row without rebuilding the whole panel list.
+    /// </summary>
+    /// <param name="index">Panel index.</param>
+    /// <param name="panel">Panel values to show.</param>
+    private void UpdatePanelGridRow(int index, WallboardPanel panel)
+    {
+        if (index < 0 || index >= _panelGrid.Rows.Count)
+        {
+            return;
+        }
+
+        _panelGrid.Rows[index].Cells[0].Value = panel.Name;
+        _panelGrid.Rows[index].Cells[1].Value = panel.Url;
+        _panelGrid.Rows[index].Cells[2].Value = panel.RefreshSeconds;
+    }
+
+    /// <summary>
+    /// Updates status text after a local edit.
+    /// </summary>
+    /// <param name="message">Optional status text.</param>
+    private void MarkUnsavedChanges(string message = "Unsaved changes")
+    {
+        SetStatus(message);
+    }
+
+    /// <summary>
+    /// Updates the settings status label.
+    /// </summary>
+    /// <param name="message">Status text.</param>
+    private void SetStatus(string message)
+    {
+        _statusLabel.Text = message;
     }
 
     /// <summary>
