@@ -2,6 +2,18 @@
 
 All notable changes to NetWatch Lite Wallboard are documented here.
 
+## v0.2.3 - 2026-06-03
+
+- Expanded the README with a complete explanation of configuration, panel fields, DOM monitoring JSON, selector rules, alarm behavior, build steps, and operational notes.
+- Rewrote the developer guide with detailed runtime flow, configuration normalization, settings save behavior, WebView2 hosting, DOM polling, alarm snapshots, and extension points.
+- Added detailed source comments across the configuration models, settings editor, configuration reader, main form, WebView panel control, and project file.
+- Replaced non-ASCII UI shortcut/refresh symbols in source with ASCII text for easier cross-editor readability.
+- Added centralized unexpected-error logging under `%LOCALAPPDATA%\NetWatchLite\WallboardLogs`.
+- Hardened WinForms async event handlers, panel rendering, settings save events, DOM polling timers, and WebView2 process failure handling.
+- Added settings-window import/export buttons for moving or backing up `wallboard.json`.
+- Added a basic monitoring rule builder for creating selector, type, text, severity, details selector, and sound settings without hand-writing JSON.
+- Expanded README positioning with operational value, business benefits, and TSG-focused production support messaging.
+
 ## v0.2.2 - 2026-05-08
 
 - Made **Save Changes** apply the selected panel editor values before writing `wallboard.json`.

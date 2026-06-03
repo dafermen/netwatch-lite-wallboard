@@ -2,6 +2,8 @@ namespace NetWatchLite.Wallboard.WebView2;
 
 /// <summary>
 /// Root JSON configuration for the Windows WebView2 wallboard.
+/// This class mirrors the top-level shape of wallboard.json. The configuration reader normalizes
+/// user-provided values before the main form uses them.
 /// </summary>
 internal sealed class WallboardConfiguration
 {
@@ -12,6 +14,7 @@ internal sealed class WallboardConfiguration
 
     /// <summary>
     /// Enables automatic rotation between pages when panel count exceeds the active layout.
+    /// Rotation has no effect when all configured panels fit on the current page.
     /// </summary>
     public bool RotationEnabled { get; set; } = true;
 
@@ -27,6 +30,7 @@ internal sealed class WallboardConfiguration
 
     /// <summary>
     /// List of monitoring panels rendered by the wallboard.
+    /// Order matters: it controls grid placement and the sequence used during automatic rotation.
     /// </summary>
     public List<WallboardPanel> Panels { get; set; } = [];
 }

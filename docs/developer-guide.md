@@ -1,6 +1,6 @@
 # NetWatch Lite Wallboard Developer Guide
 
-This document explains the internal structure of the Windows WebView2 wallboard.
+This guide explains how the Windows WebView2 wallboard is structured, how data moves through the application, and where to make changes when adding features.
 
 ## Runtime Overview
 
@@ -9,147 +9,369 @@ NetWatch Lite Wallboard is a WinForms desktop application targeting `net8.0-wind
 ```text
 NetWatch-Lite-Wallboard.exe
   |
-  | reads/writes wallboard.json
+  | starts WinForms
   v
-WallboardConfigReader
+Program.Main
   |
+  | creates the main form
   v
 WallboardForm
   |
+  | creates a shared WebView2 environment
+  | loads wallboard.json
   v
-WebViewPanelControl x N
+WallboardConfigReader
   |
+  | returns normalized models
+  v
+WallboardConfiguration
+  |
+  | owns ordered WallboardPanel definitions
+  v
+WebViewPanelControl x visible panels
+  |
+  | navigates each panel URL
   v
 Microsoft Edge WebView2
+  |
+  | optional DOM polling with ExecuteScriptAsync
+  v
+Native alarm banner, pulse, and sound
 ```
 
-The app is intentionally separate from the ASP.NET dashboard. It exists because browser iframes cannot load many operational monitoring pages that set anti-embedding headers.
+The application is intentionally separate from any ASP.NET or browser-hosted dashboard. Operational pages frequently reject iframe embedding, but WebView2 loads them as real browser views inside a native Windows process.
 
-The executable icon is stored at `Assets/netwatch-lite.ico` and is referenced through the project file `ApplicationIcon` property.
+## Design Principles
 
-## Configuration Flow
+- Keep the runtime configuration JSON-driven so operators can change panels without recompiling.
+- Keep each panel independent: navigation, refresh timing, and monitoring timing are owned by the panel control.
+- Keep layout and page rotation centralized in `WallboardForm`.
+- Keep configuration reading, normalization, backup, and write verification centralized in `WallboardConfigReader`.
+- Keep DOM monitoring declarative: users configure selectors and rule metadata; the app performs a small, predictable JavaScript scan inside the page.
 
-`WallboardConfigReader.LoadAsync` resolves and reads `wallboard.json`.
+## Project Files
 
-Lookup order:
+| File | Purpose |
+|---|---|
+| `Program.cs` | WinForms entry point. |
+| `WallboardConfiguration.cs` | Root configuration model for `wallboard.json`. |
+| `WallboardPanel.cs` | Panel model plus DOM monitoring model classes. |
+| `WallboardConfigReader.cs` | Loads, normalizes, saves, backs up, and verifies JSON configuration. |
+| `WallboardForm.cs` | Main wallboard window, layout, paging, rotation, fullscreen, settings entry point. |
+| `WebViewPanelControl.cs` | One WebView2 panel, refresh timer, DOM alarm polling, alarm banner, sound. |
+| `SettingsForm.cs` | Visual settings editor plus advanced monitoring JSON editor dialog. |
+| `Data/wallboard.json` | Development/default configuration copied to build and publish output. |
+| `Assets/netwatch-lite.ico` | Executable icon referenced by the project file. |
+
+## Configuration Loading Flow
+
+`WallboardForm.InitializeAsync` creates a shared `CoreWebView2Environment`, then calls `ReloadConfigurationAsync`.
+
+`ReloadConfigurationAsync` calls `WallboardConfigReader.LoadAsync`, stores the returned configuration, applies the default layout, resets paging, renders the first page, and schedules rotation.
+
+`WallboardConfigReader.LoadAsync` resolves the active JSON file in this order:
 
 1. `wallboard.json` beside the executable.
-2. `Data/wallboard.json` when running from the development tree.
-3. Built-in fallback configuration when the file is missing or invalid.
+2. `Data/wallboard.json` in the development tree.
+3. Built-in fallback configuration when neither file exists or parsing fails.
 
-Normalization:
+After reading JSON, `WallboardConfigReader.Normalize` converts it into safe runtime values:
 
 - Empty `appTitle` becomes `NetWatch Lite Wallboard`.
-- `defaultLayout` accepts `1`, `2`, `3`, `4`, `6`, or `8`; other values become `4`.
+- `defaultLayout` accepts only `1`, `2`, `3`, `4`, `6`, or `8`; unsupported values become `4`.
 - `rotationSeconds <= 0` becomes `20`.
+- Invalid panel URLs are ignored.
+- Empty panel names become `Monitoring Panel`.
 - `refreshSeconds <= 0` becomes `30`.
-- Invalid panels are ignored.
+- Disabled or invalid monitoring blocks become `null`.
+- Monitoring `pollSeconds` and `repeatSoundSeconds` are clamped to `1` through `300`.
+- Monitoring rule types are normalized to `exists`, `domText`, or `domClass`.
+- Monitoring severities are normalized to `critical`, `warning`, or `info`.
 
-`WallboardConfigReader.SaveAsync` writes the normalized configuration back to the same resolved path. If an existing JSON file is present, it first copies it to `wallboard.backup.json`. After writing, it reads the JSON back and verifies the saved content before reporting success.
+If every panel is invalid, normalization falls back to a safe default panel.
 
-## Classes
+## Configuration Saving Flow
 
-### Program
+Settings are edited inside a cloned copy of the runtime configuration. This is important: opening the settings window does not mutate the live wallboard until the user saves.
 
-Entry point. Calls `ApplicationConfiguration.Initialize` and starts `WallboardForm`.
+When `SettingsForm.SaveConfigurationAsync` runs:
 
-### WallboardConfiguration
+1. Top-level controls are validated and copied into the cloned configuration.
+2. The currently visible panel editor values are applied.
+3. The app verifies that at least one panel exists.
+4. `WallboardConfigReader.SaveAsync` normalizes the configuration again.
+5. If an active JSON file already exists, it is copied to `wallboard.backup.json`.
+6. The new JSON is written to a temporary `.tmp` file.
+7. The temporary file replaces the active `wallboard.json`.
+8. The saved file is read back and compared with the expected JSON.
+9. The settings dialog closes with `DialogResult.OK`.
+10. `WallboardForm` reloads configuration and rerenders the wallboard.
 
-Root configuration model:
+This save path makes the settings UI resilient against partially edited values and gives operators a backup of the previous JSON.
 
-- `AppTitle`
-- `RotationEnabled`
-- `RotationSeconds`
-- `DefaultLayout`
-- `Panels`
+## Main Form Responsibilities
 
-### WallboardPanel
+`WallboardForm` is the orchestration layer. It does not know how to parse monitoring rules and it does not inspect page DOM. Its job is to manage the shell around the panels.
 
-One panel declaration:
+Primary responsibilities:
+
+- Build the top bar.
+- Build the panel grid.
+- Create the shared WebView2 environment and user data folder.
+- Load and reload configuration.
+- Render the current page of panels.
+- Switch layouts.
+- Rotate pages when auto-rotation is enabled.
+- Refresh visible panels.
+- Toggle fullscreen mode.
+- Handle keyboard shortcuts.
+- Open `SettingsForm` and reload after a successful save.
+
+## Layout And Rotation
+
+Layouts are stored as the number of visible panels, not as raw rows and columns. `WallboardForm.GetGridDimensions` maps the number to an actual grid:
+
+| Layout | Grid |
+|---|---|
+| `1` | `1x1` |
+| `2` | `2x1` |
+| `3` | `3x1` |
+| `4` | `2x2` |
+| `6` | `3x2` |
+| `8` | `4x2` |
+
+Paging is calculated with:
+
+```text
+page count = ceiling(panel count / layout)
+visible panels = panels.Skip(currentPage * layout).Take(layout)
+```
+
+When rotation is enabled and more than one page exists, `_rotationTimer` advances `_currentPage` and rerenders the panel grid.
+
+## WebView Panel Responsibilities
+
+`WebViewPanelControl` is one self-contained monitoring panel.
+
+It owns:
+
+- A title bar with the panel name, status label, and refresh button.
+- A WebView2 browser control.
+- A panel refresh timer.
+- A DOM alarm polling timer.
+- A pulse timer used only while an alarm is active.
+- The alarm banner and silence button.
+- The last alarm signature, used to reset sound/silence state when a different alarm appears.
+
+When `LoadPanelAsync` runs:
+
+1. The panel model is stored.
+2. The target URL is resolved to an absolute URI.
+3. DOM monitoring timing is configured.
+4. WebView2 is initialized with the shared environment.
+5. WebView2 kiosk-style settings are applied.
+6. The panel navigates to the target URI.
+7. The independent refresh timer starts.
+
+## URL Resolution
+
+`WebViewPanelControl.ResolvePanelUri` supports two URL shapes:
+
+- Absolute HTTP/HTTPS URLs are returned directly.
+- Root-relative paths such as `/status/index.html` are resolved under `wwwroot`.
+
+For local paths, runtime lookup checks the published executable folder first, then the development tree. Query strings are preserved.
+
+## DOM Monitoring Model
+
+The monitoring model lives in `WallboardPanel.cs`:
+
+- `PanelMonitoringOptions`
+- `PanelMonitoringRule`
+
+`PanelMonitoringOptions` controls panel-level monitoring:
+
+- `Enabled`
+- `PollSeconds`
+- `SoundEnabled`
+- `RepeatSoundSeconds`
+- `Rules`
+
+`PanelMonitoringRule` controls one DOM detection rule:
 
 - `Name`
-- `Url`
-- `RefreshSeconds`
+- `Type`
+- `Selector`
+- `Contains`
+- `Severity`
+- `DetailsSelector`
+- `SoundEnabled`
 
-### WallboardConfigReader
+Supported rule types:
 
-Static configuration reader.
-
-Important methods:
-
-- `LoadAsync`: loads and normalizes configuration.
-- `SaveAsync`: creates a backup, writes normalized configuration JSON, and verifies the saved file.
-- `GetConfigurationFilePath`: exposes the active JSON path for the settings UI.
-- `ResolveWallboardFilePath`: locates runtime or development JSON.
-- `Normalize`: applies safe defaults.
-- `IsValidPanel`: accepts absolute HTTP/HTTPS URLs and optional root-relative local URLs.
-
-### WallboardForm
-
-Main form.
-
-Responsibilities:
-
-- Builds the top bar.
-- Builds the panel grid.
-- Loads configuration.
-- Creates visible `WebViewPanelControl` instances.
-- Handles layout switching.
-- Maps layouts to dense grids: `1x1`, `2x1`, `3x1`, `2x2`, `3x2`, and `4x2`.
-- Handles automatic page rotation.
-- Handles fullscreen mode.
-- Handles keyboard shortcuts.
-- Opens `SettingsForm` and reloads configuration after saving.
-
-### SettingsForm
-
-Secondary configuration window.
-
-Responsibilities:
-
-- Edits the wallboard title, default layout, automatic rotation, and rotation interval.
-- Uses a resizable/maximizable standard Windows form.
-- Uses a slate color palette and explicit grid row/header styles for readability.
-- Lists configured panels in a table.
-- Adds, updates, duplicates, deletes, and reorders panel declarations.
-- Applies the visible selected-panel editor values before **Save Changes** writes JSON.
-- Adds a completed new panel during **Save Changes** when the editor has values and no row is selected.
-- Shows status text for unsaved edits.
-- Validates panel names, HTTP/HTTPS URLs, root-relative local URLs, and refresh intervals.
-- Saves changes through `WallboardConfigReader.SaveAsync`.
-
-### WebViewPanelControl
-
-One rendered panel.
-
-Responsibilities:
-
-- Hosts one WebView2 browser control.
-- Shows panel title and status.
-- Provides an individual refresh button.
-- Runs an independent refresh timer.
-- Resolves optional root-relative local URLs to file URIs.
-- Renders a friendly error page on navigation failure.
-
-## Keyboard Shortcuts
-
-| Key | Action |
+| Type | Behavior |
 |---|---|
-| `F` | Toggle fullscreen. |
-| `R` | Refresh visible panels. |
-| `Ctrl+,` | Open settings. |
-| `ESC` | Exit fullscreen. |
+| `exists` | Alarm when any visible element matches the selector. If `contains` is supplied, matching elements must contain that text. |
+| `domText` | Alarm when a visible selected element contains the configured text. If `contains` is omitted, it behaves like `exists`. |
+| `domClass` | Currently evaluated with the same text/visibility path as the other rule types. It is reserved for class-oriented rule naming and future specialization. |
 
-## Layouts
+## DOM Monitoring Runtime Flow
 
-| Layout | Grid | Typical Use |
-|---|---|---|
-| `1` | `1x1` | One focused operational screen. |
-| `2` | `2x1` | Two large side-by-side panels. |
-| `3` | `3x1` | Three wide panels on large displays. |
-| `4` | `2x2` | Standard NOC grid. |
-| `6` | `3x2` | Dense TV dashboards. |
-| `8` | `4x2` | Ultrawide or high-density wallboards. |
+DOM monitoring starts only after navigation succeeds. This matters because WebView2 must have a loaded document before the app can execute DOM queries.
+
+Flow:
+
+1. `OnNavigationCompleted` receives a successful navigation event.
+2. If the panel has `Monitoring.Enabled == true`, `_alarmPollTimer` starts.
+3. The app immediately calls `DetectConfiguredAlertsAsync` once so a visible alarm does not wait for the first timer interval.
+4. `DetectConfiguredAlertsAsync` serializes the monitoring rules to JSON.
+5. The method injects that JSON into a JavaScript function.
+6. `CoreWebView2.ExecuteScriptAsync` runs the function inside the loaded page.
+7. JavaScript evaluates every selector with `document.querySelectorAll`.
+8. Invalid selectors are caught and treated as no matches.
+9. JavaScript filters to visible elements.
+10. JavaScript checks optional `contains` text against normalized `textContent`.
+11. JavaScript collects detail text from `detailsSelector` or from the matched elements.
+12. JavaScript returns a small alarm snapshot object.
+13. C# deserializes the snapshot.
+14. `ShowAlarmState` displays or updates the native alarm banner.
+15. `ClearAlarmState` hides the banner when no rule matches.
+
+The JavaScript intentionally returns only small structured data. It does not return full HTML, screenshots, or large page content.
+
+## Alarm Snapshot
+
+`AlarmSnapshot` is the C# DTO used to receive the JavaScript result:
+
+| Field | Meaning |
+|---|---|
+| `Active` | Whether any rule matched. |
+| `Title` | Name of the highest-severity matched rule. |
+| `Severity` | Highest matched severity. |
+| `SoundEnabled` | Whether any matched rule allows sound. |
+| `Alarms` | Detail strings displayed in the banner. |
+
+When multiple rules match, JavaScript sorts them by severity:
+
+```text
+critical > warning > info
+```
+
+The banner title uses the highest-severity match. The detail line includes distinct detail strings from all matched rules.
+
+## Alarm Sound And Silence
+
+Sound is controlled at two levels:
+
+- Panel-level `monitoring.soundEnabled`.
+- Rule-level `rule.soundEnabled`.
+
+Sound plays only when the panel-level setting is true and at least one matched rule does not explicitly set `soundEnabled` to false.
+
+The silence button acknowledges the current alarm sound but leaves the visual alarm visible. If a new alarm signature appears, silence is reset automatically. The signature includes severity, title, and detail text, so materially different alarms are treated as new events.
+
+## Settings Form
+
+`SettingsForm` edits a cloned configuration. The clone is deep enough to include panel monitoring options and rules, which prevents accidental mutation of the live configuration while the dialog is open.
+
+The form is organized into:
+
+- Top-level wallboard settings.
+- Read-only panel grid.
+- Panel editor fields.
+- Panel command buttons.
+- Status row with active JSON path and unsaved-change messages.
+- Footer with save/cancel actions.
+
+Panel commands:
+
+- Add.
+- Update.
+- Duplicate.
+- Delete.
+- Move up.
+- Move down.
+- Edit Monitoring JSON.
+- Export JSON.
+- Import JSON.
+
+The monitoring editor keeps a JSON text editor for full control because monitoring rules are CSS-selector based and operational pages vary widely. It also includes a basic rule builder that appends common selector rules to the JSON for operators who do not want to hand-write every property.
+
+Import/export behavior:
+
+- Export applies the currently visible panel editor values, validates top-level settings, and writes the edited configuration to a user-selected JSON file.
+- Import reads a selected JSON file, applies editor-safe normalization, replaces the current settings editor contents, and marks the window as unsaved.
+- Import does not write to the active `wallboard.json`; the operator must still press **Save Changes**.
+
+## Monitoring JSON Editor
+
+`MonitoringJsonEditorForm` is a modal editor for one panel's monitoring block.
+
+Operators can:
+
+- Paste or edit a monitoring JSON object.
+- Leave the text empty to disable monitoring.
+- Insert a starter PLC alarm template.
+- Add a basic rule through form fields for name, type, selector, text match, severity, details selector, and sound.
+- Apply changes and let `SettingsForm.TryParseMonitoringJson` validate them.
+
+The basic rule builder parses the current JSON editor content, creates a default enabled monitoring block when the editor is empty, appends a `PanelMonitoringRule`, and serializes the result back into the editor. This keeps the generated output visible and editable.
+
+Validation rules:
+
+- Empty or `null` disables monitoring.
+- Invalid JSON shows a parse error.
+- Disabled monitoring becomes `null`.
+- Enabled monitoring must include at least one rule.
+- Every enabled rule must include a non-empty selector.
+- Timing values are clamped.
+- Rule type and severity names are normalized.
+
+## WebView2 Environment
+
+`WallboardForm.InitializeAsync` creates a shared WebView2 environment with this user data folder:
+
+```text
+%LOCALAPPDATA%\NetWatchLite\WallboardWebView2
+```
+
+Because all panels share the same environment, cookies and authentication state can persist between app launches and across panels, similar to a normal browser profile.
+
+## Error Handling
+
+Configuration load failures fall back to default configuration so the app can still start.
+
+Unexpected errors are logged by `AppErrorLog` to:
+
+```text
+%LOCALAPPDATA%\NetWatchLite\WallboardLogs\wallboard-errors.log
+```
+
+The log records timestamp, context, exception type, message, and stack trace. Logging is intentionally defensive: logging failures are swallowed so diagnostics never become the cause of a crash.
+
+Global handlers are installed in `Program.Main`:
+
+- `Application.ThreadException`
+- `AppDomain.CurrentDomain.UnhandledException`
+- `TaskScheduler.UnobservedTaskException`
+
+These handlers are a last line of defense. Normal UI paths should still catch exceptions near the operation that failed so the app can keep running.
+
+Navigation failures render a small friendly HTML page inside the panel with the WebView2 error status. The panel also stops DOM polling while navigation has failed.
+
+DOM monitoring catches:
+
+- `InvalidOperationException`
+- `JsonException`
+- `COMException`
+
+In those cases, alarm state is cleared. This prevents stale native alarm banners when WebView2 navigation, script execution, or JSON parsing fails.
+
+`WallboardForm` uses safe wrappers around async UI operations such as initialization, reload, settings, layout changes, and rotation. This avoids unobserved `async void` failures from WinForms event handlers.
+
+`WebViewPanelControl` logs WebView2 `ProcessFailed` events. If the embedded browser process fails, the panel stops its timers and renders a local error message instead of leaving the operator with a silent blank panel.
+
+`RenderCurrentPageAsync` is guarded by an async lock so rotation, reload, and layout changes cannot overlap while panels are still initializing.
 
 ## Publishing
 
@@ -171,10 +393,20 @@ The publish output includes:
 - WebView2 loader/runtime support assemblies
 - .NET runtime dependencies
 
+## Extension Points
+
+Common places to extend the application:
+
+- Add a new layout: update `SupportedLayouts`, `NormalizeLayout`, and `GetGridDimensions`.
+- Add a new panel field: update `WallboardPanel`, `SettingsForm`, `WallboardConfigReader.Normalize`, and the README schema.
+- Add a new monitoring rule type: update `NormalizeRuleType`, `NormalizeMonitoringRuleType`, and the JavaScript matcher in `DetectConfiguredAlertsAsync`.
+- Change alarm visuals: update `GetAlarmBannerColor`, `GetAlarmBorderColor`, and banner construction in `WebViewPanelControl`.
+- Change save behavior: update `WallboardConfigReader.SaveAsync`.
+
 ## Operational Notes
 
-- Root-relative URLs are resolved from a published `wwwroot` folder if you choose to add local static pages.
-- Remote HTTP/HTTPS URLs are loaded directly by WebView2.
-- The first settings save creates `wallboard.backup.json` beside the active JSON file.
-- WebView2 user data is stored under `%LOCALAPPDATA%\NetWatchLite\WallboardWebView2`.
-- Authentication cookies and sessions can persist through that WebView2 user data folder.
+- Keep panel refresh intervals appropriate for the target systems.
+- Keep DOM polling intervals reasonable. Polling every second is supported but should be used only when the page and machine can handle it.
+- WebView2 user data is persistent. Clear `%LOCALAPPDATA%\NetWatchLite\WallboardWebView2` if you need to reset browser sessions.
+- Root-relative local pages require a `wwwroot` folder in the publish output or development tree.
+- Selector accuracy matters. Prefer stable IDs/classes from the monitored application over visual-only selectors that may change with styling updates.

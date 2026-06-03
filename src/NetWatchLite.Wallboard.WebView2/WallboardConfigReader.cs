@@ -3,7 +3,9 @@ using System.Text.Json;
 namespace NetWatchLite.Wallboard.WebView2;
 
 /// <summary>
-/// Reads and normalizes <c>wallboard.json</c> for the desktop wallboard executable.
+/// Reads, normalizes, saves, backs up, and verifies <c>wallboard.json</c> for the desktop
+/// wallboard executable. Keeping this logic in one class gives the rest of the app a simple
+/// contract: every configuration returned from here is already safe to render.
 /// </summary>
 internal static class WallboardConfigReader
 {
@@ -20,6 +22,8 @@ internal static class WallboardConfigReader
 
     /// <summary>
     /// Loads <c>wallboard.json</c> from the executable folder or development source folder.
+    /// Invalid or missing JSON never prevents the application from starting; the caller receives
+    /// a small built-in default configuration instead.
     /// </summary>
     /// <param name="cancellationToken">Token used to cancel JSON file IO.</param>
     /// <returns>A normalized wallboard configuration. Invalid files fall back to defaults.</returns>
@@ -40,16 +44,21 @@ internal static class WallboardConfigReader
                 JsonOptions,
                 cancellationToken);
 
+            // Normalize immediately after deserialization so UI and rendering code do not need to
+            // defend against unsupported layouts, empty names, invalid URLs, or bad monitoring rules.
             return Normalize(configuration);
         }
-        catch
+        catch (Exception ex)
         {
+            AppErrorLog.Log($"loading configuration from '{filePath}'", ex);
             return CreateDefaultConfiguration();
         }
     }
 
     /// <summary>
     /// Saves a normalized <c>wallboard.json</c> to the active runtime or development path.
+    /// The write is intentionally conservative: normalize, back up the previous file, write through
+    /// a temporary file, replace the active file, then read the result back for verification.
     /// </summary>
     /// <param name="configuration">Configuration to persist.</param>
     /// <param name="cancellationToken">Token used to cancel JSON file IO.</param>
@@ -69,6 +78,8 @@ internal static class WallboardConfigReader
 
         if (File.Exists(filePath))
         {
+            // Keep one easy-to-find backup beside the active JSON. This is mainly for operators who
+            // edit settings live and need a quick rollback if a saved panel list is not what they meant.
             var backupPath = Path.Combine(
                 Path.GetDirectoryName(filePath) ?? string.Empty,
                 $"{Path.GetFileNameWithoutExtension(filePath)}.backup.json");
@@ -78,6 +89,8 @@ internal static class WallboardConfigReader
         var temporaryPath = $"{filePath}.tmp";
         var expectedJson = JsonSerializer.Serialize(normalized, JsonOptions);
 
+        // Write to a sibling temp file first so a failed write is less likely to leave a truncated
+        // wallboard.json in place.
         await File.WriteAllTextAsync(temporaryPath, expectedJson, cancellationToken);
         File.Move(temporaryPath, filePath, overwrite: true);
 
@@ -102,6 +115,8 @@ internal static class WallboardConfigReader
 
     /// <summary>
     /// Resolves the runtime configuration path, with a development fallback for local debugging.
+    /// Published builds use the JSON beside the executable; local debug builds can still use the
+    /// repository's Data/wallboard.json without copying it manually.
     /// </summary>
     /// <returns>Absolute path to the wallboard JSON file that should be read.</returns>
     private static string ResolveWallboardFilePath()
@@ -130,6 +145,7 @@ internal static class WallboardConfigReader
 
     /// <summary>
     /// Converts parsed JSON into safe runtime values and removes invalid panels.
+    /// This method is the central schema boundary between user-editable JSON and runtime objects.
     /// </summary>
     /// <param name="configuration">Configuration parsed from JSON.</param>
     /// <returns>Normalized configuration with supported layout and timing values.</returns>
@@ -146,7 +162,8 @@ internal static class WallboardConfigReader
             {
                 Name = string.IsNullOrWhiteSpace(panel.Name) ? "Monitoring Panel" : panel.Name.Trim(),
                 Url = panel.Url.Trim(),
-                RefreshSeconds = panel.RefreshSeconds <= 0 ? 30 : panel.RefreshSeconds
+                RefreshSeconds = panel.RefreshSeconds <= 0 ? 30 : panel.RefreshSeconds,
+                Monitoring = NormalizeMonitoring(panel.Monitoring)
             })
             .ToList();
 
@@ -164,6 +181,8 @@ internal static class WallboardConfigReader
 
     /// <summary>
     /// Determines whether a panel has a usable absolute or root-relative URL.
+    /// WebView2 can navigate HTTP/HTTPS URLs directly. Root-relative URLs are treated as local
+    /// static pages under wwwroot and are resolved later by WebViewPanelControl.
     /// </summary>
     /// <param name="panel">Panel declaration parsed from JSON.</param>
     /// <returns>True when the panel can be navigated by WebView2.</returns>
@@ -203,9 +222,99 @@ internal static class WallboardConfigReader
                 {
                     Name = "Operations Overview",
                     Url = "https://example.com/",
-                    RefreshSeconds = 30
+                    RefreshSeconds = 30,
+                    Monitoring = null
                 }
             ]
+        };
+    }
+
+    /// <summary>
+    /// Converts optional panel monitoring settings into safe runtime values.
+    /// Disabled monitoring and enabled monitoring with no usable rules both become null. That keeps
+    /// WebViewPanelControl's runtime decision simple: null means no alarm polling timer.
+    /// </summary>
+    /// <param name="monitoring">Monitoring settings parsed from JSON.</param>
+    /// <returns>Normalized settings, or null when monitoring should stay disabled.</returns>
+    private static PanelMonitoringOptions? NormalizeMonitoring(PanelMonitoringOptions? monitoring)
+    {
+        if (monitoring is null || !monitoring.Enabled)
+        {
+            return null;
+        }
+
+        var rules = (monitoring.Rules ?? [])
+            .Where(IsValidMonitoringRule)
+            .Select(rule => new PanelMonitoringRule
+            {
+                Name = string.IsNullOrWhiteSpace(rule.Name) ? "DOM Alert" : rule.Name.Trim(),
+                Type = NormalizeRuleType(rule.Type),
+                Selector = rule.Selector.Trim(),
+                Contains = string.IsNullOrWhiteSpace(rule.Contains) ? null : rule.Contains.Trim(),
+                Severity = NormalizeSeverity(rule.Severity),
+                DetailsSelector = string.IsNullOrWhiteSpace(rule.DetailsSelector)
+                    ? null
+                    : rule.DetailsSelector.Trim(),
+                SoundEnabled = rule.SoundEnabled
+            })
+            .ToList();
+
+        if (rules.Count == 0)
+        {
+            return null;
+        }
+
+        return new PanelMonitoringOptions
+        {
+            Enabled = true,
+            PollSeconds = Math.Clamp(monitoring.PollSeconds, 1, 300),
+            SoundEnabled = monitoring.SoundEnabled,
+            RepeatSoundSeconds = Math.Clamp(monitoring.RepeatSoundSeconds, 1, 300),
+            Rules = rules
+        };
+    }
+
+    /// <summary>
+    /// Determines whether a monitoring rule has enough information to run safely.
+    /// The selector is required because it is the only way the JavaScript scanner can find candidate
+    /// DOM elements. Unsupported types are normalized to "exists" before this check.
+    /// </summary>
+    /// <param name="rule">Rule parsed from JSON.</param>
+    /// <returns>True when the rule can be evaluated in the browser DOM.</returns>
+    private static bool IsValidMonitoringRule(PanelMonitoringRule rule)
+    {
+        return !string.IsNullOrWhiteSpace(rule.Selector)
+            && NormalizeRuleType(rule.Type) is "exists" or "domText" or "domClass";
+    }
+
+    /// <summary>
+    /// Converts a rule type into a supported detector name.
+    /// </summary>
+    /// <param name="type">Configured rule type.</param>
+    /// <returns>Supported rule type.</returns>
+    private static string NormalizeRuleType(string? type)
+    {
+        return type?.Trim().ToLowerInvariant() switch
+        {
+            "domtext" => "domText",
+            "domclass" => "domClass",
+            "exists" => "exists",
+            _ => "exists"
+        };
+    }
+
+    /// <summary>
+    /// Converts alert severity into a supported visual level.
+    /// </summary>
+    /// <param name="severity">Configured severity.</param>
+    /// <returns>critical, warning, or info.</returns>
+    private static string NormalizeSeverity(string? severity)
+    {
+        return severity?.Trim().ToLowerInvariant() switch
+        {
+            "critical" => "critical",
+            "info" => "info",
+            _ => "warning"
         };
     }
 

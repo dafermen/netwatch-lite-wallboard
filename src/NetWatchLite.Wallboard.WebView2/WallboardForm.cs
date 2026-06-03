@@ -4,6 +4,9 @@ namespace NetWatchLite.Wallboard.WebView2;
 
 /// <summary>
 /// Main Windows form for the operational wallboard.
+/// This form is the application coordinator: it owns layout, paging, rotation,
+/// fullscreen behavior, global refresh, and settings reloads. Individual page rendering
+/// and alarm detection are delegated to WebViewPanelControl.
 /// </summary>
 internal sealed class WallboardForm : Form
 {
@@ -20,6 +23,7 @@ internal sealed class WallboardForm : Form
     private readonly TableLayoutPanel _grid = new();
     private readonly System.Windows.Forms.Timer _rotationTimer = new();
     private readonly List<WebViewPanelControl> _activePanels = [];
+    private readonly SemaphoreSlim _renderLock = new(1, 1);
     private WallboardConfiguration _configuration = new();
     private CoreWebView2Environment? _webViewEnvironment;
     private int _layout = 4;
@@ -31,6 +35,7 @@ internal sealed class WallboardForm : Form
 
     /// <summary>
     /// Creates the window, top bar, panel grid, timers, and keyboard handlers.
+    /// The actual WebView2 environment is initialized later during the Load event because it is async.
     /// </summary>
     public WallboardForm()
     {
@@ -47,14 +52,16 @@ internal sealed class WallboardForm : Form
         Controls.Add(_grid);
         Controls.Add(_topBar);
 
-        _rotationTimer.Tick += (_, _) => RotatePage();
-        Load += async (_, _) => await InitializeAsync();
+        _rotationTimer.Tick += (_, _) => RunSafely(() => RotatePage(), "rotating wallboard pages");
+        Load += (_, _) => _ = RunSafelyAsync(InitializeAsync, "initializing the wallboard");
         FormClosing += (_, _) => StopActivePanelTimers();
         KeyDown += OnKeyDown;
     }
 
     /// <summary>
     /// Initializes the shared WebView2 environment and loads the first wallboard configuration.
+    /// All panels share this environment so browser profile data, cookies, and authentication state
+    /// behave like one normal browser session across the wallboard.
     /// </summary>
     private async Task InitializeAsync()
     {
@@ -72,6 +79,7 @@ internal sealed class WallboardForm : Form
 
     /// <summary>
     /// Builds the control strip with layout, refresh, reload, rotation, and shortcut labels.
+    /// The top bar is intentionally compact because this app is usually displayed on TVs or NOC screens.
     /// </summary>
     private void BuildTopBar()
     {
@@ -102,14 +110,14 @@ internal sealed class WallboardForm : Form
         ConfigureButton(_settingsButton, "Settings", 110);
 
         _refreshButton.Click += (_, _) => RefreshVisiblePanels();
-        _reloadButton.Click += async (_, _) => await ReloadConfigurationAsync();
-        _settingsButton.Click += async (_, _) => await OpenSettingsAsync();
+        _reloadButton.Click += (_, _) => _ = RunSafelyAsync(ReloadConfigurationAsync, "reloading wallboard.json");
+        _settingsButton.Click += (_, _) => _ = RunSafelyAsync(OpenSettingsAsync, "opening settings");
 
         _rotationCheckBox.Text = "Auto";
         _rotationCheckBox.AutoSize = true;
         _rotationCheckBox.ForeColor = Color.White;
         _rotationCheckBox.Margin = new Padding(10, 8, 0, 0);
-        _rotationCheckBox.CheckedChanged += (_, _) => ScheduleRotation();
+        _rotationCheckBox.CheckedChanged += (_, _) => RunSafely(ScheduleRotation, "updating rotation");
 
         leftPanel.Controls.AddRange([
             _refreshButton,
@@ -135,7 +143,7 @@ internal sealed class WallboardForm : Form
             AutoSize = true,
             ForeColor = Color.FromArgb(230, 237, 243),
             Margin = new Padding(0, 8, 0, 0),
-            Text = "F: Fullscreen · R: Refresh · Ctrl+,: Settings · ESC"
+            Text = "F: Fullscreen | R: Refresh | Ctrl+,: Settings | ESC"
         };
 
         _pageLabel.AutoSize = true;
@@ -162,9 +170,11 @@ internal sealed class WallboardForm : Form
 
     /// <summary>
     /// Reloads <c>wallboard.json</c>, resets paging, and renders the first page.
+    /// This is used at startup, after pressing Reload JSON, and after the settings dialog saves.
     /// </summary>
     private async Task ReloadConfigurationAsync()
     {
+        _rotationTimer.Stop();
         _configuration = await WallboardConfigReader.LoadAsync();
         _layout = NormalizeLayout(_configuration.DefaultLayout);
         _currentPage = 0;
@@ -175,7 +185,8 @@ internal sealed class WallboardForm : Form
     }
 
     /// <summary>
-    /// Opens the visual JSON editor and reloads the wallboard when changes are saved.
+    /// Opens the visual settings editor and reloads the wallboard when changes are saved.
+    /// SettingsForm works on a cloned configuration, so canceling the dialog leaves this live form untouched.
     /// </summary>
     private async Task OpenSettingsAsync()
     {
@@ -189,45 +200,67 @@ internal sealed class WallboardForm : Form
 
     /// <summary>
     /// Recreates the visible panel grid for the current page and layout.
+    /// Existing panel timers are stopped before controls are removed so old WebView refresh/alarm timers
+    /// do not continue firing after their controls leave the grid.
     /// </summary>
     private async Task RenderCurrentPageAsync()
     {
-        if (_webViewEnvironment is null)
+        await _renderLock.WaitAsync();
+
+        try
         {
-            return;
+            if (_webViewEnvironment is null)
+            {
+                return;
+            }
+
+            StopActivePanelTimers();
+            _activePanels.Clear();
+            _grid.Controls.Clear();
+            _grid.ColumnStyles.Clear();
+            _grid.RowStyles.Clear();
+            var (columns, rows) = GetGridDimensions(_layout);
+            _grid.ColumnCount = columns;
+            _grid.RowCount = rows;
+
+            for (var column = 0; column < _grid.ColumnCount; column++)
+            {
+                _grid.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F / _grid.ColumnCount));
+            }
+
+            for (var row = 0; row < _grid.RowCount; row++)
+            {
+                _grid.RowStyles.Add(new RowStyle(SizeType.Percent, 100F / _grid.RowCount));
+            }
+
+            var panels = GetVisiblePanels();
+
+            for (var index = 0; index < panels.Count; index++)
+            {
+                // Each visible slot receives a fresh WebViewPanelControl. This keeps each browser instance,
+                // refresh timer, and monitoring timer scoped to the current page of the wallboard.
+                var control = new WebViewPanelControl();
+                _activePanels.Add(control);
+                _grid.Controls.Add(control, index % _grid.ColumnCount, index / _grid.ColumnCount);
+
+                try
+                {
+                    await control.LoadPanelAsync(panels[index], _webViewEnvironment);
+                }
+                catch (Exception ex)
+                {
+                    AppErrorLog.Log($"loading panel '{panels[index].Name}'", ex);
+                    control.ShowPanelError(panels[index].Name, ex);
+                }
+            }
+
+            UpdateLayoutButtons();
+            UpdatePageLabel();
         }
-
-        StopActivePanelTimers();
-        _activePanels.Clear();
-        _grid.Controls.Clear();
-        _grid.ColumnStyles.Clear();
-        _grid.RowStyles.Clear();
-        var (columns, rows) = GetGridDimensions(_layout);
-        _grid.ColumnCount = columns;
-        _grid.RowCount = rows;
-
-        for (var column = 0; column < _grid.ColumnCount; column++)
+        finally
         {
-            _grid.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F / _grid.ColumnCount));
+            _renderLock.Release();
         }
-
-        for (var row = 0; row < _grid.RowCount; row++)
-        {
-            _grid.RowStyles.Add(new RowStyle(SizeType.Percent, 100F / _grid.RowCount));
-        }
-
-        var panels = GetVisiblePanels();
-
-        for (var index = 0; index < panels.Count; index++)
-        {
-            var control = new WebViewPanelControl();
-            _activePanels.Add(control);
-            _grid.Controls.Add(control, index % _grid.ColumnCount, index / _grid.ColumnCount);
-            await control.LoadPanelAsync(panels[index], _webViewEnvironment);
-        }
-
-        UpdateLayoutButtons();
-        UpdatePageLabel();
     }
 
     /// <summary>
@@ -238,12 +271,13 @@ internal sealed class WallboardForm : Form
     {
         _layout = NormalizeLayout(layout);
         _currentPage = 0;
-        _ = RenderCurrentPageAsync();
+        _ = RunSafelyAsync(RenderCurrentPageAsync, "changing wallboard layout");
         ScheduleRotation();
     }
 
     /// <summary>
     /// Starts or stops the page rotation timer based on the current configuration and checkbox state.
+    /// Rotation is useful only when the configured panel list spans more than one page.
     /// </summary>
     private void ScheduleRotation()
     {
@@ -264,7 +298,7 @@ internal sealed class WallboardForm : Form
     private void RotatePage()
     {
         _currentPage = (_currentPage + 1) % GetPageCount();
-        _ = RenderCurrentPageAsync();
+        _ = RunSafelyAsync(RenderCurrentPageAsync, "rendering the next rotated page");
     }
 
     /// <summary>
@@ -280,6 +314,7 @@ internal sealed class WallboardForm : Form
 
     /// <summary>
     /// Returns the panels that belong to the active page.
+    /// Panel order in wallboard.json is preserved; paging simply slices that ordered list.
     /// </summary>
     /// <returns>Visible panel declarations.</returns>
     private List<WallboardPanel> GetVisiblePanels()
@@ -323,6 +358,8 @@ internal sealed class WallboardForm : Form
 
     /// <summary>
     /// Toggles borderless fullscreen mode while preserving the previous window state.
+    /// The previous border style, state, and bounds are stored so leaving fullscreen restores the user
+    /// to the same window shape they had before entering NOC/TV mode.
     /// </summary>
     private void ToggleFullscreen()
     {
@@ -379,7 +416,7 @@ internal sealed class WallboardForm : Form
 
         if (e.Control && e.KeyCode == Keys.Oemcomma)
         {
-            _ = OpenSettingsAsync();
+            _ = RunSafelyAsync(OpenSettingsAsync, "opening settings from keyboard shortcut");
             e.Handled = true;
             return;
         }
@@ -398,7 +435,52 @@ internal sealed class WallboardForm : Form
     {
         foreach (var panel in _activePanels)
         {
-            panel.StopTimers();
+            try
+            {
+                panel.StopTimers();
+            }
+            catch (Exception ex)
+            {
+                AppErrorLog.Log("stopping panel timers", ex);
+            }
+        }
+    }
+
+    /// <summary>
+    /// Runs asynchronous UI work and converts unexpected failures into a log entry plus operator message.
+    /// WinForms event handlers cannot naturally await Task-returning methods, so this helper prevents
+    /// async work from becoming an unobserved exception that closes the application.
+    /// </summary>
+    /// <param name="action">Async action to execute.</param>
+    /// <param name="context">Human-readable context for logs and messages.</param>
+    private async Task RunSafelyAsync(Func<Task> action, string context)
+    {
+        try
+        {
+            await action();
+        }
+        catch (Exception ex)
+        {
+            _rotationTimer.Stop();
+            AppErrorLog.ShowUnexpectedError(this, context, ex);
+        }
+    }
+
+    /// <summary>
+    /// Runs synchronous UI work through the same diagnostics path used by async operations.
+    /// </summary>
+    /// <param name="action">Action to execute.</param>
+    /// <param name="context">Human-readable context for logs and messages.</param>
+    private void RunSafely(Action action, string context)
+    {
+        try
+        {
+            action();
+        }
+        catch (Exception ex)
+        {
+            _rotationTimer.Stop();
+            AppErrorLog.ShowUnexpectedError(this, context, ex);
         }
     }
 

@@ -5,9 +5,33 @@
   "defaultLayout": 4,
   "panels": [
     {
-      "name": "Operations Overview",
-      "url": "https://example.com/",
-      "refreshSeconds": 10
+      "name": "SSLAW Overview",
+      "url": "https://ny43rcsi.linux.us.ups.com/ssla/overview.php",
+      "refreshSeconds": 10,
+      "monitoring": {
+        "enabled": true,
+        "pollSeconds": 3,
+        "soundEnabled": true,
+        "repeatSoundSeconds": 5,
+        "rules": [
+          {
+            "name": "PLC Alarm Modal",
+            "type": "domText",
+            "selector": "#divAlarm.on .alarmTitle",
+            "contains": "PLC Alarm Detected",
+            "severity": "critical",
+            "detailsSelector": "#divAlarm.on .alarmDiv"
+          },
+          {
+            "name": "Health Red Indicator",
+            "type": "exists",
+            "selector": ".overviewHealth .ledRED, #divHealth .ledRED",
+            "severity": "warning",
+            "detailsSelector": ".overviewHealth .ledRED, #divHealth .ledRED",
+            "soundEnabled": false
+          }
+        ]
+      }
     },
     {
       "name": "Application Status",
