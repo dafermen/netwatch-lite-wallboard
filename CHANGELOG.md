@@ -2,6 +2,29 @@
 
 All notable changes to NetWatch Lite Wallboard are documented here.
 
+## Unreleased
+
+- Improved settings window spacing so top-level fields and panel editor actions are easier to read.
+- Reworked settings field alignment so rotation and default layout labels stay readable.
+- Added more vertical spacing for panel editor labels and footer buttons.
+- Moved the panel delete action into the visible command grid and renamed the monitoring action to **Edit JSON**.
+- Changed the default configuration so automatic rotation starts disabled.
+- Changed the settings keyboard shortcut from `Ctrl+,` to `C`.
+- Made the alarm sound silence button persist across page refreshes until sound is manually re-enabled.
+- Improved the Monitoring JSON dialog layout so rule builder labels, selector fields, and the Add Rule button remain readable.
+- Added a standalone local scraping test page for validating DOM monitoring selectors, alarm text, alarm classes, and sound behavior.
+- Allowed `file:///` panel URLs so local HTML test pages can be loaded by the wallboard.
+- Added a per-panel **Stop Scraping** / **Start Scraping** control for temporarily pausing DOM monitoring without editing JSON.
+- Made `ESC` reliable from hosted WebView2 content and close the app when fullscreen is not active.
+- Documented how to change the built-in alert sound or replace it with a custom `.wav`.
+- Added a Settings dropdown and top-level `alarmSound` JSON field for choosing `Exclamation`, `Asterisk`, `Beep`, `Hand`, or `Question`.
+- Added **Preview** and **Test Alarm** actions in Settings for validating selected alarm sound and severity colors.
+- Added configurable `severityColors` for critical, warning, and info alarm banners.
+- Added a **Diagnostics** window with runtime paths, version, configuration summary, monitoring summary, and panel details.
+- Added visible scraping status updates showing active, checked, and stopped DOM monitoring states.
+- Added selector validation in the Monitoring JSON editor for common selector syntax mistakes.
+- Enhanced the local scraping test page with persistent state, export/import, and a configurable custom DOM target.
+
 ## v0.2.3 - 2026-06-03
 
 - Expanded the README with a complete explanation of configuration, panel fields, DOM monitoring JSON, selector rules, alarm behavior, build steps, and operational notes.

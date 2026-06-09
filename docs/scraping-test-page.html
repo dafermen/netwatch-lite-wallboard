@@ -1,0 +1,523 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>NetWatch Lite Scraping Test</title>
+  <style>
+    :root {
+      --bg: #f5f7fb;
+      --surface: #ffffff;
+      --line: #cfd7e6;
+      --text: #172033;
+      --muted: #5e6a7d;
+      --green: #178a4d;
+      --yellow: #b87400;
+      --red: #c91d2e;
+      --blue: #1b65a7;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background: var(--bg);
+      color: var(--text);
+      font-family: "Segoe UI", Arial, sans-serif;
+    }
+
+    header {
+      background: #172033;
+      color: #ffffff;
+      padding: 18px 24px;
+    }
+
+    h1,
+    h2,
+    p {
+      margin: 0;
+    }
+
+    h1 {
+      font-size: 24px;
+      font-weight: 700;
+    }
+
+    .subtitle {
+      color: #d6deeb;
+      font-size: 14px;
+      margin-top: 4px;
+    }
+
+    main {
+      display: grid;
+      gap: 16px;
+      margin: 0 auto;
+      max-width: 980px;
+      padding: 18px;
+    }
+
+    section {
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      overflow: hidden;
+    }
+
+    section > h2 {
+      background: #eef2f8;
+      border-bottom: 1px solid var(--line);
+      font-size: 15px;
+      padding: 11px 14px;
+    }
+
+    .section-body {
+      padding: 14px;
+    }
+
+    .status-panel {
+      border-top: 7px solid var(--green);
+    }
+
+    .status-panel.warning {
+      border-top-color: var(--yellow);
+    }
+
+    .status-panel.critical {
+      border-top-color: var(--red);
+    }
+
+    #alarmStatus {
+      align-items: center;
+      background: #edf8f1;
+      border: 2px solid var(--green);
+      border-radius: 6px;
+      display: grid;
+      gap: 8px;
+      min-height: 170px;
+      padding: 18px;
+      text-align: center;
+    }
+
+    #alarmStatus.warning {
+      background: #fff7e6;
+      border-color: var(--yellow);
+    }
+
+    #alarmStatus.critical {
+      background: #fff0f2;
+      border-color: var(--red);
+    }
+
+    .alarm-title {
+      color: var(--green);
+      font-size: 36px;
+      font-weight: 800;
+      line-height: 1.1;
+    }
+
+    #alarmStatus.warning .alarm-title {
+      color: var(--yellow);
+    }
+
+    #alarmStatus.critical .alarm-title {
+      color: var(--red);
+    }
+
+    #alarmDetails {
+      color: var(--muted);
+      font-size: 17px;
+    }
+
+    .actions {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 10px;
+      margin-top: 14px;
+    }
+
+    button,
+    input,
+    select {
+      font: inherit;
+    }
+
+    button {
+      border: 1px solid #9facbf;
+      border-radius: 5px;
+      color: #ffffff;
+      cursor: pointer;
+      font-weight: 700;
+      min-height: 46px;
+      padding: 9px 12px;
+    }
+
+    button.normal-button {
+      background: var(--green);
+      border-color: var(--green);
+    }
+
+    button.warning-button {
+      background: var(--yellow);
+      border-color: var(--yellow);
+    }
+
+    button.critical-button {
+      background: var(--red);
+      border-color: var(--red);
+    }
+
+    button.secondary-button {
+      background: var(--blue);
+      border-color: var(--blue);
+    }
+
+    .selector-grid,
+    .custom-grid {
+      display: grid;
+      gap: 10px;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .selector-box,
+    .field {
+      background: #f8fafc;
+      border: 1px solid var(--line);
+      border-radius: 5px;
+      padding: 10px;
+    }
+
+    label {
+      color: var(--muted);
+      display: block;
+      font-size: 12px;
+      margin-bottom: 6px;
+    }
+
+    code {
+      color: #0f3d68;
+      font-family: Consolas, "Courier New", monospace;
+      font-size: 13px;
+      overflow-wrap: anywhere;
+    }
+
+    input,
+    select {
+      border: 1px solid #aeb8c8;
+      border-radius: 4px;
+      color: var(--text);
+      min-height: 38px;
+      padding: 7px 9px;
+      width: 100%;
+    }
+
+    .custom-actions {
+      display: flex;
+      gap: 10px;
+      margin-top: 10px;
+    }
+
+    .custom-actions button {
+      flex: 1;
+    }
+
+    .custom-target {
+      background: #eef5ff;
+      border: 2px dashed var(--blue);
+      border-radius: 6px;
+      color: var(--blue);
+      display: grid;
+      gap: 4px;
+      font-size: 15px;
+      font-weight: 600;
+      margin-top: 12px;
+      min-height: 62px;
+      padding: 16px;
+    }
+
+    .custom-target strong {
+      display: block;
+      font-size: 18px;
+    }
+
+    .custom-target-details {
+      display: block;
+    }
+
+    .custom-target.warning,
+    .custom-target[data-alarm="warning"] {
+      background: #fff7e6;
+      border-color: var(--yellow);
+      color: var(--yellow);
+    }
+
+    .custom-target.critical,
+    .custom-target[data-alarm="critical"] {
+      background: #fff0f2;
+      border-color: var(--red);
+      color: var(--red);
+    }
+
+    .json-box {
+      background: #111827;
+      border-radius: 5px;
+      color: #dbeafe;
+      font-family: Consolas, "Courier New", monospace;
+      font-size: 12px;
+      overflow: auto;
+      padding: 12px;
+      white-space: pre;
+    }
+
+    @media (max-width: 720px) {
+      .actions,
+      .selector-grid,
+      .custom-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .alarm-title {
+        font-size: 28px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>NetWatch Lite Scraping Test</h1>
+    <p class="subtitle">Basic DOM targets for validating visual alarms.</p>
+  </header>
+
+  <main>
+    <section id="statusPanel" class="status-panel">
+      <h2>Alarm State</h2>
+      <div class="section-body">
+        <div id="alarmStatus" class="normal" data-alarm="normal">
+          <div id="alarmTitle" class="alarm-title">Normal</div>
+          <p id="alarmDetails">All monitored targets are healthy.</p>
+        </div>
+
+        <div class="actions">
+          <button id="normalButton" class="normal-button" type="button">Normal</button>
+          <button id="warningButton" class="warning-button" type="button">Warning</button>
+          <button id="criticalButton" class="critical-button" type="button">Critical</button>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <h2>Selectors</h2>
+
+
+
+        <div id="idPrueba1" class="clasePrueba1">
+          <div class="clasePrueba2">xxx</div>
+        </div>
+
+
+
+      <div class="section-body">
+        <div class="selector-grid">
+          <div class="selector-box">
+            <label>Critical selector</label>
+            <code>#alarmStatus.critical .alarm-title</code>
+          </div>
+          <div class="selector-box">
+            <label>Warning selector</label>
+            <code>#alarmStatus.warning .alarm-title</code>
+          </div>
+          <div class="selector-box">
+            <label>Details selector</label>
+            <code>#alarmDetails</code>
+          </div>
+          <div class="selector-box">
+            <label>Generic alarm selector</label>
+            <code>.custom-target[data-alarm="critical"], .custom-target.critical</code>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <h2>Custom Target</h2>
+      <div class="section-body">
+        <div class="custom-grid">
+          <div class="field">
+            <label for="customIdInput">Element id</label>
+            <input id="customIdInput" value="customTarget">
+          </div>
+          <div class="field">
+            <label for="customClassInput">CSS classes</label>
+            <input id="customClassInput" value="custom-target">
+          </div>
+          <div class="field">
+            <label for="customAlarmInput">data-alarm</label>
+            <select id="customAlarmInput">
+              <option value="normal">normal</option>
+              <option value="warning">warning</option>
+              <option value="critical">critical</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="customTextInput">Visible text</label>
+            <input id="customTextInput" value="Custom target ready">
+          </div>
+        </div>
+
+        <div class="custom-actions">
+          <button id="applyCustomButton" class="secondary-button" type="button">Apply Custom Target</button>
+          <button id="clearCustomButton" class="normal-button" type="button">Clear Custom Target</button>
+        </div>
+
+        <div id="customTarget" class="custom-target" data-alarm="normal">
+          <strong>Custom target ready</strong>
+          <span class="custom-target-details">Custom target ready | Target id: customTarget | Alarm state: normal | Classes: custom-target</span>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <h2>Recommended Monitoring JSON</h2>
+      <div class="section-body">
+        <div id="recommendedJson" class="json-box"></div>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    const statusPanel = document.getElementById("statusPanel");
+    const alarmStatus = document.getElementById("alarmStatus");
+    const alarmTitle = document.getElementById("alarmTitle");
+    const alarmDetails = document.getElementById("alarmDetails");
+    const customTarget = document.getElementById("customTarget");
+    const customIdInput = document.getElementById("customIdInput");
+    const customClassInput = document.getElementById("customClassInput");
+    const customAlarmInput = document.getElementById("customAlarmInput");
+    const customTextInput = document.getElementById("customTextInput");
+
+    const recommendedMonitoring = {
+      enabled: true,
+      pollSeconds: 3,
+      soundEnabled: true,
+      repeatSoundSeconds: 5,
+      rules: [
+        {
+          name: "Demo Critical Alarm",
+          type: "domText",
+          selector: "#alarmStatus.critical .alarm-title",
+          contains: "Critical Alarm Detected",
+          severity: "critical",
+          detailsSelector: "#alarmDetails"
+        },
+        {
+          name: "Demo Warning Alarm",
+          type: "domText",
+          selector: "#alarmStatus.warning .alarm-title",
+          contains: "Warning Alarm Detected",
+          severity: "warning",
+          detailsSelector: "#alarmDetails",
+          soundEnabled: false
+        },
+        {
+          name: "Demo Custom Critical Target",
+          type: "exists",
+          selector: ".custom-target[data-alarm=\"critical\"], .custom-target.critical",
+          severity: "critical",
+          detailsSelector: ".custom-target[data-alarm=\"critical\"] .custom-target-details, .custom-target.critical .custom-target-details"
+        },
+        {
+          name: "Demo Custom Warning Target",
+          type: "exists",
+          selector: ".custom-target[data-alarm=\"warning\"], .custom-target.warning",
+          severity: "warning",
+          detailsSelector: ".custom-target[data-alarm=\"warning\"] .custom-target-details, .custom-target.warning .custom-target-details"
+        }
+      ]
+    };
+
+    function setAlarmState(state) {
+      const title = {
+        normal: "Normal",
+        warning: "Warning Alarm Detected",
+        critical: "Critical Alarm Detected"
+      }[state];
+
+      const details = {
+        normal: "All monitored targets are healthy.",
+        warning: "A warning condition is visible in the DOM.",
+        critical: "A critical condition is visible in the DOM."
+      }[state];
+
+      statusPanel.className = `status-panel ${state}`;
+      alarmStatus.className = state;
+      alarmStatus.dataset.alarm = state;
+      alarmTitle.textContent = title;
+      alarmDetails.textContent = details;
+    }
+
+    function sanitizeId(value) {
+      return String(value).trim().replace(/[^A-Za-z0-9_-]/g, "-") || "customTarget";
+    }
+
+    function sanitizeClassList(value) {
+      return String(value)
+        .split(/\s+/)
+        .map(item => item.trim().replace(/[^A-Za-z0-9_-]/g, "-"))
+        .filter(Boolean)
+        .join(" ") || "custom-target";
+    }
+
+    function applyCustomTarget() {
+      const id = sanitizeId(customIdInput.value);
+      const classes = sanitizeClassList(customClassInput.value);
+      const alarm = customAlarmInput.value;
+      const message = customTextInput.value || "Custom DOM target";
+      const details = `${message} | Target id: ${id} | Alarm state: ${alarm} | Classes: ${classes}`;
+
+      customTarget.id = id;
+      customTarget.className = classes;
+      customTarget.dataset.alarm = alarm;
+      customTarget.innerHTML = [
+        `<strong>${escapeHtml(message)}</strong>`,
+        `<span class="custom-target-details">${escapeHtml(details)}</span>`
+      ].join("");
+      customIdInput.value = id;
+      customClassInput.value = classes;
+    }
+
+    function clearCustomTarget() {
+      customTarget.id = "customTarget";
+      customTarget.className = "custom-target";
+      customTarget.dataset.alarm = "normal";
+      customTarget.innerHTML = [
+        "<strong>Custom target cleared</strong>",
+        "<span class=\"custom-target-details\">Custom target cleared | Target id: customTarget | Alarm state: normal | Classes: custom-target</span>"
+      ].join("");
+      customIdInput.value = "customTarget";
+      customClassInput.value = "custom-target";
+      customAlarmInput.value = "normal";
+      customTextInput.value = "Custom target cleared";
+    }
+
+    function escapeHtml(value) {
+      return String(value)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#39;");
+    }
+
+    document.getElementById("normalButton").addEventListener("click", () => setAlarmState("normal"));
+    document.getElementById("warningButton").addEventListener("click", () => setAlarmState("warning"));
+    document.getElementById("criticalButton").addEventListener("click", () => setAlarmState("critical"));
+    document.getElementById("applyCustomButton").addEventListener("click", applyCustomTarget);
+    document.getElementById("clearCustomButton").addEventListener("click", clearCustomTarget);
+
+    document.getElementById("recommendedJson").textContent = JSON.stringify(recommendedMonitoring, null, 2);
+  </script>
+</body>
+</html>

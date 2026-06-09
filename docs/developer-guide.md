@@ -60,8 +60,18 @@ The application is intentionally separate from any ASP.NET or browser-hosted das
 | `WallboardForm.cs` | Main wallboard window, layout, paging, rotation, fullscreen, settings entry point. |
 | `WebViewPanelControl.cs` | One WebView2 panel, refresh timer, DOM alarm polling, alarm banner, sound. |
 | `SettingsForm.cs` | Visual settings editor plus advanced monitoring JSON editor dialog. |
+| `DiagnosticsForm.cs` | Read-only runtime diagnostics window for support and troubleshooting. |
 | `Data/wallboard.json` | Development/default configuration copied to build and publish output. |
+| `docs/scraping-test-page.html` | Local HTML test dashboard for validating DOM monitoring rules. |
 | `Assets/netwatch-lite.ico` | Executable icon referenced by the project file. |
+
+## Scraping Test Page
+
+`docs/scraping-test-page.html` is a standalone local page used for DOM monitoring tests. It updates the rendered DOM immediately when buttons or form fields change, which means `WebViewPanelControl` can detect those changes on the next scraping poll.
+
+The page uses browser `localStorage` to persist test state inside the WebView2 profile. This allows operators to refresh the panel and keep a custom alarm scenario without modifying the HTML file on disk. It also supports export/import of the test state as JSON for reusable scenarios.
+
+The custom DOM target area lets operators change an element id, class list, `data-alarm` value, and text content. This is useful for validating new selectors before pointing monitoring rules at a real production page.
 
 ## Configuration Loading Flow
 
@@ -79,6 +89,8 @@ After reading JSON, `WallboardConfigReader.Normalize` converts it into safe runt
 
 - Empty `appTitle` becomes `NetWatch Lite Wallboard`.
 - `defaultLayout` accepts only `1`, `2`, `3`, `4`, `6`, or `8`; unsupported values become `4`.
+- `alarmSound` accepts only `Exclamation`, `Asterisk`, `Beep`, `Hand`, or `Question`; unsupported values become `Exclamation`.
+- `severityColors.critical`, `severityColors.warning`, and `severityColors.info` are normalized to `#RRGGBB` values.
 - `rotationSeconds <= 0` becomes `20`.
 - Invalid panel URLs are ignored.
 - Empty panel names become `Monitoring Panel`.
@@ -175,9 +187,11 @@ When `LoadPanelAsync` runs:
 
 ## URL Resolution
 
-`WebViewPanelControl.ResolvePanelUri` supports two URL shapes:
+`WebViewPanelControl.ResolvePanelUri` supports four URL shapes:
 
 - Absolute HTTP/HTTPS URLs are returned directly.
+- Absolute `file:///` URLs are returned directly for local HTML test pages and other trusted local content.
+- Relative paths such as `docs/scraping-test-page.html` are resolved beside the executable.
 - Root-relative paths such as `/status/index.html` are resolved under `wwwroot`.
 
 For local paths, runtime lookup checks the published executable folder first, then the development tree. Query strings are preserved.
@@ -222,7 +236,7 @@ DOM monitoring starts only after navigation succeeds. This matters because WebVi
 Flow:
 
 1. `OnNavigationCompleted` receives a successful navigation event.
-2. If the panel has `Monitoring.Enabled == true`, `_alarmPollTimer` starts.
+2. If the panel has `Monitoring.Enabled == true` and the operator has not paused scraping, `_alarmPollTimer` starts.
 3. The app immediately calls `DetectConfiguredAlertsAsync` once so a visible alarm does not wait for the first timer interval.
 4. `DetectConfiguredAlertsAsync` serializes the monitoring rules to JSON.
 5. The method injects that JSON into a JavaScript function.
@@ -238,6 +252,8 @@ Flow:
 15. `ClearAlarmState` hides the banner when no rule matches.
 
 The JavaScript intentionally returns only small structured data. It does not return full HTML, screenshots, or large page content.
+
+Panels with monitoring rules expose a **Stop Scraping** / **Start Scraping** button in the title bar. This toggle only pauses the panel's DOM polling timer. It does not edit the saved JSON, stop the panel refresh timer, or unload the page.
 
 ## Alarm Snapshot
 
@@ -268,7 +284,27 @@ Sound is controlled at two levels:
 
 Sound plays only when the panel-level setting is true and at least one matched rule does not explicitly set `soundEnabled` to false.
 
-The silence button acknowledges the current alarm sound but leaves the visual alarm visible. If a new alarm signature appears, silence is reset automatically. The signature includes severity, title, and detail text, so materially different alarms are treated as new events.
+The silence button acknowledges alarm sound but leaves the visual alarm visible. Once silenced, sound remains muted across page refreshes and changing alarm snapshots until the operator presses **Enable Sound**.
+
+The selected sound is stored as the top-level `alarmSound` field in `WallboardConfiguration`. `WallboardConfigReader` normalizes that value to one of the supported Windows `SystemSounds` names:
+
+- `Exclamation`
+- `Asterisk`
+- `Beep`
+- `Hand`
+- `Question`
+
+`SettingsForm` exposes the same list in the **Alarm sound** dropdown. `WallboardForm` passes the normalized value into each `WebViewPanelControl`, and `WebViewPanelControl.PlayConfiguredSystemSound` maps the text value to the actual `SystemSounds` call.
+
+Settings also exposes:
+
+- **Preview** to play the selected sound immediately.
+- **Test Alarm** to show the selected severity colors in a local preview dialog.
+- Color picker buttons for critical, warning, and info alarm colors.
+
+`WebViewPanelControl` receives `AlarmSeverityColors` from `WallboardForm` when each panel is loaded. The panel converts the configured hex values to `Color` values and uses them in `GetAlarmBannerColor` and `GetAlarmBorderColor` for the pulsing native alarm chrome.
+
+For a custom `.wav` file, replace the `SystemSounds` call with `SoundPlayer`. If custom sounds should become operator-configurable, add a new configuration field such as `alarmSoundPath` or `alarmSoundName`, normalize it in `WallboardConfigReader`, document it in the README, and keep a safe built-in fallback when the file is missing.
 
 ## Settings Form
 
@@ -277,6 +313,8 @@ The silence button acknowledges the current alarm sound but leaves the visual al
 The form is organized into:
 
 - Top-level wallboard settings.
+- Alarm sound selection.
+- Severity color selection.
 - Read-only panel grid.
 - Panel editor fields.
 - Panel command buttons.
@@ -317,6 +355,8 @@ Operators can:
 
 The basic rule builder parses the current JSON editor content, creates a default enabled monitoring block when the editor is empty, appends a `PanelMonitoringRule`, and serializes the result back into the editor. This keeps the generated output visible and editable.
 
+The editor's **Validate** button parses the JSON and performs lightweight selector screening. It catches common local mistakes such as empty selectors, unbalanced brackets, unclosed quotes, trailing selector combinators, and malformed `detailsSelector` values. WebView2 remains the authoritative runtime selector evaluator because only the loaded page DOM can prove whether a selector actually matches.
+
 Validation rules:
 
 - Empty or `null` disables monitoring.
@@ -326,6 +366,22 @@ Validation rules:
 - Every enabled rule must include a non-empty selector.
 - Timing values are clamped.
 - Rule type and severity names are normalized.
+
+## Diagnostics Window
+
+`DiagnosticsForm` is opened from the main top bar. It is intentionally read-only and gives support a fast snapshot of runtime state without requiring file browsing.
+
+Diagnostics includes:
+
+- Current app version, process ID, and generated timestamp.
+- Active configuration path from `WallboardConfigReader.GetConfigurationFilePath`.
+- Error log path from `AppErrorLog.LogFilePath`.
+- WebView2 user data folder.
+- Current layout, page, visible panel count, and configured panel count.
+- Alarm sound and severity colors.
+- Per-panel URL, refresh interval, monitoring state, poll interval, and rule count.
+
+The diagnostics window has **Refresh** and **Copy** actions so the support team can capture the state in a ticket or troubleshooting note.
 
 ## WebView2 Environment
 
@@ -408,5 +464,5 @@ Common places to extend the application:
 - Keep panel refresh intervals appropriate for the target systems.
 - Keep DOM polling intervals reasonable. Polling every second is supported but should be used only when the page and machine can handle it.
 - WebView2 user data is persistent. Clear `%LOCALAPPDATA%\NetWatchLite\WallboardWebView2` if you need to reset browser sessions.
-- Root-relative local pages require a `wwwroot` folder in the publish output or development tree.
+- Relative local pages must be copied beside the executable. Root-relative local pages require a `wwwroot` folder in the publish output or development tree.
 - Selector accuracy matters. Prefer stable IDs/classes from the monitored application over visual-only selectors that may change with styling updates.

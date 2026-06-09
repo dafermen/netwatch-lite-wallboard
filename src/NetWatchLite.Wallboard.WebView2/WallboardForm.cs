@@ -15,17 +15,22 @@ internal sealed class WallboardForm : Form
     private readonly Panel _topBar = new();
     private readonly Label _titleLabel = new();
     private readonly Label _pageLabel = new();
+    private readonly Label _shortcutLabel = new();
     private readonly Dictionary<int, Button> _layoutButtons = [];
     private readonly Button _refreshButton = new();
-    private readonly Button _reloadButton = new();
     private readonly Button _settingsButton = new();
+    private readonly Button _previousPageButton = new();
+    private readonly Button _nextPageButton = new();
     private readonly CheckBox _rotationCheckBox = new();
+    private readonly ToolTip _topBarToolTip = new();
     private readonly TableLayoutPanel _grid = new();
     private readonly System.Windows.Forms.Timer _rotationTimer = new();
     private readonly List<WebViewPanelControl> _activePanels = [];
+    private readonly Dictionary<string, bool> _scrapingPausedByPanelKey = new(StringComparer.OrdinalIgnoreCase);
     private readonly SemaphoreSlim _renderLock = new(1, 1);
     private WallboardConfiguration _configuration = new();
     private CoreWebView2Environment? _webViewEnvironment;
+    private string _webViewUserDataFolder = string.Empty;
     private int _layout = 4;
     private int _currentPage;
     private bool _isFullscreen;
@@ -65,20 +70,20 @@ internal sealed class WallboardForm : Form
     /// </summary>
     private async Task InitializeAsync()
     {
-        var userDataFolder = Path.Combine(
+        _webViewUserDataFolder = Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
             "NetWatchLite",
             "WallboardWebView2");
 
         _webViewEnvironment = await CoreWebView2Environment.CreateAsync(
             browserExecutableFolder: null,
-            userDataFolder: userDataFolder);
+            userDataFolder: _webViewUserDataFolder);
 
         await ReloadConfigurationAsync();
     }
 
     /// <summary>
-    /// Builds the control strip with layout, refresh, reload, rotation, and shortcut labels.
+    /// Builds the control strip with layout, page navigation, rotation, and global actions.
     /// The top bar is intentionally compact because this app is usually displayed on TVs or NOC screens.
     /// </summary>
     private void BuildTopBar()
@@ -88,12 +93,22 @@ internal sealed class WallboardForm : Form
         _topBar.Height = 48;
         _topBar.Padding = new Padding(8, 6, 8, 6);
 
+        var topLayout = new TableLayoutPanel
+        {
+            ColumnCount = 3,
+            Dock = DockStyle.Fill,
+            RowCount = 1
+        };
+        topLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 675));
+        topLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+        topLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 560));
+
         var leftPanel = new FlowLayoutPanel
         {
-            Dock = DockStyle.Left,
+            Dock = DockStyle.Fill,
             FlowDirection = FlowDirection.LeftToRight,
             WrapContents = false,
-            Width = 720
+            Margin = Padding.Empty
         };
 
         foreach (var layout in SupportedLayouts)
@@ -105,13 +120,17 @@ internal sealed class WallboardForm : Form
             leftPanel.Controls.Add(button);
         }
 
+        ConfigureButton(_previousPageButton, "<", 42);
+        ConfigureButton(_nextPageButton, ">", 42);
         ConfigureButton(_refreshButton, "Refresh", 92);
-        ConfigureButton(_reloadButton, "Reload JSON", 112);
         ConfigureButton(_settingsButton, "Settings", 110);
 
+        _previousPageButton.Click += (_, _) => NavigatePage(-1);
+        _nextPageButton.Click += (_, _) => NavigatePage(1);
         _refreshButton.Click += (_, _) => RefreshVisiblePanels();
-        _reloadButton.Click += (_, _) => _ = RunSafelyAsync(ReloadConfigurationAsync, "reloading wallboard.json");
         _settingsButton.Click += (_, _) => _ = RunSafelyAsync(OpenSettingsAsync, "opening settings");
+        _topBarToolTip.SetToolTip(_previousPageButton, "Previous page");
+        _topBarToolTip.SetToolTip(_nextPageButton, "Next page");
 
         _rotationCheckBox.Text = "Auto";
         _rotationCheckBox.AutoSize = true;
@@ -119,11 +138,18 @@ internal sealed class WallboardForm : Form
         _rotationCheckBox.Margin = new Padding(10, 8, 0, 0);
         _rotationCheckBox.CheckedChanged += (_, _) => RunSafely(ScheduleRotation, "updating rotation");
 
+        _pageLabel.AutoSize = false;
+        _pageLabel.AutoEllipsis = false;
+        _pageLabel.ForeColor = Color.FromArgb(139, 155, 173);
+        _pageLabel.Margin = new Padding(10, 8, 0, 0);
+        _pageLabel.TextAlign = ContentAlignment.MiddleLeft;
+        _pageLabel.Width = 130;
+
         leftPanel.Controls.AddRange([
-            _refreshButton,
-            _reloadButton,
-            _settingsButton,
-            _rotationCheckBox
+            _rotationCheckBox,
+            _previousPageButton,
+            _nextPageButton,
+            _pageLabel
         ]);
 
         _titleLabel.Dock = DockStyle.Fill;
@@ -132,30 +158,25 @@ internal sealed class WallboardForm : Form
 
         var rightPanel = new FlowLayoutPanel
         {
-            Dock = DockStyle.Right,
-            FlowDirection = FlowDirection.RightToLeft,
+            Dock = DockStyle.Fill,
+            FlowDirection = FlowDirection.LeftToRight,
             WrapContents = false,
-            Width = 430
+            Margin = Padding.Empty
         };
 
-        var shortcutLabel = new Label
-        {
-            AutoSize = true,
-            ForeColor = Color.FromArgb(230, 237, 243),
-            Margin = new Padding(0, 8, 0, 0),
-            Text = "F: Fullscreen | R: Refresh | Ctrl+,: Settings | ESC"
-        };
+        _shortcutLabel.AutoSize = true;
+        _shortcutLabel.ForeColor = Color.FromArgb(139, 155, 173);
+        _shortcutLabel.Margin = new Padding(0, 8, 18, 0);
+        _shortcutLabel.Text = "Ctrl+F: Fullscreen | Ctrl+R: Refresh | Ctrl+S: Settings | ESC";
 
-        _pageLabel.AutoSize = true;
-        _pageLabel.ForeColor = Color.FromArgb(139, 155, 173);
-        _pageLabel.Margin = new Padding(0, 8, 16, 0);
+        rightPanel.Controls.Add(_shortcutLabel);
+        rightPanel.Controls.Add(_refreshButton);
+        rightPanel.Controls.Add(_settingsButton);
 
-        rightPanel.Controls.Add(shortcutLabel);
-        rightPanel.Controls.Add(_pageLabel);
-
-        _topBar.Controls.Add(_titleLabel);
-        _topBar.Controls.Add(leftPanel);
-        _topBar.Controls.Add(rightPanel);
+        topLayout.Controls.Add(leftPanel, 0, 0);
+        topLayout.Controls.Add(_titleLabel, 1, 0);
+        topLayout.Controls.Add(rightPanel, 2, 0);
+        _topBar.Controls.Add(topLayout);
     }
 
     /// <summary>
@@ -170,12 +191,13 @@ internal sealed class WallboardForm : Form
 
     /// <summary>
     /// Reloads <c>wallboard.json</c>, resets paging, and renders the first page.
-    /// This is used at startup, after pressing Reload JSON, and after the settings dialog saves.
+    /// This is used at startup and after the settings dialog saves or requests a JSON reload.
     /// </summary>
     private async Task ReloadConfigurationAsync()
     {
         _rotationTimer.Stop();
         _configuration = await WallboardConfigReader.LoadAsync();
+        PruneScrapingPauseState();
         _layout = NormalizeLayout(_configuration.DefaultLayout);
         _currentPage = 0;
         _titleLabel.Text = _configuration.AppTitle;
@@ -190,12 +212,35 @@ internal sealed class WallboardForm : Form
     /// </summary>
     private async Task OpenSettingsAsync()
     {
-        using var settingsForm = new SettingsForm(_configuration);
+        ExitFullscreen();
 
-        if (settingsForm.ShowDialog(this) == DialogResult.OK)
+        using var settingsForm = new SettingsForm(_configuration, OpenDiagnostics);
+        settingsForm.Shown += (_, _) =>
+        {
+            settingsForm.BringToFront();
+            settingsForm.Activate();
+        };
+        var result = settingsForm.ShowDialog(this);
+
+        if (result is DialogResult.OK or DialogResult.Retry)
         {
             await ReloadConfigurationAsync();
         }
+    }
+
+    /// <summary>
+    /// Opens a read-only diagnostics window with runtime paths and configuration summary.
+    /// </summary>
+    private void OpenDiagnostics(IWin32Window owner)
+    {
+        using var diagnosticsForm = new DiagnosticsForm(
+            _configuration,
+            _layout,
+            _currentPage + 1,
+            GetPageCount(),
+            _activePanels.Count,
+            _webViewUserDataFolder);
+        diagnosticsForm.ShowDialog(owner);
     }
 
     /// <summary>
@@ -233,29 +278,48 @@ internal sealed class WallboardForm : Form
                 _grid.RowStyles.Add(new RowStyle(SizeType.Percent, 100F / _grid.RowCount));
             }
 
-            var panels = GetVisiblePanels();
+            var panelEntries = GetVisiblePanelEntries();
 
-            for (var index = 0; index < panels.Count; index++)
+            for (var index = 0; index < panelEntries.Count; index++)
             {
+                var (panel, panelKey) = panelEntries[index];
                 // Each visible slot receives a fresh WebViewPanelControl. This keeps each browser instance,
                 // refresh timer, and monitoring timer scoped to the current page of the wallboard.
                 var control = new WebViewPanelControl();
+                control.ScrapingPausedChanged += (_, paused) =>
+                {
+                    if (paused)
+                    {
+                        _scrapingPausedByPanelKey[panelKey] = true;
+                    }
+                    else
+                    {
+                        _scrapingPausedByPanelKey.Remove(panelKey);
+                    }
+                };
+                control.ShortcutRequested += OnPanelShortcutRequested;
                 _activePanels.Add(control);
                 _grid.Controls.Add(control, index % _grid.ColumnCount, index / _grid.ColumnCount);
 
                 try
                 {
-                    await control.LoadPanelAsync(panels[index], _webViewEnvironment);
+                    await control.LoadPanelAsync(
+                        panel,
+                        _configuration.AlarmSound,
+                        _configuration.SeverityColors,
+                        IsScrapingPaused(panelKey),
+                        _webViewEnvironment);
                 }
                 catch (Exception ex)
                 {
-                    AppErrorLog.Log($"loading panel '{panels[index].Name}'", ex);
-                    control.ShowPanelError(panels[index].Name, ex);
+                    AppErrorLog.Log($"loading panel '{panel.Name}'", ex);
+                    control.ShowPanelError(panel.Name, ex);
                 }
             }
 
             UpdateLayoutButtons();
             UpdatePageLabel();
+            UpdatePageNavigationButtons();
         }
         finally
         {
@@ -302,6 +366,24 @@ internal sealed class WallboardForm : Form
     }
 
     /// <summary>
+    /// Moves to the previous or next configured page and wraps at the ends.
+    /// </summary>
+    /// <param name="direction">Negative for previous page, positive for next page.</param>
+    private void NavigatePage(int direction)
+    {
+        var pageCount = GetPageCount();
+
+        if (pageCount <= 1)
+        {
+            return;
+        }
+
+        _currentPage = (_currentPage + Math.Sign(direction) + pageCount) % pageCount;
+        _ = RunSafelyAsync(RenderCurrentPageAsync, "navigating wallboard pages");
+        ScheduleRotation();
+    }
+
+    /// <summary>
     /// Refreshes all panels currently visible in the grid.
     /// </summary>
     private void RefreshVisiblePanels()
@@ -319,11 +401,31 @@ internal sealed class WallboardForm : Form
     /// <returns>Visible panel declarations.</returns>
     private List<WallboardPanel> GetVisiblePanels()
     {
-        var start = _currentPage * _layout;
-        return _configuration.Panels
-            .Skip(start)
-            .Take(_layout)
+        return GetVisiblePanelEntries()
+            .Select(entry => entry.Panel)
             .ToList();
+    }
+
+    /// <summary>
+    /// Returns visible panels together with their stable runtime keys.
+    /// The key lets operator actions such as Stop Scraping survive layout changes, page rotation,
+    /// and the control recreation that happens when the grid is rerendered.
+    /// </summary>
+    /// <returns>Visible panel/key pairs.</returns>
+    private List<(WallboardPanel Panel, string Key)> GetVisiblePanelEntries()
+    {
+        var start = _currentPage * _layout;
+        var count = Math.Min(_layout, Math.Max(0, _configuration.Panels.Count - start));
+        var entries = new List<(WallboardPanel Panel, string Key)>(count);
+
+        for (var offset = 0; offset < count; offset++)
+        {
+            var panelIndex = start + offset;
+            var panel = _configuration.Panels[panelIndex];
+            entries.Add((panel, GetPanelRuntimeKey(panel, panelIndex)));
+        }
+
+        return entries;
     }
 
     /// <summary>
@@ -340,7 +442,17 @@ internal sealed class WallboardForm : Form
     /// </summary>
     private void UpdatePageLabel()
     {
-        _pageLabel.Text = $"Page {_currentPage + 1} / {GetPageCount()}";
+        _pageLabel.Text = $"Page {_currentPage + 1} of {GetPageCount()}";
+    }
+
+    /// <summary>
+    /// Enables page navigation only when the current layout spans multiple pages.
+    /// </summary>
+    private void UpdatePageNavigationButtons()
+    {
+        var enabled = GetPageCount() > 1;
+        _previousPageButton.Enabled = enabled;
+        _nextPageButton.Enabled = enabled;
     }
 
     /// <summary>
@@ -400,31 +512,166 @@ internal sealed class WallboardForm : Form
     /// <param name="e">Keyboard event details.</param>
     private void OnKeyDown(object? sender, KeyEventArgs e)
     {
-        if (e.KeyCode == Keys.F)
+        if (TryHandleShortcut(e.KeyCode, e.Modifiers))
         {
-            ToggleFullscreen();
             e.Handled = true;
             return;
         }
+    }
 
-        if (e.KeyCode == Keys.R)
+    /// <summary>
+    /// Converts supported shortcut combinations into wallboard actions.
+    /// </summary>
+    /// <param name="keyCode">Pressed key.</param>
+    /// <param name="modifiers">Pressed modifiers.</param>
+    /// <returns>True when the shortcut was handled.</returns>
+    private bool TryHandleShortcut(Keys keyCode, Keys modifiers)
+    {
+        if (modifiers == Keys.Control)
         {
-            RefreshVisiblePanels();
-            e.Handled = true;
-            return;
+            switch (keyCode)
+            {
+                case Keys.F:
+                    HandleShortcut(Keys.F);
+                    return true;
+                case Keys.R:
+                    HandleShortcut(Keys.R);
+                    return true;
+                case Keys.S:
+                    HandleShortcut(Keys.S);
+                    return true;
+            }
         }
 
-        if (e.Control && e.KeyCode == Keys.Oemcomma)
+        if (modifiers != Keys.None)
         {
-            _ = RunSafelyAsync(OpenSettingsAsync, "opening settings from keyboard shortcut");
-            e.Handled = true;
-            return;
+            return false;
         }
 
-        if (e.KeyCode == Keys.Escape)
+        if (keyCode == Keys.F)
         {
-            ExitFullscreen();
-            e.Handled = true;
+            HandleShortcut(Keys.F);
+            return true;
+        }
+
+        if (keyCode == Keys.R)
+        {
+            HandleShortcut(Keys.R);
+            return true;
+        }
+
+        if (keyCode == Keys.C)
+        {
+            HandleShortcut(Keys.C);
+            return true;
+        }
+
+        if (keyCode == Keys.Escape)
+        {
+            HandleShortcut(Keys.Escape);
+            return true;
+        }
+
+        return false;
+    }
+
+    /// <summary>
+    /// Handles shortcuts forwarded by a focused WebView2 panel.
+    /// </summary>
+    /// <param name="sender">Panel control.</param>
+    /// <param name="e">Shortcut key data.</param>
+    private void OnPanelShortcutRequested(object? sender, WebViewPanelControl.PanelShortcutRequestedEventArgs e)
+    {
+        TryHandleShortcut(e.KeyCode, e.Modifiers);
+    }
+
+    /// <summary>
+    /// Removes pause state for panels that are no longer present after reloading configuration.
+    /// </summary>
+    private void PruneScrapingPauseState()
+    {
+        var activeKeys = _configuration.Panels
+            .Select((panel, index) => GetPanelRuntimeKey(panel, index))
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var key in _scrapingPausedByPanelKey.Keys.ToArray())
+        {
+            if (!activeKeys.Contains(key))
+            {
+                _scrapingPausedByPanelKey.Remove(key);
+            }
+        }
+    }
+
+    /// <summary>
+    /// Returns whether the operator paused scraping for a configured panel during this app session.
+    /// </summary>
+    /// <param name="panelKey">Stable runtime key for the panel.</param>
+    /// <returns>True when scraping should start paused.</returns>
+    private bool IsScrapingPaused(string panelKey)
+    {
+        return _scrapingPausedByPanelKey.TryGetValue(panelKey, out var paused) && paused;
+    }
+
+    /// <summary>
+    /// Builds a stable in-session identity for one panel, including its JSON order when known.
+    /// </summary>
+    /// <param name="panel">Panel configuration.</param>
+    /// <param name="panelIndex">Zero-based panel index in wallboard.json, or -1 when unknown.</param>
+    /// <returns>Runtime key for this panel.</returns>
+    private static string GetPanelRuntimeKey(WallboardPanel panel, int panelIndex)
+    {
+        return $"{panelIndex}|{panel.Name.Trim()}|{panel.Url.Trim()}";
+    }
+
+    /// <summary>
+    /// Handles shortcuts even when focus is inside a hosted WebView2 control.
+    /// KeyDown is enough for normal WinForms controls, but browser-hosted content can capture keys
+    /// before the form sees them. ProcessCmdKey gives the main form a reliable final shortcut hook.
+    /// </summary>
+    /// <param name="msg">Windows message.</param>
+    /// <param name="keyData">Pressed key.</param>
+    /// <returns>True when the key was handled by the wallboard.</returns>
+    protected override bool ProcessCmdKey(ref Message msg, Keys keyData)
+    {
+        var keyCode = keyData & Keys.KeyCode;
+        var modifiers = keyData & Keys.Modifiers;
+
+        if (TryHandleShortcut(keyCode, modifiers))
+        {
+            return true;
+        }
+
+        return base.ProcessCmdKey(ref msg, keyData);
+    }
+
+    /// <summary>
+    /// Applies the wallboard-level shortcut actions from both KeyDown and ProcessCmdKey.
+    /// </summary>
+    /// <param name="keyCode">Shortcut key.</param>
+    private void HandleShortcut(Keys keyCode)
+    {
+        switch (keyCode)
+        {
+            case Keys.F:
+                ToggleFullscreen();
+                break;
+            case Keys.R:
+                RefreshVisiblePanels();
+                break;
+            case Keys.C:
+            case Keys.S:
+                _ = RunSafelyAsync(OpenSettingsAsync, "opening settings from keyboard shortcut");
+                break;
+            case Keys.Escape:
+                if (_isFullscreen)
+                {
+                    ExitFullscreen();
+                    break;
+                }
+
+                Close();
+                break;
         }
     }
 

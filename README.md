@@ -30,7 +30,7 @@ It can:
 - Export and import `wallboard.json` from the settings window for backup or moving a configuration to another machine.
 - Monitor the rendered DOM of a panel and raise native visual/audible alarms when configured CSS selectors match.
 - Create basic monitoring rules through a form-based rule builder, while still keeping the advanced JSON editor available.
-- Load normal HTTP/HTTPS URLs or local root-relative pages shipped beside the executable.
+- Load normal HTTP/HTTPS URLs or local pages shipped beside the executable.
 
 The DOM monitoring feature is intentionally simple and transparent. The app does not run a separate scraper process and does not fetch HTML with a hidden HTTP client. Instead, it asks WebView2 to execute JavaScript inside the page that is already loaded, then checks visible DOM elements with CSS selectors.
 
@@ -117,6 +117,7 @@ netwatch-lite-wallboard/
 |   `-- wallboard.json
 |-- docs/
 |   |-- developer-guide.md
+|   |-- scraping-test-page.html
 |   `-- images/
 |       |-- wallboard-four-panels.png
 |       |-- wallboard-one-panel.png
@@ -124,6 +125,7 @@ netwatch-lite-wallboard/
 |-- src/
 |   `-- NetWatchLite.Wallboard.WebView2/
 |       |-- NetWatchLite.Wallboard.WebView2.csproj
+|       |-- DiagnosticsForm.cs
 |       |-- Program.cs
 |       |-- SettingsForm.cs
 |       |-- WallboardConfigReader.cs
@@ -171,7 +173,7 @@ The main form owns page layout, rotation, fullscreen mode, and global refresh. E
 
 The application reads `wallboard.json` from the same folder as `NetWatch-Lite-Wallboard.exe`. During development, it falls back to `Data/wallboard.json`.
 
-Use the top-bar **Settings** button or press `Ctrl+,` to edit the wallboard visually. The settings window can change the wallboard title, default layout, rotation options, panel list, panel order, panel refresh intervals, and advanced monitoring JSON.
+Use the top-bar **Settings** button or press `C` to edit the wallboard visually. The settings window can change the wallboard title, default layout, alarm sound, rotation options, panel list, panel order, panel refresh intervals, and advanced monitoring JSON.
 
 The settings window also includes:
 
@@ -193,9 +195,15 @@ When **Save Changes** is pressed, the application:
 ```json
 {
   "appTitle": "NetWatch Lite Wallboard",
-  "rotationEnabled": true,
+  "rotationEnabled": false,
   "rotationSeconds": 20,
   "defaultLayout": 4,
+  "alarmSound": "Exclamation",
+  "severityColors": {
+    "critical": "#CC1220",
+    "warning": "#CC6700",
+    "info": "#005C8A"
+  },
   "panels": [
     {
       "name": "Operations Overview",
@@ -238,6 +246,8 @@ When **Save Changes** is pressed, the application:
 | `rotationEnabled` | boolean | Enables automatic page rotation when there are more panels than the current layout can display. |
 | `rotationSeconds` | number | Seconds between page rotations. Values less than or equal to zero become `20`. |
 | `defaultLayout` | number | Number of panels visible at once. Supported values are `1`, `2`, `3`, `4`, `6`, and `8`. Unsupported values become `4`. |
+| `alarmSound` | string | Built-in Windows sound used for audible alarms. Supported values are `Exclamation`, `Asterisk`, `Beep`, `Hand`, and `Question`. Unsupported values become `Exclamation`. |
+| `severityColors` | object | Alarm colors for `critical`, `warning`, and `info` severities, stored as `#RRGGBB` values. Invalid colors fall back to safe defaults. |
 | `panels` | array | Ordered list of panels. The order controls both grid placement and rotation order. |
 
 ## Panel JSON Fields
@@ -245,13 +255,15 @@ When **Save Changes** is pressed, the application:
 | Field | Type | Meaning |
 |---|---|---|
 | `name` | string | Panel title shown in the panel title bar. Empty names become `Monitoring Panel`. |
-| `url` | string | Absolute HTTP/HTTPS URL or root-relative local URL. |
+| `url` | string | Absolute HTTP/HTTPS URL, absolute `file:///` URL, or local packaged path. |
 | `refreshSeconds` | number | Independent panel refresh interval. Values less than or equal to zero become `30`. |
 | `monitoring` | object or null | Optional DOM monitoring configuration for this panel. Omit it or set it to `null` to disable DOM alarms. |
 
 Panel URLs can be:
 
 - Absolute HTTP/HTTPS URLs, for example `https://example.com/status`.
+- Absolute local file URLs, for example `file:///C:/Tools/wallboard/scraping-test-page.html`.
+- Relative local URLs, for example `docs/scraping-test-page.html`, when you ship local files beside the executable or run from the development tree.
 - Root-relative local URLs, for example `/status/index.html`, when you ship local static files in `wwwroot` beside the executable or in the development tree.
 
 ## DOM Monitoring JSON
@@ -280,7 +292,7 @@ Each rule supports:
 
 ### Basic Rule Builder
 
-Open **Settings**, select a panel, and choose **Edit Monitoring JSON**. The top of the dialog contains a basic rule builder with these fields:
+Open **Settings**, select a panel, and choose **Edit JSON**. The top of the dialog contains a basic rule builder with these fields:
 
 - `Name`: friendly alarm name.
 - `Type`: `exists`, `domText`, or `domClass`.
@@ -291,6 +303,8 @@ Open **Settings**, select a panel, and choose **Edit Monitoring JSON**. The top 
 - `Sound`: when unchecked, the generated rule sets `soundEnabled` to `false`.
 
 Press **Add Rule** to append the rule to the JSON. The JSON remains editable for advanced adjustments.
+
+Press **Validate** to parse the monitoring JSON and perform a local selector screening pass. This catches common mistakes such as empty selectors, unbalanced brackets, unclosed quotes, trailing combinators, and malformed `detailsSelector` values. Runtime matching still depends on the loaded page DOM.
 
 ### How DOM Monitoring Works
 
@@ -306,6 +320,32 @@ Press **Add Rule** to append the rule to the JSON. The JSON remains editable for
 10. C# displays the native alarm banner, chooses the highest severity, pulses the border/banner color, and plays sound if enabled.
 
 The app is checking the final page DOM, not the raw HTML response. This means it can detect content created by client-side JavaScript, opened modals, changed CSS classes, and status LEDs that appear after the page has loaded.
+
+Panels with DOM monitoring enabled show a **Stop Scraping** button in the panel title bar. Press it to pause selector checks for that panel without changing `wallboard.json` or stopping page refreshes. Press **Start Scraping** to resume monitoring.
+
+The panel status label shows scraping state while monitoring is enabled, including `Scraping active`, `Scraping checked`, and `Scraping stopped` messages.
+
+### Local Scraping Test Page
+
+The repository includes a standalone basic test dashboard at [docs/scraping-test-page.html](docs/scraping-test-page.html). Use it to validate DOM monitoring rules before pointing the wallboard at a real production page.
+
+The page keeps the first scraping test intentionally simple:
+
+- A large `Normal`, `Warning`, or `Critical` state.
+- Three buttons that immediately change the visible DOM.
+- Simple selectors for warning and critical alarms.
+- Custom DOM targets with editable id, classes, `data-alarm`, and text.
+- Recommended monitoring JSON shown directly in the page.
+
+To add it as a panel during development, create a panel with the packaged local path:
+
+```text
+docs/scraping-test-page.html
+```
+
+Then open **Settings**, select that panel, choose **Edit JSON**, and paste the recommended monitoring JSON shown inside the test page. The default development configuration already includes matching rules for the bundled test page.
+
+Changes made inside the test page update the live DOM immediately, so the wallboard scraping timer can detect them without rebuilding the application. The custom target section is meant as a small bridge toward future pages where alarms may depend on different ids, classes, attributes, or visible text.
 
 ## Error Logs
 
@@ -357,6 +397,57 @@ This rule means:
 - Show details from the matching red indicator elements.
 - Keep the visual alarm active, but do not play sound because this rule disables sound.
 
+## Alert Sound
+
+The alert sound can be selected in **Settings** with the **Alarm sound** dropdown. The selected value is saved as the top-level `alarmSound` field in `wallboard.json`.
+
+Supported built-in Windows sounds:
+
+- `Exclamation`
+- `Asterisk`
+- `Beep`
+- `Hand`
+- `Question`
+
+The code maps the saved value to `SystemSounds` in [src/NetWatchLite.Wallboard.WebView2/WebViewPanelControl.cs](src/NetWatchLite.Wallboard.WebView2/WebViewPanelControl.cs):
+
+```csharp
+SystemSounds.Exclamation.Play();
+```
+
+For a custom `.wav` file, the source can be extended to use `SoundPlayer` instead:
+
+```csharp
+using var player = new SoundPlayer("C:\\Path\\To\\alarm.wav");
+player.Play();
+```
+
+The JSON still uses `monitoring.soundEnabled` and per-rule `soundEnabled` to decide whether a matching alarm may play sound. `alarmSound` only chooses which built-in Windows sound is played when sound is allowed.
+
+Settings also includes:
+
+- **Preview** to play the selected sound without saving.
+- **Test Alarm** to show a local visual alarm preview and play the selected sound.
+- Severity color pickers for `Critical`, `Warning`, and `Info` alarm banners.
+
+Severity colors are saved in `severityColors` and apply to all panels.
+
+## Diagnostics
+
+The top bar includes a **Diagnostics** button. It opens a read-only diagnostics page with:
+
+- Active `wallboard.json` path.
+- Error log path.
+- App version and process ID.
+- WebView2 user data path.
+- Current layout and page.
+- Configured panel count and visible panel count.
+- Panels with DOM monitoring enabled.
+- Alarm sound and severity colors.
+- Panel URLs, refresh intervals, polling intervals, and rule counts.
+
+Use Diagnostics when the wallboard does not appear to be reading the expected JSON, when a local page is not loading, or when support needs a quick runtime snapshot.
+
 ## Layouts
 
 | Layout | Grid | Typical Use |
@@ -374,8 +465,8 @@ This rule means:
 |---|---|
 | `F` | Toggle fullscreen. |
 | `R` | Refresh visible panels. |
-| `Ctrl+,` | Open settings. |
-| `ESC` | Exit fullscreen. |
+| `C` | Open settings. |
+| `ESC` | Exit fullscreen when fullscreen is active; otherwise close the application. |
 
 ## Requirements
 

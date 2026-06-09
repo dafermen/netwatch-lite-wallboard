@@ -16,13 +16,15 @@ internal sealed class WebViewPanelControl : UserControl
 {
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
-        PropertyNameCaseInsensitive = true
+        PropertyNameCaseInsensitive = true,
+        PropertyNamingPolicy = JsonNamingPolicy.CamelCase
     };
 
     private readonly Panel _alarmBanner = new();
     private readonly Label _alarmTitleLabel = new();
     private readonly Label _alarmDetailsLabel = new();
     private readonly Button _alarmSilenceButton = new();
+    private readonly Button _scrapingToggleButton = new();
     private readonly Label _statusLabel = new();
     private readonly WebView2Control _webView = new();
     private readonly System.Windows.Forms.Timer _alarmPollTimer = new();
@@ -33,8 +35,15 @@ internal sealed class WebViewPanelControl : UserControl
     private bool _alarmPulseOn;
     private bool _alarmSilenced;
     private bool _alarmSoundEnabled = true;
+    private bool _isActivePanel;
+    private bool _monitoringAvailable;
+    private bool _scrapingPaused;
+    private Color _criticalAlarmColor = Color.FromArgb(204, 18, 32);
+    private Color _warningAlarmColor = Color.FromArgb(204, 103, 0);
+    private Color _infoAlarmColor = Color.FromArgb(0, 92, 138);
     private string _alarmSeverity = "warning";
     private string _alarmSignature = string.Empty;
+    private string _alarmSoundName = "Exclamation";
     private TimeSpan _alarmSoundInterval = TimeSpan.FromSeconds(5);
     private DateTime _lastAlarmSoundUtc = DateTime.MinValue;
     private Uri? _targetUri;
@@ -83,8 +92,20 @@ internal sealed class WebViewPanelControl : UserControl
         refreshButton.FlatAppearance.BorderColor = Color.FromArgb(61, 74, 88);
         refreshButton.Click += (_, _) => RefreshPanel();
 
+        _scrapingToggleButton.BackColor = Color.FromArgb(23, 29, 36);
+        _scrapingToggleButton.Dock = DockStyle.Right;
+        _scrapingToggleButton.FlatStyle = FlatStyle.Flat;
+        _scrapingToggleButton.Font = new Font("Segoe UI", 8F, FontStyle.Bold);
+        _scrapingToggleButton.ForeColor = Color.White;
+        _scrapingToggleButton.Text = "Stop Scraping";
+        _scrapingToggleButton.Visible = false;
+        _scrapingToggleButton.Width = 116;
+        _scrapingToggleButton.FlatAppearance.BorderColor = Color.FromArgb(61, 74, 88);
+        _scrapingToggleButton.Click += (_, _) => ToggleScraping();
+
         titleBar.Controls.Add(titleLabel);
         titleBar.Controls.Add(_statusLabel);
+        titleBar.Controls.Add(_scrapingToggleButton);
         titleBar.Controls.Add(refreshButton);
 
         _alarmBanner.BackColor = Color.FromArgb(128, 8, 16);
@@ -113,7 +134,7 @@ internal sealed class WebViewPanelControl : UserControl
         _alarmSilenceButton.Font = new Font("Segoe UI", 8F, FontStyle.Bold);
         _alarmSilenceButton.ForeColor = Color.White;
         _alarmSilenceButton.Text = "Silence";
-        _alarmSilenceButton.Width = 88;
+        _alarmSilenceButton.Width = 112;
         _alarmSilenceButton.FlatAppearance.BorderColor = Color.FromArgb(255, 190, 80);
         _alarmSilenceButton.Click += (_, _) => SilenceAlarmSound();
 
@@ -125,6 +146,7 @@ internal sealed class WebViewPanelControl : UserControl
         _webView.DefaultBackgroundColor = Color.Black;
         _webView.Dock = DockStyle.Fill;
         _webView.NavigationCompleted += OnNavigationCompleted;
+        _webView.KeyDown += OnWebViewKeyDown;
 
         Controls.Add(_webView);
         Controls.Add(_alarmBanner);
@@ -142,21 +164,41 @@ internal sealed class WebViewPanelControl : UserControl
     private Label TitleLabel { get; }
 
     /// <summary>
+    /// Raised when the operator pauses or resumes DOM scraping for this panel slot.
+    /// The main form stores the value so it survives layout changes and panel recreation.
+    /// </summary>
+    public event EventHandler<bool>? ScrapingPausedChanged;
+
+    /// <summary>
+    /// Raised when the hosted WebView2 receives a wallboard-level shortcut key.
+    /// </summary>
+    public event EventHandler<PanelShortcutRequestedEventArgs>? ShortcutRequested;
+
+    /// <summary>
     /// Initializes WebView2 and navigates to the configured panel URL.
     /// This method is called every time the main form renders a visible panel slot. It resolves the URL,
     /// configures timers, initializes the browser, navigates, and starts the independent refresh cycle.
     /// </summary>
     /// <param name="panel">Panel declaration to render.</param>
+    /// <param name="alarmSoundName">Built-in Windows sound name used for audible alarm alerts.</param>
+    /// <param name="severityColors">Configured alarm colors by severity.</param>
+    /// <param name="scrapingPaused">Whether DOM monitoring should start paused for this panel.</param>
     /// <param name="environment">Shared WebView2 environment used by all panels.</param>
     /// <param name="cancellationToken">Token used to cancel initialization.</param>
     public async Task LoadPanelAsync(
         WallboardPanel panel,
+        string alarmSoundName,
+        AlarmSeverityColors severityColors,
+        bool scrapingPaused,
         CoreWebView2Environment environment,
         CancellationToken cancellationToken = default)
     {
+        _isActivePanel = true;
         _panel = panel;
+        _alarmSoundName = NormalizeAlarmSoundName(alarmSoundName);
+        ApplySeverityColors(severityColors);
         _targetUri = ResolvePanelUri(panel.Url);
-        ConfigureMonitoringTimer(panel.Monitoring);
+        ConfigureMonitoringTimer(panel.Monitoring, scrapingPaused);
 
         TitleLabel.Text = panel.Name;
         _statusLabel.Text = $"{panel.RefreshSeconds}s refresh";
@@ -186,9 +228,14 @@ internal sealed class WebViewPanelControl : UserControl
                     return;
                 }
 
+                if (_panel is not null)
+                {
+                    _targetUri = ResolvePanelUri(_panel.Url);
+                }
+
                 _statusLabel.Text = "Refreshing...";
                 ClearAlarmState();
-                _webView.CoreWebView2.Navigate(_targetUri.ToString());
+                _webView.CoreWebView2.Navigate(BuildRefreshUri(_targetUri).ToString());
             },
             $"refreshing panel '{_panel?.Name ?? "Panel"}'");
     }
@@ -200,9 +247,11 @@ internal sealed class WebViewPanelControl : UserControl
     /// </summary>
     public void StopTimers()
     {
+        _isActivePanel = false;
         _refreshTimer.Stop();
         _alarmPollTimer.Stop();
         _alarmPulseTimer.Stop();
+        ClearAlarmState();
     }
 
     /// <summary>
@@ -245,6 +294,25 @@ internal sealed class WebViewPanelControl : UserControl
     }
 
     /// <summary>
+    /// Forwards keyboard shortcuts when focus is on the WebView2 control itself.
+    /// </summary>
+    /// <param name="sender">WebView2 control.</param>
+    /// <param name="e">Key details.</param>
+    private void OnWebViewKeyDown(object? sender, KeyEventArgs e)
+    {
+        var keyCode = e.KeyCode;
+        var modifiers = e.Modifiers;
+
+        if ((modifiers == Keys.Control && keyCode is (Keys.F or Keys.R or Keys.S)) ||
+            (modifiers == Keys.None && keyCode is (Keys.F or Keys.R or Keys.C or Keys.Escape)))
+        {
+            ShortcutRequested?.Invoke(this, new PanelShortcutRequestedEventArgs(keyCode, modifiers));
+            e.Handled = true;
+            e.SuppressKeyPress = true;
+        }
+    }
+
+    /// <summary>
     /// Starts the panel-specific refresh timer.
     /// </summary>
     /// <param name="refreshSeconds">Refresh interval in seconds.</param>
@@ -271,7 +339,7 @@ internal sealed class WebViewPanelControl : UserControl
 
                 _statusLabel.Text = "Loading...";
                 ClearAlarmState();
-                _webView.CoreWebView2.Navigate(_targetUri.ToString());
+                _webView.CoreWebView2.Navigate(BuildRefreshUri(_targetUri).ToString());
             },
             $"navigating panel '{_panel?.Name ?? "Panel"}'");
     }
@@ -286,16 +354,33 @@ internal sealed class WebViewPanelControl : UserControl
     {
         try
         {
+            if (!_isActivePanel)
+            {
+                _alarmPollTimer.Stop();
+                ClearAlarmState();
+                return;
+            }
+
             if (e.IsSuccess)
             {
                 _statusLabel.Text = $"Loaded {DateTime.Now:T}";
 
                 if (_panel?.Monitoring?.Enabled == true)
                 {
-                    // Start recurring DOM checks and also run one immediate check so a currently visible
-                    // alarm appears without waiting for the first timer interval.
-                    _alarmPollTimer.Start();
-                    _ = DetectConfiguredAlertsSafelyAsync();
+                    if (_scrapingPaused)
+                    {
+                        _alarmPollTimer.Stop();
+                        ClearAlarmState();
+                        _statusLabel.Text = "Scraping stopped";
+                    }
+                    else
+                    {
+                        // Start recurring DOM checks and also run one immediate check so a currently visible
+                        // alarm appears without waiting for the first timer interval.
+                        _statusLabel.Text = $"Scraping active {DateTime.Now:T}";
+                        _alarmPollTimer.Start();
+                        _ = DetectConfiguredAlertsSafelyAsync();
+                    }
                 }
                 else
                 {
@@ -386,12 +471,16 @@ internal sealed class WebViewPanelControl : UserControl
     /// This only prepares interval and sound settings; the timer starts after successful navigation.
     /// </summary>
     /// <param name="monitoring">Optional monitoring settings for this panel.</param>
-    private void ConfigureMonitoringTimer(PanelMonitoringOptions? monitoring)
+    /// <param name="scrapingPaused">Whether monitoring should start paused.</param>
+    private void ConfigureMonitoringTimer(PanelMonitoringOptions? monitoring, bool scrapingPaused)
     {
         _alarmPollTimer.Stop();
+        _monitoringAvailable = monitoring?.Enabled == true && monitoring.Rules.Count > 0;
+        _scrapingPaused = _monitoringAvailable && scrapingPaused;
         _alarmSoundEnabled = monitoring?.SoundEnabled ?? true;
         _alarmSoundInterval = TimeSpan.FromSeconds(Math.Max(1, monitoring?.RepeatSoundSeconds ?? 5));
         _alarmPollTimer.Interval = Math.Max(1, monitoring?.PollSeconds ?? 3) * 1000;
+        UpdateScrapingButton();
     }
 
     /// <summary>
@@ -404,7 +493,11 @@ internal sealed class WebViewPanelControl : UserControl
     {
         var monitoring = _panel?.Monitoring;
 
-        if (_webView.CoreWebView2 is null || monitoring?.Enabled != true || monitoring.Rules.Count == 0)
+        if (!_isActivePanel ||
+            _scrapingPaused ||
+            _webView.CoreWebView2 is null ||
+            monitoring?.Enabled != true ||
+            monitoring.Rules.Count == 0)
         {
             ClearAlarmState();
             return;
@@ -444,6 +537,11 @@ internal sealed class WebViewPanelControl : UserControl
                       .toLowerCase()
                       .includes(String(needle).toLowerCase());
                   };
+                  const includesClass = (element, needle) => {
+                    if (!needle) return true;
+                    return Array.from(element.classList)
+                      .some(className => className.toLowerCase() === String(needle).toLowerCase());
+                  };
                   const collectDetails = (rule, matchedElements) => {
                     const detailElements = rule.detailsSelector
                       ? queryAll(rule.detailsSelector).filter(isVisible)
@@ -471,7 +569,7 @@ internal sealed class WebViewPanelControl : UserControl
                       }
 
                       if (type === 'domClass') {
-                        return includesText(element, contains);
+                        return includesClass(element, contains);
                       }
 
                       return includesText(element, contains);
@@ -515,6 +613,12 @@ internal sealed class WebViewPanelControl : UserControl
             // native UI code can stay strongly typed.
             var snapshot = JsonSerializer.Deserialize<AlarmSnapshot>(resultJson, JsonOptions);
 
+            if (!_isActivePanel)
+            {
+                ClearAlarmState();
+                return;
+            }
+
             if (snapshot?.Active == true)
             {
                 ShowAlarmState(snapshot);
@@ -522,6 +626,7 @@ internal sealed class WebViewPanelControl : UserControl
             }
 
             ClearAlarmState();
+            SetScrapingCheckedStatus();
         }
         catch (InvalidOperationException)
         {
@@ -566,6 +671,11 @@ internal sealed class WebViewPanelControl : UserControl
     /// <param name="snapshot">Alert details extracted from the WebView DOM.</param>
     private void ShowAlarmState(AlarmSnapshot snapshot)
     {
+        if (!_isActivePanel)
+        {
+            return;
+        }
+
         var alarms = snapshot.Alarms
             .Where(alarm => !string.IsNullOrWhiteSpace(alarm))
             .Distinct(StringComparer.OrdinalIgnoreCase)
@@ -577,10 +687,9 @@ internal sealed class WebViewPanelControl : UserControl
 
         if (!string.Equals(_alarmSignature, signature, StringComparison.Ordinal))
         {
-            // A changed signature means this is a materially different alarm. Reset silence and sound
-            // timing so the operator is notified about the new condition.
+            // A changed signature means this is a materially different alarm. Reset the repeat-sound
+            // interval, but keep the operator's manual sound mute until they explicitly enable sound.
             _alarmSignature = signature;
-            _alarmSilenced = false;
             _lastAlarmSoundUtc = DateTime.MinValue;
         }
 
@@ -590,7 +699,7 @@ internal sealed class WebViewPanelControl : UserControl
         _alarmBanner.Visible = true;
         _alarmTitleLabel.Text = $"{FormatSeverity(_alarmSeverity)} - {snapshot.Title} - {_panel?.Name ?? "Panel"}";
         _alarmDetailsLabel.Text = detailText;
-        _alarmSilenceButton.Text = _alarmSilenced ? "Silenced" : "Silence";
+        _alarmSilenceButton.Text = _alarmSilenced ? "Enable Sound" : "Silence";
         _statusLabel.Text = $"Alarm {DateTime.Now:T}";
         Padding = new Padding(3);
         BackColor = GetAlarmBorderColor(_alarmSeverity, pulseOn: true);
@@ -616,12 +725,22 @@ internal sealed class WebViewPanelControl : UserControl
         _alarmActive = false;
         _alarmPulseTimer.Stop();
         _alarmPulseOn = false;
-        _alarmSilenced = false;
         _alarmSeverity = "warning";
         _alarmSignature = string.Empty;
         _alarmBanner.Visible = false;
         Padding = Padding.Empty;
         BackColor = Color.Black;
+    }
+
+    /// <summary>
+    /// Updates the panel status after a successful DOM polling pass with no active alarm.
+    /// </summary>
+    private void SetScrapingCheckedStatus()
+    {
+        if (_panel?.Monitoring?.Enabled == true && !_scrapingPaused)
+        {
+            _statusLabel.Text = $"Scraping checked {DateTime.Now:T}";
+        }
     }
 
     /// <summary>
@@ -645,7 +764,7 @@ internal sealed class WebViewPanelControl : UserControl
     /// </summary>
     private void PlayAlarmSound()
     {
-        if (_alarmSilenced || !_alarmSoundEnabled)
+        if (!_isActivePanel || _alarmSilenced || !_alarmSoundEnabled)
         {
             return;
         }
@@ -657,18 +776,132 @@ internal sealed class WebViewPanelControl : UserControl
             return;
         }
 
+        // The current alert tone is intentionally centralized here. Settings stores a friendly
+        // SystemSounds name, and this switch maps that JSON value to the actual Windows sound.
         _lastAlarmSoundUtc = nowUtc;
-        SystemSounds.Exclamation.Play();
+        PlayConfiguredSystemSound();
     }
 
     /// <summary>
-    /// Acknowledges the current alarm sound while keeping the visual alarm visible.
+    /// Toggles alarm sound for this panel while keeping the visual alarm visible.
+    /// Once silenced, sound stays muted across page refreshes until the operator enables it again.
     /// </summary>
     private void SilenceAlarmSound()
     {
-        _alarmSilenced = true;
-        _alarmSilenceButton.Text = "Silenced";
-        _statusLabel.Text = $"Alarm silenced {DateTime.Now:T}";
+        _alarmSilenced = !_alarmSilenced;
+        _alarmSilenceButton.Text = _alarmSilenced ? "Enable Sound" : "Silence";
+        _lastAlarmSoundUtc = _alarmSilenced ? _lastAlarmSoundUtc : DateTime.MinValue;
+        _statusLabel.Text = _alarmSilenced
+            ? $"Alarm sound muted {DateTime.Now:T}"
+            : $"Alarm sound enabled {DateTime.Now:T}";
+
+        if (!_alarmSilenced && _alarmActive)
+        {
+            PlayAlarmSound();
+        }
+    }
+
+    /// <summary>
+    /// Pauses or resumes DOM monitoring for this panel without changing wallboard.json.
+    /// This is useful when operators need to temporarily stop selector checks during maintenance,
+    /// testing, or a known noisy alarm while keeping the page itself visible and refreshing.
+    /// </summary>
+    private void ToggleScraping()
+    {
+        if (!_monitoringAvailable)
+        {
+            return;
+        }
+
+        _scrapingPaused = !_scrapingPaused;
+        ScrapingPausedChanged?.Invoke(this, _scrapingPaused);
+        UpdateScrapingButton();
+
+        if (_scrapingPaused)
+        {
+            _alarmPollTimer.Stop();
+            ClearAlarmState();
+            _statusLabel.Text = $"Scraping stopped {DateTime.Now:T}";
+            return;
+        }
+
+        _statusLabel.Text = $"Scraping active {DateTime.Now:T}";
+
+        if (_webView.CoreWebView2 is not null)
+        {
+            _alarmPollTimer.Start();
+            _ = DetectConfiguredAlertsSafelyAsync();
+        }
+    }
+
+    /// <summary>
+    /// Keeps the scraping toggle button aligned with the panel's monitoring state.
+    /// </summary>
+    private void UpdateScrapingButton()
+    {
+        _scrapingToggleButton.Visible = _monitoringAvailable;
+        _scrapingToggleButton.Enabled = _monitoringAvailable;
+        _scrapingToggleButton.Text = _scrapingPaused ? "Start Scraping" : "Stop Scraping";
+        _scrapingToggleButton.BackColor = _scrapingPaused
+            ? Color.FromArgb(0, 80, 96)
+            : Color.FromArgb(23, 29, 36);
+    }
+
+    /// <summary>
+    /// Plays the Windows SystemSounds value selected in wallboard settings.
+    /// </summary>
+    private void PlayConfiguredSystemSound()
+    {
+        switch (_alarmSoundName)
+        {
+            case "Asterisk":
+                SystemSounds.Asterisk.Play();
+                break;
+            case "Beep":
+                SystemSounds.Beep.Play();
+                break;
+            case "Hand":
+                SystemSounds.Hand.Play();
+                break;
+            case "Question":
+                SystemSounds.Question.Play();
+                break;
+            default:
+                SystemSounds.Exclamation.Play();
+                break;
+        }
+    }
+
+    /// <summary>
+    /// Converts saved alarm sound text into one of the supported built-in Windows sounds.
+    /// </summary>
+    /// <param name="alarmSoundName">Configured sound name.</param>
+    /// <returns>Supported sound name.</returns>
+    private static string NormalizeAlarmSoundName(string? alarmSoundName)
+    {
+        var normalized = alarmSoundName?.Trim();
+
+        if (string.Equals(normalized, "Asterisk", StringComparison.OrdinalIgnoreCase))
+        {
+            return "Asterisk";
+        }
+
+        if (string.Equals(normalized, "Beep", StringComparison.OrdinalIgnoreCase))
+        {
+            return "Beep";
+        }
+
+        if (string.Equals(normalized, "Hand", StringComparison.OrdinalIgnoreCase))
+        {
+            return "Hand";
+        }
+
+        if (string.Equals(normalized, "Question", StringComparison.OrdinalIgnoreCase))
+        {
+            return "Question";
+        }
+
+        return "Exclamation";
     }
 
     /// <summary>
@@ -763,14 +996,10 @@ internal sealed class WebViewPanelControl : UserControl
     /// <param name="severity">Normalized severity.</param>
     /// <param name="pulseOn">Whether the pulse is in its bright phase.</param>
     /// <returns>Banner color.</returns>
-    private static Color GetAlarmBannerColor(string severity, bool pulseOn)
+    private Color GetAlarmBannerColor(string severity, bool pulseOn)
     {
-        return severity switch
-        {
-            "critical" => pulseOn ? Color.FromArgb(204, 18, 32) : Color.FromArgb(92, 8, 14),
-            "info" => pulseOn ? Color.FromArgb(0, 92, 138) : Color.FromArgb(5, 45, 72),
-            _ => pulseOn ? Color.FromArgb(204, 103, 0) : Color.FromArgb(92, 46, 0)
-        };
+        var color = GetConfiguredSeverityColor(severity);
+        return pulseOn ? color : ScaleColor(color, 0.45);
     }
 
     /// <summary>
@@ -779,19 +1008,86 @@ internal sealed class WebViewPanelControl : UserControl
     /// <param name="severity">Normalized severity.</param>
     /// <param name="pulseOn">Whether the pulse is in its bright phase.</param>
     /// <returns>Border color.</returns>
-    private static Color GetAlarmBorderColor(string severity, bool pulseOn)
+    private Color GetAlarmBorderColor(string severity, bool pulseOn)
+    {
+        var color = GetConfiguredSeverityColor(severity);
+        return pulseOn ? ScaleColor(color, 1.25) : ScaleColor(color, 0.75);
+    }
+
+    /// <summary>
+    /// Applies configured severity colors to this panel with safe fallbacks.
+    /// </summary>
+    /// <param name="colors">Configured colors.</param>
+    private void ApplySeverityColors(AlarmSeverityColors? colors)
+    {
+        _criticalAlarmColor = ParseHexColor(colors?.Critical, Color.FromArgb(204, 18, 32));
+        _warningAlarmColor = ParseHexColor(colors?.Warning, Color.FromArgb(204, 103, 0));
+        _infoAlarmColor = ParseHexColor(colors?.Info, Color.FromArgb(0, 92, 138));
+    }
+
+    /// <summary>
+    /// Gets the configured base color for one normalized severity.
+    /// </summary>
+    /// <param name="severity">Normalized severity.</param>
+    /// <returns>Configured severity color.</returns>
+    private Color GetConfiguredSeverityColor(string severity)
     {
         return severity switch
         {
-            "critical" => pulseOn ? Color.FromArgb(255, 59, 48) : Color.FromArgb(255, 149, 0),
-            "info" => pulseOn ? Color.FromArgb(0, 190, 255) : Color.FromArgb(0, 122, 204),
-            _ => pulseOn ? Color.FromArgb(255, 149, 0) : Color.FromArgb(255, 204, 0)
+            "critical" => _criticalAlarmColor,
+            "info" => _infoAlarmColor,
+            _ => _warningAlarmColor
         };
     }
 
     /// <summary>
-    /// Resolves an absolute URL or root-relative local URL into a URI WebView2 can navigate.
-    /// Root-relative local URLs are useful for teams that publish static pages with the application.
+    /// Parses a #RRGGBB color with fallback.
+    /// </summary>
+    /// <param name="hexColor">Configured hex color.</param>
+    /// <param name="fallback">Fallback color.</param>
+    /// <returns>Parsed color.</returns>
+    private static Color ParseHexColor(string? hexColor, Color fallback)
+    {
+        try
+        {
+            return string.IsNullOrWhiteSpace(hexColor)
+                ? fallback
+                : ColorTranslator.FromHtml(hexColor);
+        }
+        catch
+        {
+            return fallback;
+        }
+    }
+
+    /// <summary>
+    /// Lightens or darkens a color while clamping RGB values to valid byte ranges.
+    /// </summary>
+    /// <param name="color">Base color.</param>
+    /// <param name="factor">Scale factor.</param>
+    /// <returns>Scaled color.</returns>
+    private static Color ScaleColor(Color color, double factor)
+    {
+        return Color.FromArgb(
+            ClampColor(color.R * factor),
+            ClampColor(color.G * factor),
+            ClampColor(color.B * factor));
+    }
+
+    /// <summary>
+    /// Clamps a scaled color channel.
+    /// </summary>
+    /// <param name="value">Scaled channel value.</param>
+    /// <returns>Color channel.</returns>
+    private static int ClampColor(double value)
+    {
+        return Math.Clamp((int)Math.Round(value), 0, 255);
+    }
+
+    /// <summary>
+    /// Resolves an absolute URL or local URL into a URI WebView2 can navigate.
+    /// Local development builds prefer files from the repository so editing docs/*.html is reflected
+    /// immediately. Published builds use files beside the executable to stay portable.
     /// </summary>
     /// <param name="url">Panel URL from JSON.</param>
     /// <returns>Absolute URI for WebView2 navigation.</returns>
@@ -802,23 +1098,23 @@ internal sealed class WebViewPanelControl : UserControl
             return absoluteUri;
         }
 
+        var rootRelative = url.StartsWith('/');
         var separatorIndex = url.IndexOf('?');
         var pathPart = separatorIndex >= 0 ? url[..separatorIndex] : url;
         var queryPart = separatorIndex >= 0 ? url[(separatorIndex + 1)..] : string.Empty;
         var relativePath = pathPart.TrimStart('/').Replace('/', Path.DirectorySeparatorChar);
-        var runtimePath = Path.Combine(AppContext.BaseDirectory, "wwwroot", relativePath);
+        var localRoot = rootRelative ? "wwwroot" : string.Empty;
+        var developmentPath = ResolveDevelopmentLocalPath(localRoot, relativePath);
+        var runtimePath = Path.Combine(AppContext.BaseDirectory, localRoot, relativePath);
 
-        if (!File.Exists(runtimePath))
+        if (IsDevelopmentOutputDirectory(AppContext.BaseDirectory) &&
+            File.Exists(developmentPath))
         {
-            runtimePath = Path.GetFullPath(Path.Combine(
-                AppContext.BaseDirectory,
-                "..",
-                "..",
-                "..",
-                "..",
-                "..",
-                "wwwroot",
-                relativePath));
+            runtimePath = developmentPath;
+        }
+        else if (!File.Exists(runtimePath))
+        {
+            runtimePath = developmentPath;
         }
 
         var builder = new UriBuilder(new Uri(runtimePath));
@@ -829,6 +1125,72 @@ internal sealed class WebViewPanelControl : UserControl
         }
 
         return builder.Uri;
+    }
+
+    /// <summary>
+    /// Adds a cache-busting query to local file reloads so WebView2 rereads edited HTML.
+    /// </summary>
+    /// <param name="uri">Current panel URI.</param>
+    /// <returns>URI to navigate for a manual or timed refresh.</returns>
+    private static Uri BuildRefreshUri(Uri uri)
+    {
+        if (!uri.IsFile)
+        {
+            return uri;
+        }
+
+        var builder = new UriBuilder(uri);
+        var query = builder.Query.TrimStart('?');
+        var refreshToken = $"nwReload={DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()}";
+        builder.Query = string.IsNullOrWhiteSpace(query)
+            ? refreshToken
+            : $"{query}&{refreshToken}";
+        return builder.Uri;
+    }
+
+    /// <summary>
+    /// Builds a repository-local path from a normal bin/Debug or bin/Release output path.
+    /// </summary>
+    /// <param name="localRoot">Optional local root such as wwwroot.</param>
+    /// <param name="relativePath">Relative panel path.</param>
+    /// <returns>Expected source-tree file path.</returns>
+    private static string ResolveDevelopmentLocalPath(string localRoot, string relativePath)
+    {
+        return Path.GetFullPath(Path.Combine(
+            AppContext.BaseDirectory,
+            "..",
+            "..",
+            "..",
+            "..",
+            "..",
+            localRoot,
+            relativePath));
+    }
+
+    /// <summary>
+    /// Detects SDK build output folders so local pages are loaded from the editable source tree.
+    /// </summary>
+    /// <param name="baseDirectory">Application base directory.</param>
+    /// <returns>True when the app appears to be running from bin/Debug or bin/Release.</returns>
+    private static bool IsDevelopmentOutputDirectory(string baseDirectory)
+    {
+        var normalized = Path.GetFullPath(baseDirectory)
+            .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+        var segments = normalized.Split(
+            [Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar],
+            StringSplitOptions.RemoveEmptyEntries);
+
+        for (var index = 0; index < segments.Length - 1; index++)
+        {
+            if (string.Equals(segments[index], "bin", StringComparison.OrdinalIgnoreCase) &&
+                (string.Equals(segments[index + 1], "Debug", StringComparison.OrdinalIgnoreCase) ||
+                 string.Equals(segments[index + 1], "Release", StringComparison.OrdinalIgnoreCase)))
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /// <summary>
@@ -846,5 +1208,21 @@ internal sealed class WebViewPanelControl : UserControl
         public bool SoundEnabled { get; set; } = true;
 
         public string[] Alarms { get; set; } = [];
+    }
+
+    /// <summary>
+    /// Shortcut key data forwarded from WebView2 to the wallboard form.
+    /// </summary>
+    public sealed class PanelShortcutRequestedEventArgs : EventArgs
+    {
+        public PanelShortcutRequestedEventArgs(Keys keyCode, Keys modifiers)
+        {
+            KeyCode = keyCode;
+            Modifiers = modifiers;
+        }
+
+        public Keys KeyCode { get; }
+
+        public Keys Modifiers { get; }
     }
 }

@@ -11,10 +11,19 @@ internal static class WallboardConfigReader
 {
     private const string WallboardFileName = "wallboard.json";
     private static readonly int[] SupportedLayouts = [1, 2, 3, 4, 6, 8];
+    private static readonly string[] SupportedAlarmSounds =
+    [
+        "Exclamation",
+        "Asterisk",
+        "Beep",
+        "Hand",
+        "Question"
+    ];
 
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
         PropertyNameCaseInsensitive = true,
+        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
         ReadCommentHandling = JsonCommentHandling.Skip,
         AllowTrailingCommas = true,
         WriteIndented = true
@@ -114,21 +123,38 @@ internal static class WallboardConfigReader
     }
 
     /// <summary>
-    /// Resolves the runtime configuration path, with a development fallback for local debugging.
-    /// Published builds use the JSON beside the executable; local debug builds can still use the
-    /// repository's Data/wallboard.json without copying it manually.
+    /// Resolves the runtime configuration path, preferring the repository's Data/wallboard.json
+    /// when running from a local build output. Published builds use the JSON beside the executable.
     /// </summary>
     /// <returns>Absolute path to the wallboard JSON file that should be read.</returns>
     private static string ResolveWallboardFilePath()
     {
         var runtimePath = Path.Combine(AppContext.BaseDirectory, WallboardFileName);
+        var developmentPath = ResolveDevelopmentWallboardFilePath();
+
+        if (IsDevelopmentOutputDirectory(AppContext.BaseDirectory) &&
+            File.Exists(developmentPath))
+        {
+            return developmentPath;
+        }
 
         if (File.Exists(runtimePath))
         {
             return runtimePath;
         }
 
-        var developmentPath = Path.GetFullPath(Path.Combine(
+        return File.Exists(developmentPath)
+            ? developmentPath
+            : runtimePath;
+    }
+
+    /// <summary>
+    /// Builds the repository development JSON path from a normal bin/Debug or bin/Release output.
+    /// </summary>
+    /// <returns>Expected Data/wallboard.json path for local development.</returns>
+    private static string ResolveDevelopmentWallboardFilePath()
+    {
+        return Path.GetFullPath(Path.Combine(
             AppContext.BaseDirectory,
             "..",
             "..",
@@ -137,10 +163,32 @@ internal static class WallboardConfigReader
             "..",
             "Data",
             WallboardFileName));
+    }
 
-        return File.Exists(developmentPath)
-            ? developmentPath
-            : runtimePath;
+    /// <summary>
+    /// Detects SDK build output folders so local settings are saved back to the repository JSON.
+    /// </summary>
+    /// <param name="baseDirectory">Application base directory.</param>
+    /// <returns>True when the app appears to be running from bin/Debug or bin/Release.</returns>
+    private static bool IsDevelopmentOutputDirectory(string baseDirectory)
+    {
+        var normalized = Path.GetFullPath(baseDirectory)
+            .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+        var segments = normalized.Split(
+            [Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar],
+            StringSplitOptions.RemoveEmptyEntries);
+
+        for (var index = 0; index < segments.Length - 1; index++)
+        {
+            if (string.Equals(segments[index], "bin", StringComparison.OrdinalIgnoreCase) &&
+                (string.Equals(segments[index + 1], "Debug", StringComparison.OrdinalIgnoreCase) ||
+                 string.Equals(segments[index + 1], "Release", StringComparison.OrdinalIgnoreCase)))
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /// <summary>
@@ -175,14 +223,17 @@ internal static class WallboardConfigReader
             RotationEnabled = configuration.RotationEnabled,
             RotationSeconds = configuration.RotationSeconds <= 0 ? 20 : configuration.RotationSeconds,
             DefaultLayout = NormalizeLayout(configuration.DefaultLayout),
+            AlarmSound = NormalizeAlarmSound(configuration.AlarmSound),
+            SeverityColors = NormalizeSeverityColors(configuration.SeverityColors),
             Panels = panels.Count == 0 ? CreateDefaultConfiguration().Panels : panels
         };
     }
 
     /// <summary>
-    /// Determines whether a panel has a usable absolute or root-relative URL.
-    /// WebView2 can navigate HTTP/HTTPS URLs directly. Root-relative URLs are treated as local
-    /// static pages under wwwroot and are resolved later by WebViewPanelControl.
+    /// Determines whether a panel has a usable absolute or local URL.
+    /// WebView2 can navigate HTTP/HTTPS and file URLs directly. Root-relative URLs are treated as
+    /// local static pages under wwwroot, while relative URLs are treated as files shipped beside the
+    /// executable. Local URLs are resolved later by WebViewPanelControl.
     /// </summary>
     /// <param name="panel">Panel declaration parsed from JSON.</param>
     /// <returns>True when the panel can be navigated by WebView2.</returns>
@@ -195,13 +246,30 @@ internal static class WallboardConfigReader
 
         var url = panel.Url.Trim();
 
-        if (url.StartsWith('/'))
+        if (url.StartsWith('/') || IsRelativeLocalUrl(url))
         {
             return true;
         }
 
         return Uri.TryCreate(url, UriKind.Absolute, out var uri)
-            && (uri.Scheme == Uri.UriSchemeHttp || uri.Scheme == Uri.UriSchemeHttps);
+            && (uri.Scheme == Uri.UriSchemeHttp ||
+                uri.Scheme == Uri.UriSchemeHttps ||
+                uri.Scheme == Uri.UriSchemeFile);
+    }
+
+    /// <summary>
+    /// Allows packaged local pages such as docs/scraping-test-page.html without tying the JSON to
+    /// one machine-specific absolute path.
+    /// </summary>
+    /// <param name="url">Panel URL text.</param>
+    /// <returns>True when the value is a safe relative local file path.</returns>
+    private static bool IsRelativeLocalUrl(string url)
+    {
+        return Uri.TryCreate(url, UriKind.Relative, out _)
+            && !Path.IsPathRooted(url)
+            && !url.Contains(':', StringComparison.Ordinal)
+            && !url.StartsWith('\\')
+            && !url.Contains("..", StringComparison.Ordinal);
     }
 
     /// <summary>
@@ -213,9 +281,11 @@ internal static class WallboardConfigReader
         return new WallboardConfiguration
         {
             AppTitle = "NetWatch Lite Wallboard",
-            RotationEnabled = true,
+            RotationEnabled = false,
             RotationSeconds = 20,
             DefaultLayout = 4,
+            AlarmSound = "Exclamation",
+            SeverityColors = new AlarmSeverityColors(),
             Panels =
             [
                 new WallboardPanel
@@ -326,5 +396,70 @@ internal static class WallboardConfigReader
     private static int NormalizeLayout(int layout)
     {
         return SupportedLayouts.Contains(layout) ? layout : 4;
+    }
+
+    /// <summary>
+    /// Converts configured alarm sound text into one of the supported Windows SystemSounds names.
+    /// </summary>
+    /// <param name="alarmSound">Configured alarm sound.</param>
+    /// <returns>Supported sound name.</returns>
+    private static string NormalizeAlarmSound(string? alarmSound)
+    {
+        var normalized = alarmSound?.Trim();
+
+        return SupportedAlarmSounds.FirstOrDefault(
+            sound => string.Equals(sound, normalized, StringComparison.OrdinalIgnoreCase))
+            ?? "Exclamation";
+    }
+
+    /// <summary>
+    /// Normalizes the optional severity color block into safe #RRGGBB values.
+    /// </summary>
+    /// <param name="colors">Configured color block.</param>
+    /// <returns>Normalized color block.</returns>
+    private static AlarmSeverityColors NormalizeSeverityColors(AlarmSeverityColors? colors)
+    {
+        return new AlarmSeverityColors
+        {
+            Critical = NormalizeHexColor(colors?.Critical, "#CC1220"),
+            Warning = NormalizeHexColor(colors?.Warning, "#CC6700"),
+            Info = NormalizeHexColor(colors?.Info, "#005C8A")
+        };
+    }
+
+    /// <summary>
+    /// Converts a hex color string into normalized uppercase #RRGGBB text.
+    /// </summary>
+    /// <param name="value">Configured color.</param>
+    /// <param name="fallback">Fallback color.</param>
+    /// <returns>Normalized color.</returns>
+    private static string NormalizeHexColor(string? value, string fallback)
+    {
+        var color = value?.Trim();
+
+        if (string.IsNullOrWhiteSpace(color))
+        {
+            return fallback;
+        }
+
+        if (!color.StartsWith('#'))
+        {
+            color = $"#{color}";
+        }
+
+        if (color.Length != 7)
+        {
+            return fallback;
+        }
+
+        for (var index = 1; index < color.Length; index++)
+        {
+            if (!Uri.IsHexDigit(color[index]))
+            {
+                return fallback;
+            }
+        }
+
+        return color.ToUpperInvariant();
     }
 }

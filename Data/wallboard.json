@@ -1,13 +1,63 @@
 {
   "appTitle": "NetWatch Lite Wallboard",
-  "rotationEnabled": true,
-  "rotationSeconds": 20,
-  "defaultLayout": 4,
+  "rotationEnabled": false,
+  "rotationSeconds": 90,
+  "defaultLayout": 1,
+  "alarmSound": "Exclamation",
+  "severityColors": {
+    "critical": "#CC1220",
+    "warning": "#CC6700",
+    "info": "#005C8A"
+  },
   "panels": [
     {
-      "name": "SSLAW Overview",
-      "url": "https://ny43rcsi.linux.us.ups.com/ssla/overview.php",
-      "refreshSeconds": 10,
+      "name": "Scraping Test Page",
+      "url": "docs/scraping-test-page.html",
+      "refreshSeconds": 90,
+      "monitoring": {
+        "enabled": true,
+        "pollSeconds": 3,
+        "soundEnabled": true,
+        "repeatSoundSeconds": 5,
+        "rules": [
+          {
+            "name": "Texto xxx encontrado!!!",
+            "type": "domText",
+            "selector": "#idPrueba1 .clasePrueba2",
+            "contains": "xxx",
+            "severity": "warning",
+            "detailsSelector": "#idPrueba1 .clasePrueba2",
+            "soundEnabled": true
+          },
+          {
+            "name": "Critical Alarm",
+            "type": "domText",
+            "selector": "#alarmStatus.critical .alarm-title",
+            "contains": "Alarm Detected",
+            "severity": "critical",
+            "detailsSelector": "#alarmDetails"
+          },
+          {
+            "name": "Custom Critical Target",
+            "type": "exists",
+            "selector": ".custom-target[data-alarm=\u0022critical\u0022], .custom-target.critical",
+            "severity": "critical",
+            "detailsSelector": ".custom-target[data-alarm=\u0022critical\u0022] .custom-target-details, .custom-target.critical .custom-target-details"
+          },
+          {
+            "name": "Custom Warning Target",
+            "type": "exists",
+            "selector": ".custom-target[data-alarm=\u0022warning\u0022], .custom-target.warning",
+            "severity": "warning",
+            "detailsSelector": ".custom-target[data-alarm=\u0022warning\u0022] .custom-target-details, .custom-target.warning .custom-target-details"
+          }
+        ]
+      }
+    },
+    {
+      "name": "Alarm Overview Demo",
+      "url": "docs/scraping-test-page.html",
+      "refreshSeconds": 90,
       "monitoring": {
         "enabled": true,
         "pollSeconds": 3,
@@ -32,11 +82,6 @@
           }
         ]
       }
-    },
-    {
-      "name": "Application Status",
-      "url": "https://dotnet.microsoft.com/",
-      "refreshSeconds": 12
     },
     {
       "name": "Cloud Dashboard",

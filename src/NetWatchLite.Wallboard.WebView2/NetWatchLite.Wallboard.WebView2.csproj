@@ -24,11 +24,15 @@
   </ItemGroup>
 
   <!--
-    Copy the default/development JSON into build and publish output so a fresh executable can run
-    immediately. At runtime, edits are saved to the wallboard.json beside the executable.
+    Publish the default JSON beside the portable executable. Local debug/release builds read and
+    save Data/wallboard.json directly so settings persist across rebuilds during development.
   -->
   <ItemGroup>
     <Content Include="../../Data/wallboard.json" Link="wallboard.json">
+      <CopyToOutputDirectory>Never</CopyToOutputDirectory>
+      <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+    </Content>
+    <Content Include="../../docs/scraping-test-page.html" Link="docs/scraping-test-page.html">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
       <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
     </Content>
