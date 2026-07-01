@@ -10,16 +10,8 @@ namespace NetWatchLite.Wallboard.WebView2;
 internal static class WallboardConfigReader
 {
     private const string WallboardFileName = "wallboard.json";
+    private const string EnvironmentVariableName = "NETWATCH_WALLBOARD_ENV";
     private static readonly int[] SupportedLayouts = [1, 2, 3, 4, 6, 8];
-    private static readonly string[] SupportedAlarmSounds =
-    [
-        "Exclamation",
-        "Asterisk",
-        "Beep",
-        "Hand",
-        "Question"
-    ];
-
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
         PropertyNameCaseInsensitive = true,
@@ -28,6 +20,12 @@ internal static class WallboardConfigReader
         AllowTrailingCommas = true,
         WriteIndented = true
     };
+
+    /// <summary>
+    /// Optional runtime profile selected by --environment, --env, --config-env, or
+    /// NETWATCH_WALLBOARD_ENV. Empty means the default wallboard.json is active.
+    /// </summary>
+    public static string ActiveEnvironmentName { get; } = ResolveActiveEnvironmentName();
 
     /// <summary>
     /// Loads <c>wallboard.json</c> from the executable folder or development source folder.
@@ -54,7 +52,7 @@ internal static class WallboardConfigReader
                 cancellationToken);
 
             // Normalize immediately after deserialization so UI and rendering code do not need to
-            // defend against unsupported layouts, empty names, invalid URLs, or bad monitoring rules.
+            // defend against unsupported layouts, empty names, invalid URLs, or bad timing values.
             return Normalize(configuration);
         }
         catch (Exception ex)
@@ -76,7 +74,7 @@ internal static class WallboardConfigReader
         WallboardConfiguration configuration,
         CancellationToken cancellationToken = default)
     {
-        var filePath = ResolveWallboardFilePath();
+        var filePath = ResolveWritableWallboardFilePath();
         var normalized = Normalize(configuration);
         var directory = Path.GetDirectoryName(filePath);
 
@@ -123,14 +121,28 @@ internal static class WallboardConfigReader
     }
 
     /// <summary>
+    /// Returns the active JSON filename, including the environment suffix when one is selected.
+    /// </summary>
+    /// <returns>wallboard.json or wallboard.{environment}.json.</returns>
+    public static string GetConfigurationFileName()
+    {
+        return string.IsNullOrWhiteSpace(ActiveEnvironmentName)
+            ? WallboardFileName
+            : $"wallboard.{ActiveEnvironmentName}.json";
+    }
+
+    /// <summary>
     /// Resolves the runtime configuration path, preferring the repository's Data/wallboard.json
     /// when running from a local build output. Published builds use the JSON beside the executable.
     /// </summary>
     /// <returns>Absolute path to the wallboard JSON file that should be read.</returns>
     private static string ResolveWallboardFilePath()
     {
-        var runtimePath = Path.Combine(AppContext.BaseDirectory, WallboardFileName);
-        var developmentPath = ResolveDevelopmentWallboardFilePath();
+        var fileName = GetConfigurationFileName();
+        var defaultRuntimePath = Path.Combine(AppContext.BaseDirectory, WallboardFileName);
+        var defaultDevelopmentPath = ResolveDevelopmentWallboardFilePath(WallboardFileName);
+        var runtimePath = Path.Combine(AppContext.BaseDirectory, fileName);
+        var developmentPath = ResolveDevelopmentWallboardFilePath(fileName);
 
         if (IsDevelopmentOutputDirectory(AppContext.BaseDirectory) &&
             File.Exists(developmentPath))
@@ -143,16 +155,47 @@ internal static class WallboardConfigReader
             return runtimePath;
         }
 
+        if (!string.IsNullOrWhiteSpace(ActiveEnvironmentName))
+        {
+            if (IsDevelopmentOutputDirectory(AppContext.BaseDirectory) &&
+                File.Exists(defaultDevelopmentPath))
+            {
+                return defaultDevelopmentPath;
+            }
+
+            if (File.Exists(defaultRuntimePath))
+            {
+                return defaultRuntimePath;
+            }
+        }
+
         return File.Exists(developmentPath)
             ? developmentPath
             : runtimePath;
     }
 
     /// <summary>
+    /// Resolves the path used for saving. Unlike load, an environment profile should be created at
+    /// its own wallboard.{environment}.json path instead of falling back to wallboard.json.
+    /// </summary>
+    /// <returns>Writable path for the active configuration profile.</returns>
+    private static string ResolveWritableWallboardFilePath()
+    {
+        var fileName = GetConfigurationFileName();
+
+        if (IsDevelopmentOutputDirectory(AppContext.BaseDirectory))
+        {
+            return ResolveDevelopmentWallboardFilePath(fileName);
+        }
+
+        return Path.Combine(AppContext.BaseDirectory, fileName);
+    }
+
+    /// <summary>
     /// Builds the repository development JSON path from a normal bin/Debug or bin/Release output.
     /// </summary>
     /// <returns>Expected Data/wallboard.json path for local development.</returns>
-    private static string ResolveDevelopmentWallboardFilePath()
+    private static string ResolveDevelopmentWallboardFilePath(string fileName)
     {
         return Path.GetFullPath(Path.Combine(
             AppContext.BaseDirectory,
@@ -162,7 +205,7 @@ internal static class WallboardConfigReader
             "..",
             "..",
             "Data",
-            WallboardFileName));
+            fileName));
     }
 
     /// <summary>
@@ -208,10 +251,9 @@ internal static class WallboardConfigReader
             .Where(IsValidPanel)
             .Select(panel => new WallboardPanel
             {
-                Name = string.IsNullOrWhiteSpace(panel.Name) ? "Monitoring Panel" : panel.Name.Trim(),
+                Name = string.IsNullOrWhiteSpace(panel.Name) ? "Wallboard Panel" : panel.Name.Trim(),
                 Url = panel.Url.Trim(),
-                RefreshSeconds = panel.RefreshSeconds <= 0 ? 30 : panel.RefreshSeconds,
-                Monitoring = NormalizeMonitoring(panel.Monitoring)
+                RefreshSeconds = panel.RefreshSeconds <= 0 ? 30 : panel.RefreshSeconds
             })
             .ToList();
 
@@ -223,8 +265,15 @@ internal static class WallboardConfigReader
             RotationEnabled = configuration.RotationEnabled,
             RotationSeconds = configuration.RotationSeconds <= 0 ? 20 : configuration.RotationSeconds,
             DefaultLayout = NormalizeLayout(configuration.DefaultLayout),
-            AlarmSound = NormalizeAlarmSound(configuration.AlarmSound),
-            SeverityColors = NormalizeSeverityColors(configuration.SeverityColors),
+            LowPowerModeEnabled = configuration.LowPowerModeEnabled,
+            AutoRestartEnabled = configuration.AutoRestartEnabled,
+            AutoRestartHours = Math.Clamp(configuration.AutoRestartHours, 1, 24),
+            StartFullscreen = configuration.StartFullscreen,
+            ConfirmExit = configuration.ConfirmExit,
+            MemoryMonitorEnabled = configuration.MemoryMonitorEnabled,
+            MemoryWarningMegabytes = Math.Clamp(configuration.MemoryWarningMegabytes, 256, 65536),
+            AutoHideTopBarEnabled = configuration.AutoHideTopBarEnabled,
+            Theme = ThemePalette.NormalizeName(configuration.Theme),
             Panels = panels.Count == 0 ? CreateDefaultConfiguration().Panels : panels
         };
     }
@@ -258,7 +307,7 @@ internal static class WallboardConfigReader
     }
 
     /// <summary>
-    /// Allows packaged local pages such as docs/scraping-test-page.html without tying the JSON to
+    /// Allows packaged local pages without tying the JSON to
     /// one machine-specific absolute path.
     /// </summary>
     /// <param name="url">Panel URL text.</param>
@@ -284,107 +333,24 @@ internal static class WallboardConfigReader
             RotationEnabled = false,
             RotationSeconds = 20,
             DefaultLayout = 4,
-            AlarmSound = "Exclamation",
-            SeverityColors = new AlarmSeverityColors(),
+            LowPowerModeEnabled = true,
+            AutoRestartEnabled = false,
+            AutoRestartHours = 6,
+            StartFullscreen = false,
+            ConfirmExit = false,
+            MemoryMonitorEnabled = false,
+            MemoryWarningMegabytes = 1500,
+            AutoHideTopBarEnabled = false,
+            Theme = "dark",
             Panels =
             [
                 new WallboardPanel
                 {
                     Name = "Operations Overview",
                     Url = "https://example.com/",
-                    RefreshSeconds = 30,
-                    Monitoring = null
+                    RefreshSeconds = 30
                 }
             ]
-        };
-    }
-
-    /// <summary>
-    /// Converts optional panel monitoring settings into safe runtime values.
-    /// Disabled monitoring and enabled monitoring with no usable rules both become null. That keeps
-    /// WebViewPanelControl's runtime decision simple: null means no alarm polling timer.
-    /// </summary>
-    /// <param name="monitoring">Monitoring settings parsed from JSON.</param>
-    /// <returns>Normalized settings, or null when monitoring should stay disabled.</returns>
-    private static PanelMonitoringOptions? NormalizeMonitoring(PanelMonitoringOptions? monitoring)
-    {
-        if (monitoring is null || !monitoring.Enabled)
-        {
-            return null;
-        }
-
-        var rules = (monitoring.Rules ?? [])
-            .Where(IsValidMonitoringRule)
-            .Select(rule => new PanelMonitoringRule
-            {
-                Name = string.IsNullOrWhiteSpace(rule.Name) ? "DOM Alert" : rule.Name.Trim(),
-                Type = NormalizeRuleType(rule.Type),
-                Selector = rule.Selector.Trim(),
-                Contains = string.IsNullOrWhiteSpace(rule.Contains) ? null : rule.Contains.Trim(),
-                Severity = NormalizeSeverity(rule.Severity),
-                DetailsSelector = string.IsNullOrWhiteSpace(rule.DetailsSelector)
-                    ? null
-                    : rule.DetailsSelector.Trim(),
-                SoundEnabled = rule.SoundEnabled
-            })
-            .ToList();
-
-        if (rules.Count == 0)
-        {
-            return null;
-        }
-
-        return new PanelMonitoringOptions
-        {
-            Enabled = true,
-            PollSeconds = Math.Clamp(monitoring.PollSeconds, 1, 300),
-            SoundEnabled = monitoring.SoundEnabled,
-            RepeatSoundSeconds = Math.Clamp(monitoring.RepeatSoundSeconds, 1, 300),
-            Rules = rules
-        };
-    }
-
-    /// <summary>
-    /// Determines whether a monitoring rule has enough information to run safely.
-    /// The selector is required because it is the only way the JavaScript scanner can find candidate
-    /// DOM elements. Unsupported types are normalized to "exists" before this check.
-    /// </summary>
-    /// <param name="rule">Rule parsed from JSON.</param>
-    /// <returns>True when the rule can be evaluated in the browser DOM.</returns>
-    private static bool IsValidMonitoringRule(PanelMonitoringRule rule)
-    {
-        return !string.IsNullOrWhiteSpace(rule.Selector)
-            && NormalizeRuleType(rule.Type) is "exists" or "domText" or "domClass";
-    }
-
-    /// <summary>
-    /// Converts a rule type into a supported detector name.
-    /// </summary>
-    /// <param name="type">Configured rule type.</param>
-    /// <returns>Supported rule type.</returns>
-    private static string NormalizeRuleType(string? type)
-    {
-        return type?.Trim().ToLowerInvariant() switch
-        {
-            "domtext" => "domText",
-            "domclass" => "domClass",
-            "exists" => "exists",
-            _ => "exists"
-        };
-    }
-
-    /// <summary>
-    /// Converts alert severity into a supported visual level.
-    /// </summary>
-    /// <param name="severity">Configured severity.</param>
-    /// <returns>critical, warning, or info.</returns>
-    private static string NormalizeSeverity(string? severity)
-    {
-        return severity?.Trim().ToLowerInvariant() switch
-        {
-            "critical" => "critical",
-            "info" => "info",
-            _ => "warning"
         };
     }
 
@@ -399,67 +365,71 @@ internal static class WallboardConfigReader
     }
 
     /// <summary>
-    /// Converts configured alarm sound text into one of the supported Windows SystemSounds names.
+    /// Reads command-line or environment profile selection and converts it to a safe filename suffix.
     /// </summary>
-    /// <param name="alarmSound">Configured alarm sound.</param>
-    /// <returns>Supported sound name.</returns>
-    private static string NormalizeAlarmSound(string? alarmSound)
+    /// <returns>Normalized environment suffix, or empty for the default profile.</returns>
+    private static string ResolveActiveEnvironmentName()
     {
-        var normalized = alarmSound?.Trim();
+        var args = Environment.GetCommandLineArgs();
+        string? environmentName = null;
 
-        return SupportedAlarmSounds.FirstOrDefault(
-            sound => string.Equals(sound, normalized, StringComparison.OrdinalIgnoreCase))
-            ?? "Exclamation";
-    }
-
-    /// <summary>
-    /// Normalizes the optional severity color block into safe #RRGGBB values.
-    /// </summary>
-    /// <param name="colors">Configured color block.</param>
-    /// <returns>Normalized color block.</returns>
-    private static AlarmSeverityColors NormalizeSeverityColors(AlarmSeverityColors? colors)
-    {
-        return new AlarmSeverityColors
+        for (var index = 1; index < args.Length; index++)
         {
-            Critical = NormalizeHexColor(colors?.Critical, "#CC1220"),
-            Warning = NormalizeHexColor(colors?.Warning, "#CC6700"),
-            Info = NormalizeHexColor(colors?.Info, "#005C8A")
-        };
-    }
+            var arg = args[index];
 
-    /// <summary>
-    /// Converts a hex color string into normalized uppercase #RRGGBB text.
-    /// </summary>
-    /// <param name="value">Configured color.</param>
-    /// <param name="fallback">Fallback color.</param>
-    /// <returns>Normalized color.</returns>
-    private static string NormalizeHexColor(string? value, string fallback)
-    {
-        var color = value?.Trim();
-
-        if (string.IsNullOrWhiteSpace(color))
-        {
-            return fallback;
-        }
-
-        if (!color.StartsWith('#'))
-        {
-            color = $"#{color}";
-        }
-
-        if (color.Length != 7)
-        {
-            return fallback;
-        }
-
-        for (var index = 1; index < color.Length; index++)
-        {
-            if (!Uri.IsHexDigit(color[index]))
+            if (arg.StartsWith("--environment=", StringComparison.OrdinalIgnoreCase))
             {
-                return fallback;
+                environmentName = arg["--environment=".Length..];
+                break;
+            }
+
+            if (arg.StartsWith("--env=", StringComparison.OrdinalIgnoreCase))
+            {
+                environmentName = arg["--env=".Length..];
+                break;
+            }
+
+            if (arg.StartsWith("--config-env=", StringComparison.OrdinalIgnoreCase))
+            {
+                environmentName = arg["--config-env=".Length..];
+                break;
+            }
+
+            if ((string.Equals(arg, "--environment", StringComparison.OrdinalIgnoreCase) ||
+                 string.Equals(arg, "--env", StringComparison.OrdinalIgnoreCase) ||
+                 string.Equals(arg, "--config-env", StringComparison.OrdinalIgnoreCase)) &&
+                index + 1 < args.Length)
+            {
+                environmentName = args[index + 1];
+                break;
             }
         }
 
-        return color.ToUpperInvariant();
+        environmentName ??= Environment.GetEnvironmentVariable(EnvironmentVariableName);
+        return NormalizeEnvironmentName(environmentName);
+    }
+
+    /// <summary>
+    /// Keeps environment names safe for wallboard.{environment}.json file lookup.
+    /// </summary>
+    /// <param name="environmentName">Raw command-line or environment value.</param>
+    /// <returns>Lowercase alphanumeric, dash, and underscore suffix.</returns>
+    private static string NormalizeEnvironmentName(string? environmentName)
+    {
+        var raw = environmentName?.Trim();
+
+        if (string.IsNullOrWhiteSpace(raw))
+        {
+            return string.Empty;
+        }
+
+        var characters = raw
+            .Where(character => char.IsLetterOrDigit(character) || character is '-' or '_')
+            .Select(char.ToLowerInvariant)
+            .ToArray();
+
+        return characters.Length == 0
+            ? string.Empty
+            : new string(characters);
     }
 }

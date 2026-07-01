@@ -1,0 +1,22 @@
+{
+  "appTitle": "NetWatch Lite Wallboard - Production",
+  "rotationEnabled": true,
+  "rotationSeconds": 90,
+  "defaultLayout": 4,
+  "lowPowerModeEnabled": true,
+  "autoRestartEnabled": true,
+  "autoRestartHours": 6,
+  "startFullscreen": true,
+  "confirmExit": true,
+  "memoryMonitorEnabled": true,
+  "memoryWarningMegabytes": 1500,
+  "autoHideTopBarEnabled": true,
+  "theme": "dark",
+  "panels": [
+    {
+      "name": "Production Overview",
+      "url": "https://example.com/",
+      "refreshSeconds": 60
+    }
+  ]
+}

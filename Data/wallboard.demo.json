@@ -1,0 +1,22 @@
+{
+  "appTitle": "NetWatch Lite Wallboard - Demo",
+  "rotationEnabled": false,
+  "rotationSeconds": 90,
+  "defaultLayout": 1,
+  "lowPowerModeEnabled": true,
+  "autoRestartEnabled": false,
+  "autoRestartHours": 6,
+  "startFullscreen": false,
+  "confirmExit": false,
+  "memoryMonitorEnabled": true,
+  "memoryWarningMegabytes": 1500,
+  "autoHideTopBarEnabled": false,
+  "theme": "dark",
+  "panels": [
+    {
+      "name": "Demo Dashboard",
+      "url": "https://example.com/",
+      "refreshSeconds": 60
+    }
+  ]
+}

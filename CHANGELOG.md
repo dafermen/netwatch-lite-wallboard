@@ -2,39 +2,36 @@
 
 All notable changes to NetWatch Lite Wallboard are documented here.
 
-## Unreleased
+## v0.3.0 - 2026-07-01
 
-- Improved settings window spacing so top-level fields and panel editor actions are easier to read.
-- Reworked settings field alignment so rotation and default layout labels stay readable.
-- Added more vertical spacing for panel editor labels and footer buttons.
-- Moved the panel delete action into the visible command grid and renamed the monitoring action to **Edit JSON**.
+- Removed the DOM scraping/monitoring subsystem, including monitoring JSON models, rule editor, selector validation, scraping controls, alarm preview, bundled scraping test page, and related documentation.
+- Simplified settings, diagnostics, configuration, and WebView panel runtime around page display, refresh, restart, rotation, profiles, and low-power mode.
+- Improved settings window layout so top-level fields, panel details, panel actions, and footer actions are easier to read.
+- Split settings footer actions into utility actions on the left and primary Save/Cancel actions on the right.
+- Added scheduled visible-panel restart for long-running sessions.
+- Added configurable fullscreen startup and close confirmation for kiosk-style use.
+- Added memory monitor with configurable warning threshold and restart recommendation.
+- Added top-bar auto-hide for TV wallboard mode.
+- Added native shell themes: dark, light, and high contrast.
+- Clarified global versus per-panel actions by renaming the top-bar refresh action to **Refresh All** and adding panel-specific tooltips.
+- Added a dedicated end-user guide in `docs/user-guide.md`.
+- Rewrote the developer guide so a junior developer can understand runtime flow, configuration loading, panel lifecycle, low-power mode, restart behavior, and extension points.
+- Reworked the GitHub README as the main project entry point with current scope, setup, configuration, publishing, and documentation links.
 - Changed the default configuration so automatic rotation starts disabled.
 - Changed the settings keyboard shortcut from `Ctrl+,` to `C`.
-- Made the alarm sound silence button persist across page refreshes until sound is manually re-enabled.
-- Improved the Monitoring JSON dialog layout so rule builder labels, selector fields, and the Add Rule button remain readable.
-- Added a standalone local scraping test page for validating DOM monitoring selectors, alarm text, alarm classes, and sound behavior.
-- Allowed `file:///` panel URLs so local HTML test pages can be loaded by the wallboard.
-- Added a per-panel **Stop Scraping** / **Start Scraping** control for temporarily pausing DOM monitoring without editing JSON.
+- Allowed `file:///` panel URLs so trusted local HTML pages can be loaded by the wallboard.
 - Made `ESC` reliable from hosted WebView2 content and close the app when fullscreen is not active.
-- Documented how to change the built-in alert sound or replace it with a custom `.wav`.
-- Added a Settings dropdown and top-level `alarmSound` JSON field for choosing `Exclamation`, `Asterisk`, `Beep`, `Hand`, or `Question`.
-- Added **Preview** and **Test Alarm** actions in Settings for validating selected alarm sound and severity colors.
-- Added configurable `severityColors` for critical, warning, and info alarm banners.
-- Added a **Diagnostics** window with runtime paths, version, configuration summary, monitoring summary, and panel details.
-- Added visible scraping status updates showing active, checked, and stopped DOM monitoring states.
-- Added selector validation in the Monitoring JSON editor for common selector syntax mistakes.
-- Enhanced the local scraping test page with persistent state, export/import, and a configurable custom DOM target.
+- Added a **Diagnostics** window with runtime paths, version, configuration summary, and panel details.
 
 ## v0.2.3 - 2026-06-03
 
-- Expanded the README with a complete explanation of configuration, panel fields, DOM monitoring JSON, selector rules, alarm behavior, build steps, and operational notes.
-- Rewrote the developer guide with detailed runtime flow, configuration normalization, settings save behavior, WebView2 hosting, DOM polling, alarm snapshots, and extension points.
+- Expanded the README with a complete explanation of configuration, panel fields, build steps, and operational notes.
+- Rewrote the developer guide with detailed runtime flow, configuration normalization, settings save behavior, WebView2 hosting, and extension points.
 - Added detailed source comments across the configuration models, settings editor, configuration reader, main form, WebView panel control, and project file.
 - Replaced non-ASCII UI shortcut/refresh symbols in source with ASCII text for easier cross-editor readability.
 - Added centralized unexpected-error logging under `%LOCALAPPDATA%\NetWatchLite\WallboardLogs`.
-- Hardened WinForms async event handlers, panel rendering, settings save events, DOM polling timers, and WebView2 process failure handling.
+- Hardened WinForms async event handlers, panel rendering, settings save events, and WebView2 process failure handling.
 - Added settings-window import/export buttons for moving or backing up `wallboard.json`.
-- Added a basic monitoring rule builder for creating selector, type, text, severity, details selector, and sound settings without hand-writing JSON.
 - Expanded README positioning with operational value, business benefits, and TSG-focused production support messaging.
 
 ## v0.2.2 - 2026-05-08
@@ -57,7 +54,7 @@ All notable changes to NetWatch Lite Wallboard are documented here.
 ## v0.2.0 - 2026-05-08
 
 - Added a visual settings window for managing `wallboard.json` inside the app.
-- Added panel CRUD actions for adding, updating, duplicating, deleting, and reordering monitoring panels.
+- Added panel CRUD actions for adding, updating, duplicating, deleting, and reordering wallboard panels.
 - Added editable wallboard title, default layout, rotation toggle, and rotation interval controls.
 - Added a top-bar Settings button and `Ctrl+,` keyboard shortcut.
 - Added JSON save support with a local `wallboard.backup.json` backup before overwriting.

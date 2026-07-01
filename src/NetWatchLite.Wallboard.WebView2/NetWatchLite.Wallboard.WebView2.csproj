@@ -5,12 +5,12 @@
   -->
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
-    <TargetFramework>net8.0-windows</TargetFramework>
+    <TargetFramework>net8.0-windows10.0.17763.0</TargetFramework>
     <RootNamespace>NetWatchLite.Wallboard.WebView2</RootNamespace>
     <AssemblyName>NetWatch-Lite-Wallboard</AssemblyName>
-    <Version>0.2.3</Version>
-    <AssemblyVersion>0.2.3.0</AssemblyVersion>
-    <FileVersion>0.2.3.0</FileVersion>
+    <Version>0.3.0</Version>
+    <AssemblyVersion>0.3.0.0</AssemblyVersion>
+    <FileVersion>0.3.0.0</FileVersion>
     <UseWindowsForms>true</UseWindowsForms>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
@@ -20,7 +20,7 @@
 
   <!-- WebView2 provides the embedded Edge browser controls used by every wallboard panel. -->
   <ItemGroup>
-    <PackageReference Include="Microsoft.Web.WebView2" Version="1.0.2592.51" />
+    <PackageReference Include="Microsoft.Web.WebView2" Version="1.0.3351.48" />
   </ItemGroup>
 
   <!--
@@ -28,12 +28,8 @@
     save Data/wallboard.json directly so settings persist across rebuilds during development.
   -->
   <ItemGroup>
-    <Content Include="../../Data/wallboard.json" Link="wallboard.json">
+    <Content Include="../../Data/wallboard*.json" Exclude="../../Data/*.backup.json" Link="%(Filename)%(Extension)">
       <CopyToOutputDirectory>Never</CopyToOutputDirectory>
-      <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
-    </Content>
-    <Content Include="../../docs/scraping-test-page.html" Link="docs/scraping-test-page.html">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
       <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
     </Content>
   </ItemGroup>

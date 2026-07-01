@@ -106,15 +106,16 @@ internal sealed class DiagnosticsForm : Form
     {
         var assembly = Assembly.GetExecutingAssembly().GetName();
         var process = Process.GetCurrentProcess();
-        var monitoringPanels = _configuration.Panels.Count(panel => panel.Monitoring?.Enabled == true);
         var builder = new StringBuilder();
 
         builder.AppendLine("NetWatch Lite Wallboard Diagnostics");
         builder.AppendLine($"Generated: {DateTime.Now:yyyy-MM-dd HH:mm:ss}");
         builder.AppendLine($"Version: {assembly.Version}");
         builder.AppendLine($"Process: {process.ProcessName} ({process.Id})");
+        builder.AppendLine($"Working set: {process.WorkingSet64 / 1024 / 1024:N0} MB");
         builder.AppendLine();
         builder.AppendLine("Paths");
+        builder.AppendLine($"Environment: {GetEnvironmentDisplayName()}");
         builder.AppendLine($"Configuration: {WallboardConfigReader.GetConfigurationFilePath()}");
         builder.AppendLine($"Error log: {AppErrorLog.LogFilePath}");
         builder.AppendLine($"App base: {AppContext.BaseDirectory}");
@@ -126,13 +127,17 @@ internal sealed class DiagnosticsForm : Form
         builder.AppendLine($"Page: {_currentPage} / {_pageCount}");
         builder.AppendLine($"Visible panels: {_activePanelCount}");
         builder.AppendLine($"Configured panels: {_configuration.Panels.Count}");
-        builder.AppendLine($"Panels with DOM monitoring: {monitoringPanels}");
+        builder.AppendLine($"Low power mode: {_configuration.LowPowerModeEnabled}");
+        builder.AppendLine($"Auto restart: {_configuration.AutoRestartEnabled}");
+        builder.AppendLine($"Auto restart hours: {_configuration.AutoRestartHours}");
+        builder.AppendLine($"Start fullscreen: {_configuration.StartFullscreen}");
+        builder.AppendLine($"Confirm exit: {_configuration.ConfirmExit}");
+        builder.AppendLine($"Memory monitor: {_configuration.MemoryMonitorEnabled}");
+        builder.AppendLine($"Memory warning MB: {_configuration.MemoryWarningMegabytes}");
+        builder.AppendLine($"Auto-hide top bar: {_configuration.AutoHideTopBarEnabled}");
+        builder.AppendLine($"Theme: {_configuration.Theme}");
         builder.AppendLine($"Rotation enabled: {_configuration.RotationEnabled}");
         builder.AppendLine($"Rotation seconds: {_configuration.RotationSeconds}");
-        builder.AppendLine($"Alarm sound: {_configuration.AlarmSound}");
-        builder.AppendLine($"Critical color: {_configuration.SeverityColors.Critical}");
-        builder.AppendLine($"Warning color: {_configuration.SeverityColors.Warning}");
-        builder.AppendLine($"Info color: {_configuration.SeverityColors.Info}");
         builder.AppendLine();
         builder.AppendLine("Panels");
 
@@ -142,16 +147,19 @@ internal sealed class DiagnosticsForm : Form
             builder.AppendLine($"{index + 1}. {panel.Name}");
             builder.AppendLine($"   URL: {panel.Url}");
             builder.AppendLine($"   Refresh: {panel.RefreshSeconds}s");
-            builder.AppendLine($"   Monitoring: {(panel.Monitoring?.Enabled == true ? "On" : "Off")}");
-
-            if (panel.Monitoring?.Enabled == true)
-            {
-                builder.AppendLine($"   Poll: {panel.Monitoring.PollSeconds}s");
-                builder.AppendLine($"   Rules: {panel.Monitoring.Rules.Count}");
-            }
         }
 
         _diagnosticsTextBox.Text = builder.ToString();
+    }
+
+    /// <summary>
+    /// Formats the active configuration profile for diagnostics.
+    /// </summary>
+    private static string GetEnvironmentDisplayName()
+    {
+        return string.IsNullOrWhiteSpace(WallboardConfigReader.ActiveEnvironmentName)
+            ? "default"
+            : WallboardConfigReader.ActiveEnvironmentName;
     }
 
     /// <summary>

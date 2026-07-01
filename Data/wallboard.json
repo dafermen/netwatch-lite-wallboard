@@ -3,115 +3,45 @@
   "rotationEnabled": false,
   "rotationSeconds": 90,
   "defaultLayout": 1,
-  "alarmSound": "Exclamation",
-  "severityColors": {
-    "critical": "#CC1220",
-    "warning": "#CC6700",
-    "info": "#005C8A"
-  },
+  "lowPowerModeEnabled": true,
+  "autoRestartEnabled": false,
+  "autoRestartHours": 6,
+  "startFullscreen": false,
+  "confirmExit": false,
+  "memoryMonitorEnabled": true,
+  "memoryWarningMegabytes": 1500,
+  "autoHideTopBarEnabled": false,
+  "theme": "dark",
   "panels": [
-    {
-      "name": "Scraping Test Page",
-      "url": "docs/scraping-test-page.html",
-      "refreshSeconds": 90,
-      "monitoring": {
-        "enabled": true,
-        "pollSeconds": 3,
-        "soundEnabled": true,
-        "repeatSoundSeconds": 5,
-        "rules": [
-          {
-            "name": "Texto xxx encontrado!!!",
-            "type": "domText",
-            "selector": "#idPrueba1 .clasePrueba2",
-            "contains": "xxx",
-            "severity": "warning",
-            "detailsSelector": "#idPrueba1 .clasePrueba2",
-            "soundEnabled": true
-          },
-          {
-            "name": "Critical Alarm",
-            "type": "domText",
-            "selector": "#alarmStatus.critical .alarm-title",
-            "contains": "Alarm Detected",
-            "severity": "critical",
-            "detailsSelector": "#alarmDetails"
-          },
-          {
-            "name": "Custom Critical Target",
-            "type": "exists",
-            "selector": ".custom-target[data-alarm=\u0022critical\u0022], .custom-target.critical",
-            "severity": "critical",
-            "detailsSelector": ".custom-target[data-alarm=\u0022critical\u0022] .custom-target-details, .custom-target.critical .custom-target-details"
-          },
-          {
-            "name": "Custom Warning Target",
-            "type": "exists",
-            "selector": ".custom-target[data-alarm=\u0022warning\u0022], .custom-target.warning",
-            "severity": "warning",
-            "detailsSelector": ".custom-target[data-alarm=\u0022warning\u0022] .custom-target-details, .custom-target.warning .custom-target-details"
-          }
-        ]
-      }
-    },
-    {
-      "name": "Alarm Overview Demo",
-      "url": "docs/scraping-test-page.html",
-      "refreshSeconds": 90,
-      "monitoring": {
-        "enabled": true,
-        "pollSeconds": 3,
-        "soundEnabled": true,
-        "repeatSoundSeconds": 5,
-        "rules": [
-          {
-            "name": "PLC Alarm Modal",
-            "type": "domText",
-            "selector": "#divAlarm.on .alarmTitle",
-            "contains": "PLC Alarm Detected",
-            "severity": "critical",
-            "detailsSelector": "#divAlarm.on .alarmDiv"
-          },
-          {
-            "name": "Health Red Indicator",
-            "type": "exists",
-            "selector": ".overviewHealth .ledRED, #divHealth .ledRED",
-            "severity": "warning",
-            "detailsSelector": ".overviewHealth .ledRED, #divHealth .ledRED",
-            "soundEnabled": false
-          }
-        ]
-      }
-    },
     {
       "name": "Cloud Dashboard",
       "url": "https://azure.microsoft.com/",
-      "refreshSeconds": 14
+      "refreshSeconds": 90
     },
     {
       "name": "Team Portal",
       "url": "https://github.com/",
-      "refreshSeconds": 16
+      "refreshSeconds": 90
     },
     {
       "name": "Incident Queue",
       "url": "https://example.org/",
-      "refreshSeconds": 18
+      "refreshSeconds": 90
     },
     {
       "name": "Service Metrics",
       "url": "https://example.net/",
-      "refreshSeconds": 20
+      "refreshSeconds": 90
     },
     {
       "name": "Network Map",
       "url": "https://www.iana.org/domains/reserved",
-      "refreshSeconds": 22
+      "refreshSeconds": 90
     },
     {
       "name": "Change Calendar",
       "url": "https://www.rfc-editor.org/",
-      "refreshSeconds": 24
+      "refreshSeconds": 90
     }
   ]
 }

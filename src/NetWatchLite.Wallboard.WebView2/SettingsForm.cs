@@ -1,4 +1,3 @@
-using System.Media;
 using System.Text.Json;
 
 namespace NetWatchLite.Wallboard.WebView2;
@@ -11,23 +10,6 @@ namespace NetWatchLite.Wallboard.WebView2;
 internal sealed class SettingsForm : Form
 {
     private static readonly int[] SupportedLayouts = [1, 2, 3, 4, 6, 8];
-    private static readonly string[] SupportedAlarmSounds =
-    [
-        "Exclamation",
-        "Asterisk",
-        "Beep",
-        "Hand",
-        "Question"
-    ];
-    private static readonly JsonSerializerOptions MonitoringJsonOptions = new()
-    {
-        PropertyNameCaseInsensitive = true,
-        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
-        ReadCommentHandling = JsonCommentHandling.Skip,
-        AllowTrailingCommas = true,
-        WriteIndented = true
-    };
-
     private static readonly Color WindowBackColor = Color.FromArgb(17, 24, 39);
     private static readonly Color SurfaceColor = Color.FromArgb(31, 41, 55);
     private static readonly Color InputColor = Color.FromArgb(15, 23, 42);
@@ -40,12 +22,17 @@ internal sealed class SettingsForm : Form
 
     private readonly TextBox _titleTextBox = new();
     private readonly CheckBox _rotationCheckBox = new();
+    private readonly CheckBox _lowPowerModeCheckBox = new();
+    private readonly CheckBox _autoRestartCheckBox = new();
+    private readonly CheckBox _startFullscreenCheckBox = new();
+    private readonly CheckBox _confirmExitCheckBox = new();
+    private readonly CheckBox _memoryMonitorCheckBox = new();
+    private readonly CheckBox _autoHideTopBarCheckBox = new();
     private readonly NumericUpDown _rotationSecondsInput = new();
+    private readonly NumericUpDown _autoRestartHoursInput = new();
+    private readonly NumericUpDown _memoryWarningInput = new();
     private readonly ComboBox _defaultLayoutComboBox = new();
-    private readonly ComboBox _alarmSoundComboBox = new();
-    private readonly Button _criticalColorButton = new();
-    private readonly Button _warningColorButton = new();
-    private readonly Button _infoColorButton = new();
+    private readonly ComboBox _themeComboBox = new();
     private readonly DataGridView _panelGrid = new();
     private readonly TextBox _panelNameTextBox = new();
     private readonly TextBox _panelUrlTextBox = new();
@@ -82,8 +69,8 @@ internal sealed class SettingsForm : Form
         MaximizeBox = true;
         MinimizeBox = false;
         SizeGripStyle = SizeGripStyle.Show;
-        MinimumSize = new Size(1120, 820);
-        Size = new Size(1280, 780);
+        MinimumSize = new Size(1120, 780);
+        Size = new Size(1280, 820);
         StartPosition = FormStartPosition.CenterParent;
 
         BuildLayout();
@@ -108,10 +95,10 @@ internal sealed class SettingsForm : Form
             Padding = new Padding(14),
             BackColor = WindowBackColor
         };
-        root.RowStyles.Add(new RowStyle(SizeType.Absolute, 178));
+        root.RowStyles.Add(new RowStyle(SizeType.Absolute, 184));
         root.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
         root.RowStyles.Add(new RowStyle(SizeType.Absolute, 28));
-        root.RowStyles.Add(new RowStyle(SizeType.Absolute, 56));
+        root.RowStyles.Add(new RowStyle(SizeType.Absolute, 64));
 
         var settingsGroup = BuildTopSettings();
         var body = BuildBody();
@@ -132,9 +119,9 @@ internal sealed class SettingsForm : Form
     }
 
     /// <summary>
-    /// Builds the top settings area: general wallboard options on the left and alarm options on the right.
+    /// Builds the top settings area.
     /// </summary>
-    /// <returns>Top settings layout.</returns>
+    /// <returns>Top settings group.</returns>
     private TableLayoutPanel BuildTopSettings()
     {
         var top = new TableLayoutPanel
@@ -143,10 +130,10 @@ internal sealed class SettingsForm : Form
             ColumnCount = 2,
             RowCount = 1
         };
-        top.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 58));
-        top.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 42));
+        top.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 46));
+        top.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 54));
         top.Controls.Add(BuildSettingsGroup(), 0, 0);
-        top.Controls.Add(BuildAlarmOptionsGroup(), 1, 0);
+        top.Controls.Add(BuildRuntimeGroup(), 1, 0);
         return top;
     }
 
@@ -186,14 +173,16 @@ internal sealed class SettingsForm : Form
         var panel = new TableLayoutPanel
         {
             Dock = DockStyle.Fill,
-            ColumnCount = 4,
+            ColumnCount = 6,
             RowCount = 2,
             Padding = new Padding(10, 14, 10, 12)
         };
-        panel.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 44));
-        panel.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 20));
-        panel.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 18));
-        panel.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 18));
+        panel.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 36));
+        panel.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 12));
+        panel.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 12));
+        panel.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 16));
+        panel.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 12));
+        panel.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 12));
         panel.RowStyles.Add(new RowStyle(SizeType.Absolute, 26));
         panel.RowStyles.Add(new RowStyle(SizeType.Absolute, 34));
 
@@ -208,6 +197,11 @@ internal sealed class SettingsForm : Form
         _rotationCheckBox.ForeColor = PrimaryTextColor;
         _rotationCheckBox.Margin = new Padding(0, 4, 10, 0);
 
+        _lowPowerModeCheckBox.Text = "Low power";
+        _lowPowerModeCheckBox.AutoSize = true;
+        _lowPowerModeCheckBox.ForeColor = PrimaryTextColor;
+        _lowPowerModeCheckBox.Margin = new Padding(0, 4, 10, 0);
+
         ConfigureNumericInput(_rotationSecondsInput, minimum: 1, maximum: 3600, width: 110);
 
         _defaultLayoutComboBox.DropDownStyle = ComboBoxStyle.DropDownList;
@@ -221,77 +215,73 @@ internal sealed class SettingsForm : Form
         }
 
         panel.Controls.Add(CreateInlineLabel("Title"), 0, 0);
-        panel.Controls.Add(CreateInlineLabel(string.Empty), 1, 0);
+        panel.Controls.Add(CreateInlineLabel("Auto"), 1, 0);
         panel.Controls.Add(CreateInlineLabel("Rotation"), 2, 0);
         panel.Controls.Add(CreateInlineLabel("Default layout"), 3, 0);
+        panel.Controls.Add(CreateInlineLabel("Power"), 4, 0);
+        panel.Controls.Add(CreateInlineLabel(string.Empty), 5, 0);
         panel.Controls.Add(_titleTextBox, 0, 1);
         panel.Controls.Add(_rotationCheckBox, 1, 1);
         panel.Controls.Add(_rotationSecondsInput, 2, 1);
         panel.Controls.Add(_defaultLayoutComboBox, 3, 1);
+        panel.Controls.Add(_lowPowerModeCheckBox, 4, 1);
+        panel.SetColumnSpan(_lowPowerModeCheckBox, 2);
 
         group.Controls.Add(panel);
         return group;
     }
 
     /// <summary>
-    /// Builds alarm sound, test alarm, and severity color controls.
+    /// Builds long-running session, kiosk, memory, top-bar, and theme options.
     /// </summary>
-    /// <returns>Alarm options group.</returns>
-    private GroupBox BuildAlarmOptionsGroup()
+    /// <returns>Runtime options group.</returns>
+    private GroupBox BuildRuntimeGroup()
     {
-        var group = CreateGroupBox("Alarm Options");
+        var group = CreateGroupBox("Runtime");
 
-        var grid = new TableLayoutPanel
+        var panel = new TableLayoutPanel
         {
             Dock = DockStyle.Fill,
             ColumnCount = 4,
-            RowCount = 3,
+            RowCount = 4,
             Padding = new Padding(10, 14, 10, 12)
         };
-        grid.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 34));
-        grid.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 22));
-        grid.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 22));
-        grid.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 22));
-        grid.RowStyles.Add(new RowStyle(SizeType.Absolute, 26));
-        grid.RowStyles.Add(new RowStyle(SizeType.Absolute, 38));
-        grid.RowStyles.Add(new RowStyle(SizeType.Absolute, 44));
+        panel.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 26));
+        panel.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 24));
+        panel.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 24));
+        panel.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 26));
+        panel.RowStyles.Add(new RowStyle(SizeType.Absolute, 24));
+        panel.RowStyles.Add(new RowStyle(SizeType.Absolute, 34));
+        panel.RowStyles.Add(new RowStyle(SizeType.Absolute, 24));
+        panel.RowStyles.Add(new RowStyle(SizeType.Absolute, 34));
 
-        _alarmSoundComboBox.DropDownStyle = ComboBoxStyle.DropDownList;
-        _alarmSoundComboBox.Dock = DockStyle.Fill;
-        _alarmSoundComboBox.BackColor = InputColor;
-        _alarmSoundComboBox.ForeColor = PrimaryTextColor;
-        _alarmSoundComboBox.Items.AddRange(SupportedAlarmSounds);
+        ConfigureComboBox(_themeComboBox, ["Dark", "Light", "High contrast"]);
+        ConfigureNumericInput(_autoRestartHoursInput, minimum: 1, maximum: 24, width: 90);
+        ConfigureNumericInput(_memoryWarningInput, minimum: 256, maximum: 65536, width: 110);
+        ConfigureRuntimeCheckBox(_autoRestartCheckBox, "Auto restart");
+        ConfigureRuntimeCheckBox(_startFullscreenCheckBox, "Start fullscreen");
+        ConfigureRuntimeCheckBox(_confirmExitCheckBox, "Confirm exit");
+        ConfigureRuntimeCheckBox(_memoryMonitorCheckBox, "Memory monitor");
+        ConfigureRuntimeCheckBox(_autoHideTopBarCheckBox, "Auto-hide bar");
 
-        ConfigureColorButton(_criticalColorButton, "Critical");
-        ConfigureColorButton(_warningColorButton, "Warning");
-        ConfigureColorButton(_infoColorButton, "Info");
+        panel.Controls.Add(CreateInlineLabel("Theme"), 0, 0);
+        panel.Controls.Add(CreateInlineLabel("Restart"), 1, 0);
+        panel.Controls.Add(CreateInlineLabel("Hours"), 2, 0);
+        panel.Controls.Add(CreateInlineLabel("Memory MB"), 3, 0);
+        panel.Controls.Add(_themeComboBox, 0, 1);
+        panel.Controls.Add(_autoRestartCheckBox, 1, 1);
+        panel.Controls.Add(_autoRestartHoursInput, 2, 1);
+        panel.Controls.Add(_memoryWarningInput, 3, 1);
+        panel.Controls.Add(CreateInlineLabel("Startup"), 0, 2);
+        panel.Controls.Add(CreateInlineLabel("Close"), 1, 2);
+        panel.Controls.Add(CreateInlineLabel("Memory"), 2, 2);
+        panel.Controls.Add(CreateInlineLabel("TV mode"), 3, 2);
+        panel.Controls.Add(_startFullscreenCheckBox, 0, 3);
+        panel.Controls.Add(_confirmExitCheckBox, 1, 3);
+        panel.Controls.Add(_memoryMonitorCheckBox, 2, 3);
+        panel.Controls.Add(_autoHideTopBarCheckBox, 3, 3);
 
-        var soundButtons = new FlowLayoutPanel
-        {
-            Dock = DockStyle.Fill,
-            FlowDirection = FlowDirection.LeftToRight,
-            WrapContents = false
-        };
-        var previewButton = CreateCommandButton("Preview", (_, _) => PlaySelectedAlarmSound());
-        previewButton.Width = 92;
-        var testButton = CreateCommandButton("Test Alarm", (_, _) => ShowTestAlarmPreview());
-        testButton.Width = 102;
-        testButton.BackColor = AccentColor;
-        soundButtons.Controls.Add(previewButton);
-        soundButtons.Controls.Add(testButton);
-
-        grid.Controls.Add(CreateInlineLabel("Alarm sound"), 0, 0);
-        grid.Controls.Add(CreateInlineLabel("Critical"), 1, 0);
-        grid.Controls.Add(CreateInlineLabel("Warning"), 2, 0);
-        grid.Controls.Add(CreateInlineLabel("Info"), 3, 0);
-        grid.Controls.Add(_alarmSoundComboBox, 0, 1);
-        grid.Controls.Add(_criticalColorButton, 1, 1);
-        grid.Controls.Add(_warningColorButton, 2, 1);
-        grid.Controls.Add(_infoColorButton, 3, 1);
-        grid.Controls.Add(soundButtons, 0, 2);
-        grid.SetColumnSpan(soundButtons, 4);
-
-        group.Controls.Add(grid);
+        group.Controls.Add(panel);
         return group;
     }
 
@@ -308,8 +298,8 @@ internal sealed class SettingsForm : Form
             RowCount = 1,
             Padding = new Padding(0, 10, 0, 8)
         };
-        body.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 62));
-        body.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 38));
+        body.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 66));
+        body.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 34));
 
         var listGroup = CreateGroupBox("Panels");
         ConfigurePanelGrid();
@@ -324,8 +314,7 @@ internal sealed class SettingsForm : Form
 
     /// <summary>
     /// Configures the read-only panel list.
-    /// Panel details are edited in the fields on the right; the grid acts as an ordered selector and
-    /// quick summary, including whether monitoring is enabled for each panel.
+    /// Panel details are edited in the fields on the right; the grid acts as an ordered selector.
     /// </summary>
     private void ConfigurePanelGrid()
     {
@@ -363,7 +352,6 @@ internal sealed class SettingsForm : Form
         _panelGrid.Columns.Add(CreateTextColumn("Name", "Name", 22));
         _panelGrid.Columns.Add(CreateTextColumn("URL", "URL", 50));
         _panelGrid.Columns.Add(CreateTextColumn("Refresh", "Refresh", 14));
-        _panelGrid.Columns.Add(CreateTextColumn("Monitoring", "Monitoring", 14));
     }
 
     /// <summary>
@@ -372,7 +360,7 @@ internal sealed class SettingsForm : Form
     /// <returns>Group box containing the panel editor.</returns>
     private GroupBox BuildPanelEditorGroup()
     {
-        var group = CreateGroupBox("Panel Editor");
+        var group = CreateGroupBox("Panel Details");
 
         var editor = new TableLayoutPanel
         {
@@ -384,20 +372,21 @@ internal sealed class SettingsForm : Form
         editor.RowStyles.Add(new RowStyle(SizeType.Absolute, 68));
         editor.RowStyles.Add(new RowStyle(SizeType.Absolute, 68));
         editor.RowStyles.Add(new RowStyle(SizeType.Absolute, 68));
-        editor.RowStyles.Add(new RowStyle(SizeType.Absolute, 244));
+        editor.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
 
         ConfigureTextInput(_panelNameTextBox);
         ConfigureTextInput(_panelUrlTextBox);
-        _panelNameTextBox.Width = 360;
-        _panelUrlTextBox.Width = 360;
+        _panelNameTextBox.Dock = DockStyle.Fill;
+        _panelUrlTextBox.Dock = DockStyle.Fill;
         ConfigureNumericInput(_panelRefreshInput, minimum: 1, maximum: 3600, width: 110);
 
         var commandGrid = new TableLayoutPanel
         {
-            Dock = DockStyle.Fill,
+            Dock = DockStyle.Top,
+            Height = 200,
             ColumnCount = 2,
-            RowCount = 5,
-            Padding = new Padding(0, 4, 0, 0)
+            RowCount = 4,
+            Padding = new Padding(0, 8, 0, 0)
         };
         commandGrid.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50));
         commandGrid.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50));
@@ -405,21 +394,17 @@ internal sealed class SettingsForm : Form
         commandGrid.RowStyles.Add(new RowStyle(SizeType.Absolute, 46));
         commandGrid.RowStyles.Add(new RowStyle(SizeType.Absolute, 46));
         commandGrid.RowStyles.Add(new RowStyle(SizeType.Absolute, 46));
-        commandGrid.RowStyles.Add(new RowStyle(SizeType.Absolute, 46));
 
-        commandGrid.Controls.Add(CreateCommandButton("New Panel", (_, _) => ClearPanelEditor()), 0, 0);
-        commandGrid.Controls.Add(CreateCommandButton("Add Panel", (_, _) => AddPanel()), 1, 0);
-        commandGrid.Controls.Add(CreateCommandButton("Apply", (_, _) => ApplySelectedPanel()), 0, 1);
-        commandGrid.Controls.Add(CreateCommandButton("Duplicate", (_, _) => DuplicateSelectedPanel()), 1, 1);
-        commandGrid.Controls.Add(CreateCommandButton("Move Up", (_, _) => MoveSelectedPanel(-1)), 0, 2);
-        commandGrid.Controls.Add(CreateCommandButton("Move Down", (_, _) => MoveSelectedPanel(1)), 0, 3);
-        var editMonitoringButton = CreateCommandButton("Edit JSON", (_, _) => EditSelectedPanelMonitoring());
-        commandGrid.Controls.Add(editMonitoringButton, 1, 2);
-        commandGrid.SetRowSpan(editMonitoringButton, 2);
+        commandGrid.Controls.Add(CreateGridCommandButton("New Panel", (_, _) => ClearPanelEditor()), 0, 0);
+        commandGrid.Controls.Add(CreateGridCommandButton("Add Panel", (_, _) => AddPanel()), 1, 0);
+        commandGrid.Controls.Add(CreateGridCommandButton("Apply", (_, _) => ApplySelectedPanel()), 0, 1);
+        commandGrid.Controls.Add(CreateGridCommandButton("Duplicate", (_, _) => DuplicateSelectedPanel()), 1, 1);
+        commandGrid.Controls.Add(CreateGridCommandButton("Move Up", (_, _) => MoveSelectedPanel(-1)), 0, 2);
+        commandGrid.Controls.Add(CreateGridCommandButton("Move Down", (_, _) => MoveSelectedPanel(1)), 1, 2);
 
-        var deleteButton = CreateCommandButton("Delete", (_, _) => DeleteSelectedPanel());
+        var deleteButton = CreateGridCommandButton("Delete", (_, _) => DeleteSelectedPanel());
         deleteButton.BackColor = Color.FromArgb(92, 38, 38);
-        commandGrid.Controls.Add(deleteButton, 0, 4);
+        commandGrid.Controls.Add(deleteButton, 0, 3);
         commandGrid.SetColumnSpan(deleteButton, 2);
 
         editor.Controls.Add(CreateField("Name", _panelNameTextBox), 0, 0);
@@ -434,14 +419,30 @@ internal sealed class SettingsForm : Form
     /// <summary>
     /// Builds Save and Cancel buttons.
     /// </summary>
-    /// <returns>Footer panel.</returns>
-    private FlowLayoutPanel BuildFooter()
+    /// <returns>Footer layout.</returns>
+    private TableLayoutPanel BuildFooter()
     {
-        var footer = new FlowLayoutPanel
+        var footer = new TableLayoutPanel
+        {
+            Dock = DockStyle.Fill,
+            ColumnCount = 2,
+            RowCount = 1,
+            Padding = new Padding(0, 10, 0, 0)
+        };
+        footer.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+        footer.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 270));
+
+        var utilityPanel = new FlowLayoutPanel
+        {
+            Dock = DockStyle.Fill,
+            FlowDirection = FlowDirection.LeftToRight,
+            WrapContents = false
+        };
+
+        var primaryPanel = new FlowLayoutPanel
         {
             Dock = DockStyle.Fill,
             FlowDirection = FlowDirection.RightToLeft,
-            Padding = new Padding(0, 8, 0, 0),
             WrapContents = false
         };
 
@@ -462,12 +463,15 @@ internal sealed class SettingsForm : Form
         var diagnosticsButton = CreateCommandButton("Diagnostics", (_, _) => _showDiagnostics(this));
         diagnosticsButton.Width = 120;
 
-        footer.Controls.Add(saveButton);
-        footer.Controls.Add(cancelButton);
-        footer.Controls.Add(exportButton);
-        footer.Controls.Add(importButton);
-        footer.Controls.Add(diagnosticsButton);
-        footer.Controls.Add(reloadButton);
+        utilityPanel.Controls.Add(reloadButton);
+        utilityPanel.Controls.Add(diagnosticsButton);
+        utilityPanel.Controls.Add(importButton);
+        utilityPanel.Controls.Add(exportButton);
+        primaryPanel.Controls.Add(saveButton);
+        primaryPanel.Controls.Add(cancelButton);
+
+        footer.Controls.Add(utilityPanel, 0, 0);
+        footer.Controls.Add(primaryPanel, 1, 0);
         return footer;
     }
 
@@ -499,12 +503,17 @@ internal sealed class SettingsForm : Form
     {
         _titleTextBox.TextChanged += (_, _) => RunSafely(() => MarkUnsavedChanges(), "tracking title changes");
         _rotationCheckBox.CheckedChanged += (_, _) => RunSafely(() => MarkUnsavedChanges(), "tracking rotation changes");
+        _lowPowerModeCheckBox.CheckedChanged += (_, _) => RunSafely(() => MarkUnsavedChanges(), "tracking low power mode changes");
+        _autoRestartCheckBox.CheckedChanged += (_, _) => RunSafely(() => MarkUnsavedChanges(), "tracking auto restart changes");
+        _startFullscreenCheckBox.CheckedChanged += (_, _) => RunSafely(() => MarkUnsavedChanges(), "tracking fullscreen startup changes");
+        _confirmExitCheckBox.CheckedChanged += (_, _) => RunSafely(() => MarkUnsavedChanges(), "tracking confirm exit changes");
+        _memoryMonitorCheckBox.CheckedChanged += (_, _) => RunSafely(() => MarkUnsavedChanges(), "tracking memory monitor changes");
+        _autoHideTopBarCheckBox.CheckedChanged += (_, _) => RunSafely(() => MarkUnsavedChanges(), "tracking top bar auto-hide changes");
         _rotationSecondsInput.ValueChanged += (_, _) => RunSafely(() => MarkUnsavedChanges(), "tracking rotation interval changes");
+        _autoRestartHoursInput.ValueChanged += (_, _) => RunSafely(() => MarkUnsavedChanges(), "tracking auto restart interval changes");
+        _memoryWarningInput.ValueChanged += (_, _) => RunSafely(() => MarkUnsavedChanges(), "tracking memory threshold changes");
         _defaultLayoutComboBox.SelectedIndexChanged += (_, _) => RunSafely(() => MarkUnsavedChanges(), "tracking layout changes");
-        _alarmSoundComboBox.SelectedIndexChanged += (_, _) => RunSafely(() => MarkUnsavedChanges(), "tracking alarm sound changes");
-        _criticalColorButton.Click += (_, _) => PickSeverityColor(_criticalColorButton, "Critical");
-        _warningColorButton.Click += (_, _) => PickSeverityColor(_warningColorButton, "Warning");
-        _infoColorButton.Click += (_, _) => PickSeverityColor(_infoColorButton, "Info");
+        _themeComboBox.SelectedIndexChanged += (_, _) => RunSafely(() => MarkUnsavedChanges(), "tracking theme changes");
         _panelNameTextBox.TextChanged += (_, _) => RunSafely(
             () => ApplySelectedPanelEditorChanges(showValidation: false),
             "tracking panel name changes");
@@ -523,14 +532,19 @@ internal sealed class SettingsForm : Form
     {
         _titleTextBox.Text = _configuration.AppTitle;
         _rotationCheckBox.Checked = _configuration.RotationEnabled;
+        _lowPowerModeCheckBox.Checked = _configuration.LowPowerModeEnabled;
+        _autoRestartCheckBox.Checked = _configuration.AutoRestartEnabled;
+        _startFullscreenCheckBox.Checked = _configuration.StartFullscreen;
+        _confirmExitCheckBox.Checked = _configuration.ConfirmExit;
+        _memoryMonitorCheckBox.Checked = _configuration.MemoryMonitorEnabled;
+        _autoHideTopBarCheckBox.Checked = _configuration.AutoHideTopBarEnabled;
         _rotationSecondsInput.Value = Math.Clamp(_configuration.RotationSeconds, 1, 3600);
+        _autoRestartHoursInput.Value = Math.Clamp(_configuration.AutoRestartHours, 1, 24);
+        _memoryWarningInput.Value = Math.Clamp(_configuration.MemoryWarningMegabytes, 256, 65536);
         _defaultLayoutComboBox.SelectedItem = SupportedLayouts.Contains(_configuration.DefaultLayout)
             ? _configuration.DefaultLayout
             : 4;
-        _alarmSoundComboBox.SelectedItem = NormalizeAlarmSoundForEditor(_configuration.AlarmSound);
-        ApplyColorButtonValue(_criticalColorButton, NormalizeHexColorForEditor(_configuration.SeverityColors?.Critical, "#CC1220"));
-        ApplyColorButtonValue(_warningColorButton, NormalizeHexColorForEditor(_configuration.SeverityColors?.Warning, "#CC6700"));
-        ApplyColorButtonValue(_infoColorButton, NormalizeHexColorForEditor(_configuration.SeverityColors?.Info, "#005C8A"));
+        _themeComboBox.SelectedItem = GetThemeDisplayName(_configuration.Theme);
         _filePathLabel.Text = $"JSON file: {WallboardConfigReader.GetConfigurationFilePath()}";
     }
 
@@ -545,7 +559,7 @@ internal sealed class SettingsForm : Form
 
         foreach (var panel in _configuration.Panels)
         {
-            _panelGrid.Rows.Add(panel.Name, panel.Url, panel.RefreshSeconds, GetMonitoringStatus(panel));
+            _panelGrid.Rows.Add(panel.Name, panel.Url, panel.RefreshSeconds);
         }
 
         _panelGrid.ClearSelection();
@@ -676,7 +690,6 @@ internal sealed class SettingsForm : Form
             return false;
         }
 
-        panel.Monitoring = CloneMonitoring(_configuration.Panels[index].Monitoring);
         _configuration.Panels[index] = panel;
         UpdatePanelGridRow(index, panel);
         MarkUnsavedChanges();
@@ -712,59 +725,10 @@ internal sealed class SettingsForm : Form
         {
             Name = $"{source.Name} Copy",
             Url = source.Url,
-            RefreshSeconds = source.RefreshSeconds,
-            Monitoring = CloneMonitoring(source.Monitoring)
+            RefreshSeconds = source.RefreshSeconds
         });
         RefreshPanelGrid(index + 1);
         MarkUnsavedChanges("Panel duplicated");
-    }
-
-    /// <summary>
-    /// Opens an advanced JSON editor for the selected panel's monitoring rules.
-    /// Monitoring is kept as JSON because selector-based alerting is highly page-specific. A general
-    /// purpose text editor is more flexible than trying to predict every possible DOM rule in form fields.
-    /// </summary>
-    private void EditSelectedPanelMonitoring()
-    {
-        var index = GetSelectedPanelIndex();
-
-        if (index < 0)
-        {
-            ShowValidationMessage("Select a panel before editing monitoring JSON.");
-            return;
-        }
-
-        if (!ApplySelectedPanelEditorChanges(showValidation: true))
-        {
-            return;
-        }
-
-        // Apply the basic panel editor first so the monitoring dialog title and saved panel row stay
-        // synchronized with any name, URL, or refresh edits the user has already typed.
-        var panel = _configuration.Panels[index];
-        var initialJson = panel.Monitoring is null
-            ? string.Empty
-            : JsonSerializer.Serialize(panel.Monitoring, MonitoringJsonOptions);
-
-        using var editor = new MonitoringJsonEditorForm(panel.Name, initialJson, CreateDefaultMonitoringJson());
-
-        while (editor.ShowDialog(this) == DialogResult.OK)
-        {
-            if (TryParseMonitoringJson(editor.JsonText, out var monitoring, out var errorMessage))
-            {
-                panel.Monitoring = monitoring;
-                UpdatePanelGridRow(index, panel);
-                MarkUnsavedChanges(monitoring is null ? "Monitoring disabled" : "Monitoring JSON applied");
-                return;
-            }
-
-            MessageBox.Show(
-                editor,
-                errorMessage,
-                "Invalid Monitoring JSON",
-                MessageBoxButtons.OK,
-                MessageBoxIcon.Error);
-        }
     }
 
     /// <summary>
@@ -881,13 +845,15 @@ internal sealed class SettingsForm : Form
         _configuration.RotationEnabled = _rotationCheckBox.Checked;
         _configuration.RotationSeconds = (int)_rotationSecondsInput.Value;
         _configuration.DefaultLayout = _defaultLayoutComboBox.SelectedItem is int layout ? layout : 4;
-        _configuration.AlarmSound = _alarmSoundComboBox.SelectedItem?.ToString() ?? "Exclamation";
-        _configuration.SeverityColors = new AlarmSeverityColors
-        {
-            Critical = GetColorButtonHex(_criticalColorButton, "#CC1220"),
-            Warning = GetColorButtonHex(_warningColorButton, "#CC6700"),
-            Info = GetColorButtonHex(_infoColorButton, "#005C8A")
-        };
+        _configuration.LowPowerModeEnabled = _lowPowerModeCheckBox.Checked;
+        _configuration.AutoRestartEnabled = _autoRestartCheckBox.Checked;
+        _configuration.AutoRestartHours = (int)_autoRestartHoursInput.Value;
+        _configuration.StartFullscreen = _startFullscreenCheckBox.Checked;
+        _configuration.ConfirmExit = _confirmExitCheckBox.Checked;
+        _configuration.MemoryMonitorEnabled = _memoryMonitorCheckBox.Checked;
+        _configuration.MemoryWarningMegabytes = (int)_memoryWarningInput.Value;
+        _configuration.AutoHideTopBarEnabled = _autoHideTopBarCheckBox.Checked;
+        _configuration.Theme = GetThemeNameFromDisplay(_themeComboBox.SelectedItem?.ToString());
         return true;
     }
 
@@ -917,7 +883,7 @@ internal sealed class SettingsForm : Form
         {
             if (showValidation)
             {
-                ShowValidationMessage("Enter an HTTP/HTTPS URL, a file:/// URL, or a local path such as docs/scraping-test-page.html or /status/index.html.");
+                ShowValidationMessage("Enter an HTTP/HTTPS URL, a file:/// URL, or a local path such as pages/status.html or /status/index.html.");
                 _panelUrlTextBox.Focus();
             }
 
@@ -948,17 +914,6 @@ internal sealed class SettingsForm : Form
         _panelGrid.Rows[index].Cells[0].Value = panel.Name;
         _panelGrid.Rows[index].Cells[1].Value = panel.Url;
         _panelGrid.Rows[index].Cells[2].Value = panel.RefreshSeconds;
-        _panelGrid.Rows[index].Cells[3].Value = GetMonitoringStatus(panel);
-    }
-
-    /// <summary>
-    /// Returns the compact monitoring status shown in the panel list.
-    /// </summary>
-    /// <param name="panel">Panel configuration.</param>
-    /// <returns>On or Off.</returns>
-    private static string GetMonitoringStatus(WallboardPanel panel)
-    {
-        return panel.Monitoring?.Enabled == true ? "On" : "Off";
     }
 
     /// <summary>
@@ -1012,7 +967,7 @@ internal sealed class SettingsForm : Form
     }
 
     /// <summary>
-    /// Allows packaged local pages such as docs/scraping-test-page.html without requiring
+    /// Allows packaged local pages without requiring
     /// machine-specific absolute file:/// paths in wallboard.json.
     /// </summary>
     /// <param name="url">Panel URL text.</param>
@@ -1024,210 +979,6 @@ internal sealed class SettingsForm : Form
             && !url.Contains(':', StringComparison.Ordinal)
             && !url.StartsWith('\\')
             && !url.Contains("..", StringComparison.Ordinal);
-    }
-
-    /// <summary>
-    /// Parses and validates advanced panel monitoring JSON.
-    /// Empty text and literal null intentionally disable monitoring. Enabled monitoring must have at
-    /// least one selector-based rule so the runtime never starts a polling timer with nothing to evaluate.
-    /// </summary>
-    /// <param name="json">Monitoring JSON text.</param>
-    /// <param name="monitoring">Parsed monitoring settings, or null when disabled.</param>
-    /// <param name="errorMessage">Validation failure message.</param>
-    /// <returns>True when JSON is valid.</returns>
-    private static bool TryParseMonitoringJson(
-        string json,
-        out PanelMonitoringOptions? monitoring,
-        out string errorMessage)
-    {
-        monitoring = null;
-        errorMessage = string.Empty;
-
-        if (string.IsNullOrWhiteSpace(json) ||
-            string.Equals(json.Trim(), "null", StringComparison.OrdinalIgnoreCase))
-        {
-            return true;
-        }
-
-        try
-        {
-            monitoring = JsonSerializer.Deserialize<PanelMonitoringOptions>(json, MonitoringJsonOptions);
-        }
-        catch (JsonException ex)
-        {
-            errorMessage = $"The monitoring JSON is not valid.\n\n{ex.Message}";
-            return false;
-        }
-
-        if (monitoring is null || !monitoring.Enabled)
-        {
-            monitoring = null;
-            return true;
-        }
-
-        // Clamp timer values here so the editor preview/save path behaves like WallboardConfigReader's
-        // runtime normalization path.
-        monitoring.PollSeconds = Math.Clamp(monitoring.PollSeconds, 1, 300);
-        monitoring.RepeatSoundSeconds = Math.Clamp(monitoring.RepeatSoundSeconds, 1, 300);
-
-        var validRules = new List<PanelMonitoringRule>();
-
-        foreach (var rule in monitoring.Rules ?? [])
-        {
-            if (string.IsNullOrWhiteSpace(rule.Selector))
-            {
-                errorMessage = "Every monitoring rule must include a non-empty selector.";
-                return false;
-            }
-
-            // Normalize each rule in place before saving so the persisted JSON is predictable even when
-            // the user enters mixed casing or extra whitespace.
-            rule.Name = string.IsNullOrWhiteSpace(rule.Name) ? "DOM Alert" : rule.Name.Trim();
-            rule.Type = NormalizeMonitoringRuleType(rule.Type);
-            rule.Selector = rule.Selector.Trim();
-            rule.Contains = string.IsNullOrWhiteSpace(rule.Contains) ? null : rule.Contains.Trim();
-            rule.Severity = NormalizeMonitoringSeverity(rule.Severity);
-            rule.DetailsSelector = string.IsNullOrWhiteSpace(rule.DetailsSelector)
-                ? null
-                : rule.DetailsSelector.Trim();
-            validRules.Add(rule);
-        }
-
-        if (validRules.Count == 0)
-        {
-            errorMessage = "Enabled monitoring must include at least one valid rule.";
-            return false;
-        }
-
-        monitoring.Rules = validRules;
-        return true;
-    }
-
-    /// <summary>
-    /// Creates a starter monitoring JSON block for a panel with no monitoring configuration.
-    /// The template demonstrates the most common use case: watch for a visible alarm modal title and
-    /// collect details from the modal body.
-    /// </summary>
-    /// <returns>Formatted JSON template.</returns>
-    private static string CreateDefaultMonitoringJson()
-    {
-        var monitoring = new PanelMonitoringOptions
-        {
-            Enabled = true,
-            PollSeconds = 3,
-            SoundEnabled = true,
-            RepeatSoundSeconds = 5,
-            Rules =
-            [
-                new PanelMonitoringRule
-                {
-                    Name = "PLC Alarm Modal",
-                    Type = "domText",
-                    Selector = "#divAlarm.on .alarmTitle",
-                    Contains = "PLC Alarm Detected",
-                    Severity = "critical",
-                    DetailsSelector = "#divAlarm.on .alarmDiv"
-                }
-            ]
-        };
-
-        return JsonSerializer.Serialize(monitoring, MonitoringJsonOptions);
-    }
-
-    /// <summary>
-    /// Normalizes monitoring rule type names for saved JSON.
-    /// </summary>
-    /// <param name="type">Configured type.</param>
-    /// <returns>Supported type.</returns>
-    private static string NormalizeMonitoringRuleType(string? type)
-    {
-        return type?.Trim().ToLowerInvariant() switch
-        {
-            "domtext" => "domText",
-            "domclass" => "domClass",
-            "exists" => "exists",
-            _ => "exists"
-        };
-    }
-
-    /// <summary>
-    /// Normalizes monitoring severity names for saved JSON.
-    /// </summary>
-    /// <param name="severity">Configured severity.</param>
-    /// <returns>Supported severity.</returns>
-    private static string NormalizeMonitoringSeverity(string? severity)
-    {
-        return severity?.Trim().ToLowerInvariant() switch
-        {
-            "critical" => "critical",
-            "info" => "info",
-            _ => "warning"
-        };
-    }
-
-    /// <summary>
-    /// Converts imported or manually edited alarm sound text into one of the Settings combo values.
-    /// </summary>
-    /// <param name="alarmSound">Configured alarm sound.</param>
-    /// <returns>Supported alarm sound name.</returns>
-    private static string NormalizeAlarmSoundForEditor(string? alarmSound)
-    {
-        var normalized = alarmSound?.Trim();
-
-        return SupportedAlarmSounds.FirstOrDefault(
-            sound => string.Equals(sound, normalized, StringComparison.OrdinalIgnoreCase))
-            ?? "Exclamation";
-    }
-
-    /// <summary>
-    /// Creates an editor-safe copy of the severity color configuration.
-    /// </summary>
-    /// <param name="colors">Source colors.</param>
-    /// <returns>Normalized color copy.</returns>
-    private static AlarmSeverityColors CloneSeverityColors(AlarmSeverityColors? colors)
-    {
-        return new AlarmSeverityColors
-        {
-            Critical = NormalizeHexColorForEditor(colors?.Critical, "#CC1220"),
-            Warning = NormalizeHexColorForEditor(colors?.Warning, "#CC6700"),
-            Info = NormalizeHexColorForEditor(colors?.Info, "#005C8A")
-        };
-    }
-
-    /// <summary>
-    /// Converts color text into normalized #RRGGBB format for Settings.
-    /// </summary>
-    /// <param name="value">Configured color.</param>
-    /// <param name="fallback">Fallback color.</param>
-    /// <returns>Normalized color.</returns>
-    private static string NormalizeHexColorForEditor(string? value, string fallback)
-    {
-        var color = value?.Trim();
-
-        if (string.IsNullOrWhiteSpace(color))
-        {
-            return fallback;
-        }
-
-        if (!color.StartsWith('#'))
-        {
-            color = $"#{color}";
-        }
-
-        if (color.Length != 7)
-        {
-            return fallback;
-        }
-
-        for (var index = 1; index < color.Length; index++)
-        {
-            if (!Uri.IsHexDigit(color[index]))
-            {
-                return fallback;
-            }
-        }
-
-        return color.ToUpperInvariant();
     }
 
     /// <summary>
@@ -1244,15 +995,21 @@ internal sealed class SettingsForm : Form
             RotationEnabled = configuration.RotationEnabled,
             RotationSeconds = configuration.RotationSeconds,
             DefaultLayout = configuration.DefaultLayout,
-            AlarmSound = NormalizeAlarmSoundForEditor(configuration.AlarmSound),
-            SeverityColors = CloneSeverityColors(configuration.SeverityColors),
+            LowPowerModeEnabled = configuration.LowPowerModeEnabled,
+            AutoRestartEnabled = configuration.AutoRestartEnabled,
+            AutoRestartHours = configuration.AutoRestartHours,
+            StartFullscreen = configuration.StartFullscreen,
+            ConfirmExit = configuration.ConfirmExit,
+            MemoryMonitorEnabled = configuration.MemoryMonitorEnabled,
+            MemoryWarningMegabytes = configuration.MemoryWarningMegabytes,
+            AutoHideTopBarEnabled = configuration.AutoHideTopBarEnabled,
+            Theme = configuration.Theme,
             Panels = configuration.Panels
                 .Select(panel => new WallboardPanel
                 {
                     Name = panel.Name,
                     Url = panel.Url,
-                    RefreshSeconds = panel.RefreshSeconds,
-                    Monitoring = CloneMonitoring(panel.Monitoring)
+                    RefreshSeconds = panel.RefreshSeconds
                 })
                 .ToList()
         };
@@ -1268,8 +1025,15 @@ internal sealed class SettingsForm : Form
         _configuration.RotationEnabled = configuration.RotationEnabled;
         _configuration.RotationSeconds = configuration.RotationSeconds;
         _configuration.DefaultLayout = configuration.DefaultLayout;
-        _configuration.AlarmSound = NormalizeAlarmSoundForEditor(configuration.AlarmSound);
-        _configuration.SeverityColors = CloneSeverityColors(configuration.SeverityColors);
+        _configuration.LowPowerModeEnabled = configuration.LowPowerModeEnabled;
+        _configuration.AutoRestartEnabled = configuration.AutoRestartEnabled;
+        _configuration.AutoRestartHours = configuration.AutoRestartHours;
+        _configuration.StartFullscreen = configuration.StartFullscreen;
+        _configuration.ConfirmExit = configuration.ConfirmExit;
+        _configuration.MemoryMonitorEnabled = configuration.MemoryMonitorEnabled;
+        _configuration.MemoryWarningMegabytes = configuration.MemoryWarningMegabytes;
+        _configuration.AutoHideTopBarEnabled = configuration.AutoHideTopBarEnabled;
+        _configuration.Theme = configuration.Theme;
         _configuration.Panels = configuration.Panels;
     }
 
@@ -1285,10 +1049,9 @@ internal sealed class SettingsForm : Form
             .Where(panel => panel is not null && IsValidPanelUrl(panel.Url))
             .Select(panel => new WallboardPanel
             {
-                Name = string.IsNullOrWhiteSpace(panel.Name) ? "Monitoring Panel" : panel.Name.Trim(),
+                Name = string.IsNullOrWhiteSpace(panel.Name) ? "Wallboard Panel" : panel.Name.Trim(),
                 Url = panel.Url.Trim(),
-                RefreshSeconds = panel.RefreshSeconds <= 0 ? 30 : panel.RefreshSeconds,
-                Monitoring = NormalizeMonitoringForEditor(panel.Monitoring)
+                RefreshSeconds = panel.RefreshSeconds <= 0 ? 30 : panel.RefreshSeconds
             })
             .ToList();
 
@@ -1302,8 +1065,15 @@ internal sealed class SettingsForm : Form
             DefaultLayout = SupportedLayouts.Contains(configuration.DefaultLayout)
                 ? configuration.DefaultLayout
                 : 4,
-            AlarmSound = NormalizeAlarmSoundForEditor(configuration.AlarmSound),
-            SeverityColors = CloneSeverityColors(configuration.SeverityColors),
+            LowPowerModeEnabled = configuration.LowPowerModeEnabled,
+            AutoRestartEnabled = configuration.AutoRestartEnabled,
+            AutoRestartHours = Math.Clamp(configuration.AutoRestartHours, 1, 24),
+            StartFullscreen = configuration.StartFullscreen,
+            ConfirmExit = configuration.ConfirmExit,
+            MemoryMonitorEnabled = configuration.MemoryMonitorEnabled,
+            MemoryWarningMegabytes = Math.Clamp(configuration.MemoryWarningMegabytes, 256, 65536),
+            AutoHideTopBarEnabled = configuration.AutoHideTopBarEnabled,
+            Theme = ThemePalette.NormalizeName(configuration.Theme),
             Panels = panels.Count == 0
                 ?
                 [
@@ -1315,83 +1085,6 @@ internal sealed class SettingsForm : Form
                     }
                 ]
                 : panels
-        };
-    }
-
-    /// <summary>
-    /// Normalizes imported monitoring enough for the settings editor and panel grid.
-    /// </summary>
-    /// <param name="monitoring">Imported monitoring options.</param>
-    /// <returns>Editor-safe monitoring options, or null when disabled/invalid.</returns>
-    private static PanelMonitoringOptions? NormalizeMonitoringForEditor(PanelMonitoringOptions? monitoring)
-    {
-        if (monitoring is null || !monitoring.Enabled)
-        {
-            return null;
-        }
-
-        var rules = (monitoring.Rules ?? [])
-            .Where(rule => !string.IsNullOrWhiteSpace(rule.Selector))
-            .Select(rule => new PanelMonitoringRule
-            {
-                Name = string.IsNullOrWhiteSpace(rule.Name) ? "DOM Alert" : rule.Name.Trim(),
-                Type = NormalizeMonitoringRuleType(rule.Type),
-                Selector = rule.Selector.Trim(),
-                Contains = string.IsNullOrWhiteSpace(rule.Contains) ? null : rule.Contains.Trim(),
-                Severity = NormalizeMonitoringSeverity(rule.Severity),
-                DetailsSelector = string.IsNullOrWhiteSpace(rule.DetailsSelector)
-                    ? null
-                    : rule.DetailsSelector.Trim(),
-                SoundEnabled = rule.SoundEnabled
-            })
-            .ToList();
-
-        if (rules.Count == 0)
-        {
-            return null;
-        }
-
-        return new PanelMonitoringOptions
-        {
-            Enabled = true,
-            PollSeconds = Math.Clamp(monitoring.PollSeconds, 1, 300),
-            SoundEnabled = monitoring.SoundEnabled,
-            RepeatSoundSeconds = Math.Clamp(monitoring.RepeatSoundSeconds, 1, 300),
-            Rules = rules
-        };
-    }
-
-    /// <summary>
-    /// Creates an editable copy of optional advanced monitoring settings.
-    /// Rules are copied one by one because they are mutable objects edited by the JSON dialog.
-    /// </summary>
-    /// <param name="monitoring">Source monitoring settings.</param>
-    /// <returns>Deep copy, or null when monitoring is disabled.</returns>
-    private static PanelMonitoringOptions? CloneMonitoring(PanelMonitoringOptions? monitoring)
-    {
-        if (monitoring is null)
-        {
-            return null;
-        }
-
-        return new PanelMonitoringOptions
-        {
-            Enabled = monitoring.Enabled,
-            PollSeconds = monitoring.PollSeconds,
-            SoundEnabled = monitoring.SoundEnabled,
-            RepeatSoundSeconds = monitoring.RepeatSoundSeconds,
-            Rules = monitoring.Rules
-                .Select(rule => new PanelMonitoringRule
-                {
-                    Name = rule.Name,
-                    Type = rule.Type,
-                    Selector = rule.Selector,
-                    Contains = rule.Contains,
-                    Severity = rule.Severity,
-                    DetailsSelector = rule.DetailsSelector,
-                    SoundEnabled = rule.SoundEnabled
-                })
-                .ToList()
         };
     }
 
@@ -1663,135 +1356,52 @@ internal sealed class SettingsForm : Form
     }
 
     /// <summary>
-    /// Applies shared styling to a severity color picker button.
+    /// Applies shared combo-box styling.
     /// </summary>
-    /// <param name="button">Button to configure.</param>
-    /// <param name="label">Severity label.</param>
-    private static void ConfigureColorButton(Button button, string label)
+    /// <param name="comboBox">Combo box to configure.</param>
+    /// <param name="items">Items to display.</param>
+    private static void ConfigureComboBox(ComboBox comboBox, string[] items)
     {
-        button.Dock = DockStyle.Fill;
-        button.FlatStyle = FlatStyle.Flat;
-        button.ForeColor = Color.White;
-        button.Margin = new Padding(4);
-        button.Text = label;
-        button.FlatAppearance.BorderColor = BorderColor;
+        comboBox.BackColor = InputColor;
+        comboBox.DropDownStyle = ComboBoxStyle.DropDownList;
+        comboBox.Dock = DockStyle.Fill;
+        comboBox.ForeColor = PrimaryTextColor;
+        comboBox.Items.Clear();
+        comboBox.Items.AddRange(items);
     }
 
     /// <summary>
-    /// Opens a color picker for one alarm severity and stores the selected hex value on the button.
+    /// Applies shared runtime checkbox styling.
     /// </summary>
-    /// <param name="button">Severity button.</param>
-    /// <param name="severityName">Severity display name.</param>
-    private void PickSeverityColor(Button button, string severityName)
+    /// <param name="checkBox">Checkbox to configure.</param>
+    /// <param name="text">Displayed text.</param>
+    private static void ConfigureRuntimeCheckBox(CheckBox checkBox, string text)
     {
-        using var dialog = new ColorDialog
+        checkBox.AutoSize = true;
+        checkBox.ForeColor = PrimaryTextColor;
+        checkBox.Margin = new Padding(0, 4, 6, 0);
+        checkBox.Text = text;
+    }
+
+    /// <summary>
+    /// Converts the JSON theme name into the settings display label.
+    /// </summary>
+    private static string GetThemeDisplayName(string? themeName)
+    {
+        return ThemePalette.NormalizeName(themeName) switch
         {
-            Color = button.BackColor,
-            FullOpen = true
+            "light" => "Light",
+            "high-contrast" => "High contrast",
+            _ => "Dark"
         };
-
-        if (dialog.ShowDialog(this) != DialogResult.OK)
-        {
-            return;
-        }
-
-        ApplyColorButtonValue(button, ColorToHex(dialog.Color));
-        MarkUnsavedChanges($"{severityName} alarm color changed");
     }
 
     /// <summary>
-    /// Updates a color button's text, tag, and background color from a normalized hex value.
+    /// Converts the settings display label into the JSON theme name.
     /// </summary>
-    /// <param name="button">Button to update.</param>
-    /// <param name="hexColor">Color in #RRGGBB format.</param>
-    private static void ApplyColorButtonValue(Button button, string hexColor)
+    private static string GetThemeNameFromDisplay(string? displayName)
     {
-        var color = ColorTranslator.FromHtml(hexColor);
-        button.Tag = hexColor;
-        button.Text = hexColor;
-        button.BackColor = color;
-        button.ForeColor = GetReadableTextColor(color);
-    }
-
-    /// <summary>
-    /// Reads the normalized hex color stored on a color button.
-    /// </summary>
-    /// <param name="button">Color button.</param>
-    /// <param name="fallback">Fallback color.</param>
-    /// <returns>Hex color.</returns>
-    private static string GetColorButtonHex(Button button, string fallback)
-    {
-        return NormalizeHexColorForEditor(button.Tag?.ToString(), fallback);
-    }
-
-    /// <summary>
-    /// Plays the currently selected Windows alarm sound without saving settings.
-    /// </summary>
-    private void PlaySelectedAlarmSound()
-    {
-        PlaySystemSound(_alarmSoundComboBox.SelectedItem?.ToString());
-        SetStatus($"Previewed {_alarmSoundComboBox.SelectedItem ?? "Exclamation"} sound");
-    }
-
-    /// <summary>
-    /// Shows a visual and audible test alarm using the currently selected Settings values.
-    /// </summary>
-    private void ShowTestAlarmPreview()
-    {
-        PlaySelectedAlarmSound();
-
-        using var preview = new AlarmPreviewForm(
-            GetColorButtonHex(_criticalColorButton, "#CC1220"),
-            GetColorButtonHex(_warningColorButton, "#CC6700"),
-            GetColorButtonHex(_infoColorButton, "#005C8A"));
-        preview.ShowDialog(this);
-    }
-
-    /// <summary>
-    /// Plays one supported built-in Windows sound.
-    /// </summary>
-    /// <param name="soundName">Configured sound name.</param>
-    private static void PlaySystemSound(string? soundName)
-    {
-        switch (NormalizeAlarmSoundForEditor(soundName))
-        {
-            case "Asterisk":
-                SystemSounds.Asterisk.Play();
-                break;
-            case "Beep":
-                SystemSounds.Beep.Play();
-                break;
-            case "Hand":
-                SystemSounds.Hand.Play();
-                break;
-            case "Question":
-                SystemSounds.Question.Play();
-                break;
-            default:
-                SystemSounds.Exclamation.Play();
-                break;
-        }
-    }
-
-    /// <summary>
-    /// Converts a color to #RRGGBB text.
-    /// </summary>
-    /// <param name="color">Color value.</param>
-    /// <returns>Hex text.</returns>
-    private static string ColorToHex(Color color)
-    {
-        return $"#{color.R:X2}{color.G:X2}{color.B:X2}";
-    }
-
-    /// <summary>
-    /// Chooses black or white text based on a color's perceived brightness.
-    /// </summary>
-    /// <param name="color">Background color.</param>
-    /// <returns>Readable text color.</returns>
-    private static Color GetReadableTextColor(Color color)
-    {
-        var brightness = (color.R * 0.299) + (color.G * 0.587) + (color.B * 0.114);
-        return brightness > 150 ? Color.Black : Color.White;
+        return ThemePalette.NormalizeName(displayName);
     }
 
     /// <summary>
@@ -1818,688 +1428,25 @@ internal sealed class SettingsForm : Form
     }
 
     /// <summary>
+    /// Creates a command button that fills a cell in the panel editor grid.
+    /// </summary>
+    /// <param name="text">Button text.</param>
+    /// <param name="handler">Click handler.</param>
+    /// <returns>Configured grid button.</returns>
+    private static Button CreateGridCommandButton(string text, EventHandler handler)
+    {
+        var button = CreateCommandButton(text, handler);
+        button.Dock = DockStyle.Fill;
+        button.Margin = new Padding(4);
+        return button;
+    }
+
+    /// <summary>
     /// Shows a validation warning owned by this form.
     /// </summary>
     /// <param name="message">Warning text.</param>
     private void ShowValidationMessage(string message)
     {
         MessageBox.Show(this, message, "Settings", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-    }
-}
-
-/// <summary>
-/// Small modal used by Settings to preview configured alarm colors and sound behavior.
-/// </summary>
-internal sealed class AlarmPreviewForm : Form
-{
-    /// <summary>
-    /// Builds the preview dialog.
-    /// </summary>
-    /// <param name="criticalColor">Critical color in #RRGGBB format.</param>
-    /// <param name="warningColor">Warning color in #RRGGBB format.</param>
-    /// <param name="infoColor">Info color in #RRGGBB format.</param>
-    public AlarmPreviewForm(string criticalColor, string warningColor, string infoColor)
-    {
-        Text = "Test Alarm Preview";
-        BackColor = Color.FromArgb(17, 24, 39);
-        ForeColor = Color.White;
-        Font = new Font("Segoe UI", 9F);
-        FormBorderStyle = FormBorderStyle.FixedDialog;
-        MaximizeBox = false;
-        MinimizeBox = false;
-        Size = new Size(620, 360);
-        StartPosition = FormStartPosition.CenterParent;
-
-        var root = new TableLayoutPanel
-        {
-            Dock = DockStyle.Fill,
-            ColumnCount = 1,
-            RowCount = 5,
-            Padding = new Padding(16)
-        };
-        root.RowStyles.Add(new RowStyle(SizeType.Absolute, 42));
-        root.RowStyles.Add(new RowStyle(SizeType.Absolute, 68));
-        root.RowStyles.Add(new RowStyle(SizeType.Absolute, 68));
-        root.RowStyles.Add(new RowStyle(SizeType.Absolute, 68));
-        root.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
-
-        root.Controls.Add(new Label
-        {
-            Dock = DockStyle.Fill,
-            ForeColor = Color.FromArgb(209, 213, 219),
-            Text = "Alarm preview using the current Settings values.",
-            TextAlign = ContentAlignment.MiddleLeft
-        }, 0, 0);
-        root.Controls.Add(CreatePreviewBand("CRITICAL ALERT - Test Panel", criticalColor), 0, 1);
-        root.Controls.Add(CreatePreviewBand("WARNING ALERT - Test Panel", warningColor), 0, 2);
-        root.Controls.Add(CreatePreviewBand("INFO ALERT - Test Panel", infoColor), 0, 3);
-
-        var closeButton = new Button
-        {
-            Anchor = AnchorStyles.Right | AnchorStyles.Bottom,
-            BackColor = Color.FromArgb(31, 41, 55),
-            DialogResult = DialogResult.OK,
-            FlatStyle = FlatStyle.Flat,
-            ForeColor = Color.White,
-            Height = 36,
-            Text = "Close",
-            Width = 100
-        };
-        closeButton.FlatAppearance.BorderColor = Color.FromArgb(75, 85, 99);
-        root.Controls.Add(closeButton, 0, 4);
-
-        Controls.Add(root);
-        AcceptButton = closeButton;
-        CancelButton = closeButton;
-    }
-
-    /// <summary>
-    /// Creates one colored severity preview band.
-    /// </summary>
-    /// <param name="title">Band title.</param>
-    /// <param name="hexColor">Band color.</param>
-    /// <returns>Preview band.</returns>
-    private static Panel CreatePreviewBand(string title, string hexColor)
-    {
-        var color = ColorTranslator.FromHtml(hexColor);
-        var panel = new Panel
-        {
-            BackColor = color,
-            Dock = DockStyle.Fill,
-            Margin = new Padding(0, 4, 0, 4),
-            Padding = new Padding(14, 8, 14, 8)
-        };
-
-        panel.Controls.Add(new Label
-        {
-            Dock = DockStyle.Fill,
-            Font = new Font("Segoe UI", 10F, FontStyle.Bold),
-            ForeColor = GetReadableTextColor(color),
-            Text = $"{title}\nExample details: selector matched expected alarm content.",
-            TextAlign = ContentAlignment.MiddleLeft
-        });
-
-        return panel;
-    }
-
-    /// <summary>
-    /// Chooses black or white text based on a color's perceived brightness.
-    /// </summary>
-    /// <param name="color">Background color.</param>
-    /// <returns>Readable text color.</returns>
-    private static Color GetReadableTextColor(Color color)
-    {
-        var brightness = (color.R * 0.299) + (color.G * 0.587) + (color.B * 0.114);
-        return brightness > 150 ? Color.Black : Color.White;
-    }
-}
-
-/// <summary>
-/// Modal text editor for a panel's advanced monitoring JSON.
-/// </summary>
-internal sealed class MonitoringJsonEditorForm : Form
-{
-    private static readonly JsonSerializerOptions MonitoringJsonOptions = new()
-    {
-        PropertyNameCaseInsensitive = true,
-        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
-        ReadCommentHandling = JsonCommentHandling.Skip,
-        AllowTrailingCommas = true,
-        WriteIndented = true
-    };
-
-    private static readonly Color WindowBackColor = Color.FromArgb(17, 24, 39);
-    private static readonly Color SurfaceColor = Color.FromArgb(31, 41, 55);
-    private static readonly Color InputColor = Color.FromArgb(15, 23, 42);
-    private static readonly Color BorderColor = Color.FromArgb(75, 85, 99);
-    private static readonly Color PrimaryTextColor = Color.FromArgb(243, 244, 246);
-    private static readonly Color SecondaryTextColor = Color.FromArgb(209, 213, 219);
-    private static readonly Color AccentColor = Color.FromArgb(8, 145, 178);
-
-    private readonly TextBox _jsonTextBox = new();
-    private readonly TextBox _ruleNameTextBox = new();
-    private readonly ComboBox _ruleTypeComboBox = new();
-    private readonly TextBox _ruleSelectorTextBox = new();
-    private readonly TextBox _ruleContainsTextBox = new();
-    private readonly ComboBox _ruleSeverityComboBox = new();
-    private readonly TextBox _ruleDetailsSelectorTextBox = new();
-    private readonly CheckBox _ruleSoundCheckBox = new();
-    private readonly string _templateJson;
-
-    /// <summary>
-    /// Builds the JSON editor dialog.
-    /// </summary>
-    /// <param name="panelName">Panel name shown in the title.</param>
-    /// <param name="jsonText">Initial monitoring JSON.</param>
-    /// <param name="templateJson">Starter template inserted on demand.</param>
-    public MonitoringJsonEditorForm(string panelName, string jsonText, string templateJson)
-    {
-        _templateJson = templateJson;
-        Text = $"Monitoring JSON - {panelName}";
-        BackColor = WindowBackColor;
-        ForeColor = PrimaryTextColor;
-        Font = new Font("Segoe UI", 9F);
-        FormBorderStyle = FormBorderStyle.Sizable;
-        MaximizeBox = true;
-        MinimizeBox = false;
-        SizeGripStyle = SizeGripStyle.Show;
-        MinimumSize = new Size(940, 640);
-        Size = new Size(1080, 760);
-        StartPosition = FormStartPosition.CenterParent;
-
-        BuildLayout(jsonText);
-    }
-
-    /// <summary>
-    /// Current JSON text from the editor.
-    /// </summary>
-    public string JsonText => _jsonTextBox.Text;
-
-    /// <summary>
-    /// Builds the instruction text, JSON editor, and command buttons.
-    /// </summary>
-    /// <param name="jsonText">Initial JSON text.</param>
-    private void BuildLayout(string jsonText)
-    {
-        var root = new TableLayoutPanel
-        {
-            Dock = DockStyle.Fill,
-            ColumnCount = 1,
-            RowCount = 4,
-            Padding = new Padding(14),
-            BackColor = WindowBackColor
-        };
-        root.RowStyles.Add(new RowStyle(SizeType.Absolute, 42));
-        root.RowStyles.Add(new RowStyle(SizeType.Absolute, 230));
-        root.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
-        root.RowStyles.Add(new RowStyle(SizeType.Absolute, 60));
-
-        var hintLabel = new Label
-        {
-            Dock = DockStyle.Fill,
-            ForeColor = SecondaryTextColor,
-            TextAlign = ContentAlignment.MiddleLeft,
-            Text = "Edit this panel's monitoring block. Leave empty to disable DOM monitoring."
-        };
-
-        _jsonTextBox.AcceptsReturn = true;
-        _jsonTextBox.AcceptsTab = true;
-        _jsonTextBox.BackColor = InputColor;
-        _jsonTextBox.BorderStyle = BorderStyle.FixedSingle;
-        _jsonTextBox.Dock = DockStyle.Fill;
-        _jsonTextBox.Font = new Font("Consolas", 10F);
-        _jsonTextBox.ForeColor = PrimaryTextColor;
-        _jsonTextBox.Multiline = true;
-        _jsonTextBox.ScrollBars = ScrollBars.Both;
-        _jsonTextBox.Text = jsonText;
-        _jsonTextBox.WordWrap = false;
-
-        var footer = new FlowLayoutPanel
-        {
-            Dock = DockStyle.Fill,
-            FlowDirection = FlowDirection.RightToLeft,
-            Padding = new Padding(0, 10, 0, 8),
-            WrapContents = false
-        };
-
-        var applyButton = CreateDialogButton("Apply", DialogResult.OK);
-        applyButton.BackColor = AccentColor;
-        var cancelButton = CreateDialogButton("Cancel", DialogResult.Cancel);
-        var templateButton = CreateDialogButton("Insert Template", DialogResult.None);
-        templateButton.Width = 130;
-        templateButton.Click += (_, _) => InsertTemplate();
-        var disableButton = CreateDialogButton("Disable", DialogResult.OK);
-        disableButton.Click += (_, _) => _jsonTextBox.Clear();
-        var validateButton = CreateDialogButton("Validate", DialogResult.None);
-        validateButton.Click += (_, _) => ValidateSelectors();
-
-        footer.Controls.Add(applyButton);
-        footer.Controls.Add(cancelButton);
-        footer.Controls.Add(disableButton);
-        footer.Controls.Add(validateButton);
-        footer.Controls.Add(templateButton);
-
-        root.Controls.Add(hintLabel, 0, 0);
-        root.Controls.Add(BuildRuleBuilder(), 0, 1);
-        root.Controls.Add(_jsonTextBox, 0, 2);
-        root.Controls.Add(footer, 0, 3);
-        Controls.Add(root);
-
-        AcceptButton = applyButton;
-        CancelButton = cancelButton;
-    }
-
-    /// <summary>
-    /// Builds a basic rule builder that appends selector-based rules to the JSON editor.
-    /// Advanced users can still edit the generated JSON directly.
-    /// </summary>
-    /// <returns>Rule builder group.</returns>
-    private GroupBox BuildRuleBuilder()
-    {
-        var group = new GroupBox
-        {
-            Dock = DockStyle.Fill,
-            Text = "Basic Rule Builder",
-            ForeColor = SecondaryTextColor,
-            Padding = new Padding(8),
-            BackColor = WindowBackColor
-        };
-
-        var grid = new TableLayoutPanel
-        {
-            Dock = DockStyle.Fill,
-            ColumnCount = 4,
-            RowCount = 3,
-            Padding = new Padding(8, 14, 8, 8)
-        };
-        grid.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 28));
-        grid.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 22));
-        grid.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 24));
-        grid.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 26));
-        grid.RowStyles.Add(new RowStyle(SizeType.Absolute, 64));
-        grid.RowStyles.Add(new RowStyle(SizeType.Absolute, 64));
-        grid.RowStyles.Add(new RowStyle(SizeType.Absolute, 58));
-
-        ConfigureTextInput(_ruleNameTextBox);
-        ConfigureTextInput(_ruleSelectorTextBox);
-        ConfigureTextInput(_ruleContainsTextBox);
-        ConfigureTextInput(_ruleDetailsSelectorTextBox);
-        ConfigureComboBox(_ruleTypeComboBox, ["exists", "domText", "domClass"]);
-        ConfigureComboBox(_ruleSeverityComboBox, ["warning", "critical", "info"]);
-
-        _ruleNameTextBox.Text = "DOM Alert";
-        _ruleSoundCheckBox.Text = "Sound";
-        _ruleSoundCheckBox.Checked = true;
-        _ruleSoundCheckBox.ForeColor = PrimaryTextColor;
-        _ruleSoundCheckBox.AutoSize = true;
-        _ruleSoundCheckBox.Margin = new Padding(8, 26, 0, 0);
-
-        var addButton = CreateDialogButton("Add Rule", DialogResult.None);
-        addButton.BackColor = AccentColor;
-        addButton.Dock = DockStyle.Fill;
-        addButton.Margin = new Padding(8, 12, 8, 8);
-        addButton.Click += (_, _) => AddRuleFromBuilder();
-
-        var selectorField = CreateField("Selector", _ruleSelectorTextBox);
-        var containsField = CreateField("Text contains", _ruleContainsTextBox);
-        var detailsField = CreateField("Details selector", _ruleDetailsSelectorTextBox);
-        grid.Controls.Add(CreateField("Name", _ruleNameTextBox), 0, 0);
-        grid.Controls.Add(CreateField("Type", _ruleTypeComboBox), 1, 0);
-        grid.Controls.Add(CreateField("Severity", _ruleSeverityComboBox), 2, 0);
-        grid.Controls.Add(_ruleSoundCheckBox, 3, 0);
-        grid.Controls.Add(selectorField, 0, 1);
-        grid.SetColumnSpan(selectorField, 2);
-        grid.Controls.Add(containsField, 2, 1);
-        grid.SetColumnSpan(containsField, 2);
-        grid.Controls.Add(detailsField, 0, 2);
-        grid.SetColumnSpan(detailsField, 3);
-        grid.Controls.Add(addButton, 3, 2);
-
-        group.Controls.Add(grid);
-        return group;
-    }
-
-    /// <summary>
-    /// Reads the basic rule builder fields and appends a rule to the monitoring JSON editor.
-    /// </summary>
-    private void AddRuleFromBuilder()
-    {
-        var selector = _ruleSelectorTextBox.Text.Trim();
-
-        if (string.IsNullOrWhiteSpace(selector))
-        {
-            MessageBox.Show(
-                this,
-                "Enter a CSS selector for the rule.",
-                "Rule Builder",
-                MessageBoxButtons.OK,
-                MessageBoxIcon.Warning);
-            _ruleSelectorTextBox.Focus();
-            return;
-        }
-
-        if (!TryGetMonitoringFromEditor(out var monitoring, out var errorMessage))
-        {
-            MessageBox.Show(
-                this,
-                errorMessage,
-                "Rule Builder",
-                MessageBoxButtons.OK,
-                MessageBoxIcon.Error);
-            return;
-        }
-
-        monitoring ??= new PanelMonitoringOptions
-        {
-            Enabled = true,
-            PollSeconds = 3,
-            SoundEnabled = true,
-            RepeatSoundSeconds = 5,
-            Rules = []
-        };
-
-        monitoring.Enabled = true;
-        monitoring.Rules ??= [];
-        monitoring.Rules.Add(new PanelMonitoringRule
-        {
-            Name = string.IsNullOrWhiteSpace(_ruleNameTextBox.Text)
-                ? "DOM Alert"
-                : _ruleNameTextBox.Text.Trim(),
-            Type = _ruleTypeComboBox.SelectedItem?.ToString() ?? "exists",
-            Selector = selector,
-            Contains = string.IsNullOrWhiteSpace(_ruleContainsTextBox.Text)
-                ? null
-                : _ruleContainsTextBox.Text.Trim(),
-            Severity = _ruleSeverityComboBox.SelectedItem?.ToString() ?? "warning",
-            DetailsSelector = string.IsNullOrWhiteSpace(_ruleDetailsSelectorTextBox.Text)
-                ? null
-                : _ruleDetailsSelectorTextBox.Text.Trim(),
-            SoundEnabled = _ruleSoundCheckBox.Checked ? null : false
-        });
-
-        _jsonTextBox.Text = JsonSerializer.Serialize(monitoring, MonitoringJsonOptions);
-        _ruleSelectorTextBox.Clear();
-        _ruleContainsTextBox.Clear();
-        _ruleDetailsSelectorTextBox.Clear();
-        _ruleSoundCheckBox.Checked = true;
-        _ruleSelectorTextBox.Focus();
-    }
-
-    /// <summary>
-    /// Parses the current JSON editor content so the rule builder can append to existing settings.
-    /// </summary>
-    /// <param name="monitoring">Parsed monitoring options, or null when the editor is empty.</param>
-    /// <param name="errorMessage">Parse error shown to the operator.</param>
-    /// <returns>True when the current editor content can be used.</returns>
-    private bool TryGetMonitoringFromEditor(
-        out PanelMonitoringOptions? monitoring,
-        out string errorMessage)
-    {
-        monitoring = null;
-        errorMessage = string.Empty;
-        var json = _jsonTextBox.Text.Trim();
-
-        if (string.IsNullOrWhiteSpace(json) ||
-            string.Equals(json, "null", StringComparison.OrdinalIgnoreCase))
-        {
-            return true;
-        }
-
-        try
-        {
-            monitoring = JsonSerializer.Deserialize<PanelMonitoringOptions>(
-                json,
-                MonitoringJsonOptions);
-            return true;
-        }
-        catch (JsonException ex)
-        {
-            errorMessage = $"The current monitoring JSON is invalid. Fix it or clear it before adding a rule.\n\n{ex.Message}";
-            return false;
-        }
-    }
-
-    /// <summary>
-    /// Performs local validation of selector-like fields in the monitoring JSON editor.
-    /// The final runtime check still happens inside WebView2, but this catches common mistakes early.
-    /// </summary>
-    private void ValidateSelectors()
-    {
-        if (!TryGetMonitoringFromEditor(out var monitoring, out var errorMessage))
-        {
-            MessageBox.Show(this, errorMessage, "Validate Selectors", MessageBoxButtons.OK, MessageBoxIcon.Error);
-            return;
-        }
-
-        if (monitoring?.Enabled != true || monitoring.Rules is null || monitoring.Rules.Count == 0)
-        {
-            MessageBox.Show(
-                this,
-                "Monitoring is empty or disabled. There are no selectors to validate.",
-                "Validate Selectors",
-                MessageBoxButtons.OK,
-                MessageBoxIcon.Information);
-            return;
-        }
-
-        var failures = new List<string>();
-
-        foreach (var rule in monitoring.Rules)
-        {
-            ValidateSelectorText(rule.Name, "selector", rule.Selector, failures);
-            ValidateSelectorText(rule.Name, "detailsSelector", rule.DetailsSelector, failures, optional: true);
-        }
-
-        if (failures.Count == 0)
-        {
-            MessageBox.Show(
-                this,
-                "Selector validation passed. Runtime matching still depends on the loaded page DOM.",
-                "Validate Selectors",
-                MessageBoxButtons.OK,
-                MessageBoxIcon.Information);
-            return;
-        }
-
-        MessageBox.Show(
-            this,
-            string.Join(Environment.NewLine, failures),
-            "Selector Validation Issues",
-            MessageBoxButtons.OK,
-            MessageBoxIcon.Warning);
-    }
-
-    /// <summary>
-    /// Adds selector validation messages for one selector field.
-    /// </summary>
-    /// <param name="ruleName">Rule name.</param>
-    /// <param name="fieldName">Selector field name.</param>
-    /// <param name="selector">Selector text.</param>
-    /// <param name="failures">Failure list.</param>
-    /// <param name="optional">Whether the field can be empty.</param>
-    private static void ValidateSelectorText(
-        string? ruleName,
-        string fieldName,
-        string? selector,
-        List<string> failures,
-        bool optional = false)
-    {
-        var displayName = string.IsNullOrWhiteSpace(ruleName) ? "DOM Alert" : ruleName.Trim();
-
-        if (string.IsNullOrWhiteSpace(selector))
-        {
-            if (!optional)
-            {
-                failures.Add($"{displayName}: {fieldName} is required.");
-            }
-
-            return;
-        }
-
-        if (!LooksLikeValidCssSelector(selector))
-        {
-            failures.Add($"{displayName}: {fieldName} looks malformed: {selector}");
-        }
-    }
-
-    /// <summary>
-    /// Lightweight CSS selector screening for common editing mistakes.
-    /// WebView2 performs the authoritative selector evaluation at runtime.
-    /// </summary>
-    /// <param name="selector">Selector text.</param>
-    /// <returns>True when the selector passes basic syntax screening.</returns>
-    private static bool LooksLikeValidCssSelector(string selector)
-    {
-        var text = selector.Trim();
-
-        if (text.Length == 0 ||
-            text.Contains(",,", StringComparison.Ordinal) ||
-            text.EndsWith(',') ||
-            text.EndsWith('>') ||
-            text.EndsWith('+') ||
-            text.EndsWith('~') ||
-            text.Contains('{') ||
-            text.Contains('}'))
-        {
-            return false;
-        }
-
-        var bracketDepth = 0;
-        var parenthesisDepth = 0;
-        var quote = '\0';
-
-        foreach (var character in text)
-        {
-            if (quote != '\0')
-            {
-                if (character == quote)
-                {
-                    quote = '\0';
-                }
-
-                continue;
-            }
-
-            if (character is '\'' or '"')
-            {
-                quote = character;
-                continue;
-            }
-
-            switch (character)
-            {
-                case '[':
-                    bracketDepth++;
-                    break;
-                case ']':
-                    bracketDepth--;
-                    break;
-                case '(':
-                    parenthesisDepth++;
-                    break;
-                case ')':
-                    parenthesisDepth--;
-                    break;
-            }
-
-            if (bracketDepth < 0 || parenthesisDepth < 0)
-            {
-                return false;
-            }
-        }
-
-        return bracketDepth == 0 && parenthesisDepth == 0 && quote == '\0';
-    }
-
-    /// <summary>
-    /// Applies shared text box styling inside the monitoring dialog.
-    /// </summary>
-    /// <param name="textBox">Text box to configure.</param>
-    private static void ConfigureTextInput(TextBox textBox)
-    {
-        textBox.BackColor = InputColor;
-        textBox.BorderStyle = BorderStyle.FixedSingle;
-        textBox.ForeColor = PrimaryTextColor;
-        textBox.Width = 240;
-    }
-
-    /// <summary>
-    /// Applies shared combo box styling and values inside the monitoring dialog.
-    /// </summary>
-    /// <param name="comboBox">Combo box to configure.</param>
-    /// <param name="items">Values to add.</param>
-    private static void ConfigureComboBox(ComboBox comboBox, string[] items)
-    {
-        comboBox.BackColor = InputColor;
-        comboBox.DropDownStyle = ComboBoxStyle.DropDownList;
-        comboBox.ForeColor = PrimaryTextColor;
-        comboBox.Width = 180;
-        comboBox.Items.Clear();
-        comboBox.Items.AddRange(items);
-
-        if (comboBox.Items.Count > 0)
-        {
-            comboBox.SelectedIndex = 0;
-        }
-    }
-
-    /// <summary>
-    /// Wraps a dialog label and control in a compact vertical field.
-    /// </summary>
-    /// <param name="label">Field label.</param>
-    /// <param name="control">Input control.</param>
-    /// <returns>Field container.</returns>
-    private static Panel CreateField(string label, Control control)
-    {
-        var container = new Panel
-        {
-            Dock = DockStyle.Fill,
-            Margin = new Padding(0, 0, 12, 0),
-            Padding = new Padding(0, 0, 0, 8)
-        };
-
-        var labelControl = new Label
-        {
-            Dock = DockStyle.Top,
-            Height = 24,
-            Text = label,
-            ForeColor = SecondaryTextColor,
-            TextAlign = ContentAlignment.MiddleLeft
-        };
-
-        control.Dock = DockStyle.Bottom;
-        container.Controls.Add(control);
-        container.Controls.Add(labelControl);
-        return container;
-    }
-
-    /// <summary>
-    /// Creates a styled dialog button.
-    /// </summary>
-    /// <param name="text">Button text.</param>
-    /// <param name="dialogResult">Dialog result assigned to the button.</param>
-    /// <returns>Configured button.</returns>
-    private static Button CreateDialogButton(string text, DialogResult dialogResult)
-    {
-        var button = new Button
-        {
-            Text = text,
-            DialogResult = dialogResult,
-            FlatStyle = FlatStyle.Flat,
-            ForeColor = PrimaryTextColor,
-            BackColor = SurfaceColor,
-            Height = 36,
-            Width = 110,
-            Margin = new Padding(4)
-        };
-        button.FlatAppearance.BorderColor = BorderColor;
-        return button;
-    }
-
-    /// <summary>
-    /// Inserts the starter monitoring template after confirming replacement of existing text.
-    /// </summary>
-    private void InsertTemplate()
-    {
-        var currentText = _jsonTextBox.Text.Trim();
-
-        if (!string.IsNullOrWhiteSpace(currentText) &&
-            !string.Equals(currentText, "null", StringComparison.OrdinalIgnoreCase))
-        {
-            var result = MessageBox.Show(
-                this,
-                "Replace the current monitoring JSON with the starter template?",
-                "Insert Template",
-                MessageBoxButtons.YesNo,
-                MessageBoxIcon.Question);
-
-            if (result != DialogResult.Yes)
-            {
-                return;
-            }
-        }
-
-        _jsonTextBox.Text = _templateJson;
-        _jsonTextBox.Focus();
     }
 }

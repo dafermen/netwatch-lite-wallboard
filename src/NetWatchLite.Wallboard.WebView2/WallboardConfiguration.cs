@@ -29,42 +29,54 @@ internal sealed class WallboardConfiguration
     public int DefaultLayout { get; set; } = 4;
 
     /// <summary>
-    /// Built-in Windows sound used for audible alarms. Supported values are Exclamation, Asterisk,
-    /// Beep, Hand, and Question. Invalid values are normalized by WallboardConfigReader.
+    /// When enabled, the wallboard releases visible WebView2 panels while the window is minimized and
+    /// recreates them when the operator restores the window.
     /// </summary>
-    public string AlarmSound { get; set; } = "Exclamation";
+    public bool LowPowerModeEnabled { get; set; } = true;
 
     /// <summary>
-    /// Hex colors used for alarm banners and panel borders by severity.
-    /// The runtime normalizes invalid values to safe defaults.
+    /// Enables scheduled recreation of the visible WebView2 panels for long-running sessions.
     /// </summary>
-    public AlarmSeverityColors SeverityColors { get; set; } = new();
+    public bool AutoRestartEnabled { get; set; } = false;
 
     /// <summary>
-    /// List of monitoring panels rendered by the wallboard.
+    /// Number of hours between scheduled visible-panel restarts.
+    /// </summary>
+    public int AutoRestartHours { get; set; } = 6;
+
+    /// <summary>
+    /// Starts the application in fullscreen mode for TV/kiosk scenarios.
+    /// </summary>
+    public bool StartFullscreen { get; set; } = false;
+
+    /// <summary>
+    /// Asks for confirmation before closing the application.
+    /// </summary>
+    public bool ConfirmExit { get; set; } = false;
+
+    /// <summary>
+    /// Shows a lightweight memory indicator and restart recommendation in the top bar.
+    /// </summary>
+    public bool MemoryMonitorEnabled { get; set; } = false;
+
+    /// <summary>
+    /// Working set threshold in megabytes used by the memory recommendation indicator.
+    /// </summary>
+    public int MemoryWarningMegabytes { get; set; } = 1500;
+
+    /// <summary>
+    /// Hides the top bar after the mouse is idle, leaving more room for TV wallboards.
+    /// </summary>
+    public bool AutoHideTopBarEnabled { get; set; } = false;
+
+    /// <summary>
+    /// Native shell theme. Supported values are dark, light, and high-contrast.
+    /// </summary>
+    public string Theme { get; set; } = "dark";
+
+    /// <summary>
+    /// List of panels rendered by the wallboard.
     /// Order matters: it controls grid placement and the sequence used during automatic rotation.
     /// </summary>
     public List<WallboardPanel> Panels { get; set; } = [];
-}
-
-/// <summary>
-/// Operator-configurable alarm colors stored as HTML-style hex strings.
-/// Keeping these as strings makes wallboard.json easy to read and edit by hand.
-/// </summary>
-internal sealed class AlarmSeverityColors
-{
-    /// <summary>
-    /// Color used for critical alarms.
-    /// </summary>
-    public string Critical { get; set; } = "#CC1220";
-
-    /// <summary>
-    /// Color used for warning alarms.
-    /// </summary>
-    public string Warning { get; set; } = "#CC6700";
-
-    /// <summary>
-    /// Color used for informational alarms.
-    /// </summary>
-    public string Info { get; set; } = "#005C8A";
 }
