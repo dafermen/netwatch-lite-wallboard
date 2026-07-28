@@ -52,6 +52,8 @@ Microsoft Edge WebView2
 
 | File | What it does |
 |---|---|
+| `AGENTS.md` | Required instructions for future Codex sessions. Read this before editing. |
+| `CURRENT_STATUS.md` | Current phase, completed work, validation notes, and next recommended steps. |
 | `Program.cs` | Starts the WinForms app and installs global error handlers. |
 | `WallboardConfiguration.cs` | Represents the full `wallboard.json` file. |
 | `WallboardPanel.cs` | Represents one panel in the JSON file. |

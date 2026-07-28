@@ -253,6 +253,8 @@ netwatch-lite-wallboard/
 |-- src/
 |   `-- NetWatchLite.Wallboard.WebView2/
 |-- CHANGELOG.md
+|-- AGENTS.md
+|-- CURRENT_STATUS.md
 |-- LICENSE
 |-- netwatch-lite-wallboard.slnx
 `-- README.md
@@ -262,6 +264,8 @@ netwatch-lite-wallboard/
 
 - [User guide](docs/user-guide.md): how to run, configure, and operate the wallboard.
 - [Developer guide](docs/developer-guide.md): how the code works, written for a junior developer.
+- [Codex instructions](AGENTS.md): required guidance for future Codex sessions.
+- [Current status](CURRENT_STATUS.md): project phase, completed work, validation state, and next steps.
 - [Changelog](CHANGELOG.md): release history and pending changes.
 
 ## Operational Notes

@@ -4,6 +4,7 @@ All notable changes to NetWatch Lite Wallboard are documented here.
 
 ## v0.3.0 - 2026-07-01
 
+- Added repository handoff files for future Codex sessions: `AGENTS.md` and `CURRENT_STATUS.md`.
 - Removed the DOM scraping/monitoring subsystem, including monitoring JSON models, rule editor, selector validation, scraping controls, alarm preview, bundled scraping test page, and related documentation.
 - Simplified settings, diagnostics, configuration, and WebView panel runtime around page display, refresh, restart, rotation, profiles, and low-power mode.
 - Improved settings window layout so top-level fields, panel details, panel actions, and footer actions are easier to read.
