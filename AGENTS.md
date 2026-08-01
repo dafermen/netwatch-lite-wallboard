@@ -8,9 +8,15 @@ Before changing code, read these files in this order:
 
 1. `CURRENT_STATUS.md`
 2. `README.md`
-3. `docs/developer-guide.md`
-4. `docs/user-guide.md`
-5. `CHANGELOG.md`
+3. `docs/README.md`
+4. `docs/DOCUMENTATION_STANDARD.md`
+5. `docs/ARCHITECTURE.md`
+6. `docs/CONFIGURATION.md`
+7. `docs/DEVELOPMENT.md`
+8. `docs/TESTING.md`
+9. `docs/developer-guide.md`
+10. `docs/user-guide.md`
+11. `CHANGELOG.md`
 
 Then inspect the current Git state:
 
@@ -55,6 +61,12 @@ Important files:
 - `Data/wallboard.demo.json`: demo profile.
 - `Data/wallboard.production.json`: production-style profile.
 - `scripts/publish-portable.ps1`: portable publish helper.
+- `docs/TESTING.md`: mandatory quality areas and release evidence rules.
+- `docs/RELEASE_CHECKLIST.md`: release approval template.
+- `docs/adr/`: durable architecture decisions.
+- `docs/README.md`: authoritative documentation navigation.
+- `docs/DOCUMENTATION_STANDARD.md`: mandatory documentation structure and navigation rules.
+- `scripts/validate-docs.ps1`: local and CI documentation validation.
 
 ## Development Rules
 
@@ -67,12 +79,17 @@ Important files:
 - Dispose WebView2 controls and stop timers when rebuilding or closing panels.
 - Avoid changing unrelated files.
 - Do not commit or publish `publish/`, `bin/`, `obj/`, `*.zip`, `*.backup.json`, or local logs.
+- Do not add React/Node conventions such as `package.json` or `.env` files unless the technology stack actually changes.
+- Do not claim a planned or manual test is automated.
+- Keep every document under `docs/` reachable from its index and preserve the `docs-nav` block.
+- Do not introduce a documentation framework or web route without a real hosting requirement and an ADR.
 
 ## Validation Commands
 
 Run these before finishing code changes:
 
 ```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\validate-docs.ps1
 dotnet build .\src\NetWatchLite.Wallboard.WebView2\NetWatchLite.Wallboard.WebView2.csproj
 git diff --check
 ```
@@ -90,6 +107,8 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\publish-portable.p
 
 Verify the generated folder does not include `wallboard.backup.json`.
 
+Before any deployable release, follow all 13 quality areas in `docs/TESTING.md` and complete `docs/RELEASE_CHECKLIST.md`. Every area must be `Passed`, `Failed`, or `Not applicable` with a reason. Do not publish with an applicable failure or untested area.
+
 ## Git And Release Notes
 
 The main branch is `main`.
@@ -98,10 +117,12 @@ When making a release-level change:
 
 1. Update version in `src/NetWatchLite.Wallboard.WebView2/NetWatchLite.Wallboard.WebView2.csproj`.
 2. Update `CHANGELOG.md`.
-3. Build.
-4. Create portable package.
-5. Commit.
-6. Push to `origin/main` after user approval or explicit request.
+3. Complete and record the release gates in `docs/TESTING.md`.
+4. Build.
+5. Create and inspect the portable package.
+6. Test the exact ZIP intended for distribution.
+7. Commit.
+8. Push to `origin/main` after user approval or explicit request.
 
 ## User Preference
 

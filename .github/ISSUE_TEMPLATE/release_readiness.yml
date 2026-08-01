@@ -1,0 +1,63 @@
+name: Release readiness
+description: Record evidence for all release quality gates.
+title: "[Release]: v"
+labels:
+  - release
+body:
+  - type: markdown
+    attributes:
+      value: Every applicable area must pass. Use Not applicable only with a written reason. See docs/TESTING.md.
+  - type: input
+    id: candidate
+    attributes:
+      label: Version and commit
+      placeholder: v0.4.0 at abc1234
+    validations:
+      required: true
+  - type: textarea
+    id: environment
+    attributes:
+      label: Test environment
+      description: List Windows and WebView2 Runtime versions and test hardware.
+    validations:
+      required: true
+  - type: textarea
+    id: results
+    attributes:
+      label: Results for the 13 quality areas
+      value: |
+        1. Acceptance:
+        2. Unit:
+        3. Properties and invariants:
+        4. Mutation:
+        5. Fuzzing:
+        6. Integration:
+        7. Contract:
+        8. End-to-end:
+        9. Regression:
+        10. Security:
+        11. Concurrency and resilience:
+        12. Performance and resources:
+        13. Compatibility and deployment:
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Evidence
+      description: Link CI runs, logs, screenshots, measurements, and related defects.
+    validations:
+      required: true
+  - type: checkboxes
+    id: package
+    attributes:
+      label: Package checks
+      options:
+        - label: The version matches the project and changelog.
+          required: true
+        - label: The exact portable ZIP intended for distribution passed end-to-end testing.
+          required: true
+        - label: No backup JSON, logs, credentials, bin, or obj files are included.
+          required: true
+        - label: No applicable test area is failed or untested.
+          required: true

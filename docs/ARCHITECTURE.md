@@ -1,0 +1,115 @@
+# Architecture
+
+<!-- docs-nav -->
+[Documentation home](README.md) | [Project README](../README.md) | [Current status](../CURRENT_STATUS.md)
+<!-- /docs-nav -->
+
+This document explains the technical shape of NetWatch Lite Wallboard and the boundaries contributors should preserve.
+
+## System Context
+
+NetWatch Lite Wallboard is a Windows desktop application. It embeds operational web pages in Microsoft Edge WebView2 controls and arranges them in configurable WinForms layouts.
+
+The application:
+
+- Reads a local JSON configuration.
+- Creates one WebView2 control for each visible panel.
+- Shares one WebView2 environment across panels.
+- Refreshes, rotates, restarts, and disposes panels.
+- Provides native settings and diagnostics windows.
+
+The application does not expose a network API, host a server, scrape page content, or evaluate DOM selectors.
+
+## Runtime Components
+
+| Component | Responsibility |
+|---|---|
+| `Program` | Starts WinForms and registers global exception handlers. |
+| `WallboardForm` | Owns the main window, layouts, paging, rotation, kiosk behavior, memory display, and application-level actions. |
+| `WebViewPanelControl` | Owns one WebView2 control, navigation, refresh timer, panel status, and panel-level restart requests. |
+| `WallboardConfigReader` | Locates, reads, normalizes, saves, backs up, and verifies JSON configuration. |
+| `WallboardConfiguration` | Defines top-level configuration fields. |
+| `WallboardPanel` | Defines one configured panel. |
+| `SettingsForm` | Edits a cloned configuration and saves it through `WallboardConfigReader`. |
+| `DiagnosticsForm` | Produces a read-only runtime snapshot for support. |
+| `ThemePalette` | Centralizes native shell colors. |
+| `AppErrorLog` | Writes unexpected failures to the local application log. |
+
+## Startup Flow
+
+1. `Program.Main` enables WinForms defaults and opens `WallboardForm`.
+2. `WallboardForm.InitializeAsync` creates the shared WebView2 environment.
+3. `WallboardConfigReader` selects the active environment profile.
+4. Configuration is deserialized and normalized.
+5. The main form applies theme and runtime options.
+6. The current page of panels is created and navigated.
+7. Rotation, memory, auto-restart, and top-bar timers are scheduled as configured.
+
+## Configuration Flow
+
+Configuration follows this path:
+
+```text
+wallboard[.environment].json
+        |
+        v
+WallboardConfigReader
+  deserialize + normalize
+        |
+        v
+WallboardConfiguration
+        |
+        +--> WallboardForm
+        +--> SettingsForm clone
+        +--> DiagnosticsForm snapshot
+```
+
+Settings are edited on a clone. Saving performs normalization, creates a local backup when appropriate, writes the file, reads it again for verification, and then asks the main window to reload.
+
+## WebView2 Lifecycle
+
+All visible panels share one `CoreWebView2Environment` so cookies, authentication, and browser profile data behave like one browser session.
+
+Each panel still owns its own WebView2 control. When layouts change, pages rotate, low-power mode activates, settings reload, or the app closes, panel controls must be disposed. Disposal stops timers, removes event handlers, and releases browser controls. This lifecycle is a critical memory-safety boundary.
+
+## Data And Storage
+
+| Data | Location |
+|---|---|
+| Source configuration | `Data/wallboard.json` |
+| Environment profiles | `Data/wallboard.{environment}.json` |
+| Portable configuration | Beside the executable |
+| WebView2 profile | `%LOCALAPPDATA%\NetWatchLite\WallboardWebView2` |
+| Error log | `%LOCALAPPDATA%\NetWatchLite\WallboardLogs\wallboard-errors.log` |
+| Generated package | `publish/` |
+
+Generated output and machine-specific backups are excluded from source control.
+
+## Trust Boundaries
+
+- The native application trusts its local configuration file.
+- Every configured URL is external content rendered by WebView2.
+- Loaded pages keep their own authentication, scripts, cookies, and security model.
+- The app does not inspect or transform page content.
+- Local `file:///` URLs should only point to trusted files.
+- Configuration and logs must not contain passwords, access tokens, or private keys.
+
+## Extension Rules
+
+- Put panel-specific behavior in `WebViewPanelControl`.
+- Put whole-window behavior in `WallboardForm`.
+- Normalize every new configuration field in `WallboardConfigReader`.
+- Keep new JSON fields backward-compatible with older files.
+- Update Settings, diagnostics, examples, and documentation together.
+- Add an Architecture Decision Record when changing a major boundary, dependency, persistence rule, or product direction.
+
+## Related Documents
+
+- [Configuration](CONFIGURATION.md)
+- [Development](DEVELOPMENT.md)
+- [Operations](OPERATIONS.md)
+- [Security](SECURITY.md)
+- [Architecture decisions](adr/README.md)
+
+---
+[Previous: Release checklist](RELEASE_CHECKLIST.md) | [Documentation home](README.md) | [Next: Developer guide](developer-guide.md)

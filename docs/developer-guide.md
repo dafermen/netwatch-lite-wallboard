@@ -1,8 +1,21 @@
 # NetWatch Lite Wallboard Developer Guide
 
+<!-- docs-nav -->
+[Documentation home](README.md) | [Project README](../README.md) | [Current status](../CURRENT_STATUS.md)
+<!-- /docs-nav -->
+
 This guide explains the project in plain language for a junior developer joining the codebase.
 
 The current application is a Windows desktop wallboard. It displays configured web pages in WebView2 panels. It does not scrape page content, inspect DOM elements, run monitoring selectors, or generate alarms from page content.
+
+Use this guide for the code walkthrough. The focused references are:
+
+- [Architecture](ARCHITECTURE.md)
+- [Configuration contract](CONFIGURATION.md)
+- [Development workflow](DEVELOPMENT.md)
+- [Testing and release gates](TESTING.md)
+- [Deployment](DEPLOYMENT.md)
+- [Security](SECURITY.md)
 
 ## Mental Model
 
@@ -349,6 +362,8 @@ Publish portable:
 .\scripts\publish-portable.ps1
 ```
 
+Build success is not unit-test success. No automated test project exists yet. Future test projects belong under `tests/`, and release-level work must follow all 13 quality areas in [TESTING.md](TESTING.md).
+
 ## How To Add A Feature
 
 Add a new top-level JSON setting:
@@ -407,3 +422,6 @@ If memory grows over time:
 - Use **Restart All Panels** as an operational reset.
 - Enable low-power mode if the app is often minimized.
 - Check if one loaded web page is unusually heavy in normal Edge.
+
+---
+[Previous: Architecture](ARCHITECTURE.md) | [Documentation home](README.md) | [Next: Development](DEVELOPMENT.md)

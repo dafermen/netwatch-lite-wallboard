@@ -2,6 +2,21 @@
 
 All notable changes to NetWatch Lite Wallboard are documented here.
 
+## Unreleased
+
+- Standardized documentation navigation with an audience-based index and previous/next reading paths.
+- Added a documentation standard tailored to the native .NET desktop architecture.
+- Added automated documentation validation for local links, image alt text, navigation blocks, index coverage, headings, and duplicated paths.
+- Added documentation validation to GitHub Actions.
+- Added focused technical documentation for architecture, configuration, development, testing, deployment, operations, security, and troubleshooting.
+- Added a 13-area release quality policy and reusable release-readiness checklist.
+- Added Architecture Decision Records and documented the no-scraping product boundary.
+- Added GitHub CI for release builds, test-project discovery, NuGet vulnerability review, portable publication, and package-content validation.
+- Added structured bug, feature, release-readiness, and pull request templates.
+- Added monthly Dependabot checks for NuGet and GitHub Actions.
+- Added contribution guidance, test-project organization guidance, and third-party license inventory.
+- Documented why React-specific `package.json`, `.env.example`, and API documentation do not apply to the current .NET desktop architecture.
+
 ## v0.3.0 - 2026-07-01
 
 - Added repository handoff files for future Codex sessions: `AGENTS.md` and `CURRENT_STATUS.md`.

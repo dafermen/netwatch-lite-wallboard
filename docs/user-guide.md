@@ -1,6 +1,12 @@
 # NetWatch Lite Wallboard User Guide
 
+<!-- docs-nav -->
+[Documentation home](README.md) | [Project README](../README.md) | [Current status](../CURRENT_STATUS.md)
+<!-- /docs-nav -->
+
 This guide is for operators and support users who need to run and configure the wallboard.
+
+For long-running maintenance, see [Operations](OPERATIONS.md). For symptom-based help, see [Troubleshooting](TROUBLESHOOTING.md).
 
 ## What The App Does
 
@@ -284,3 +290,6 @@ Error logs:
 ```
 
 Active configuration is shown in the diagnostics window.
+
+---
+[Documentation home](README.md) | [Next: Configuration](CONFIGURATION.md)

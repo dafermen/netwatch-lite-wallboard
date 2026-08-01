@@ -112,6 +112,8 @@ publish/NetWatch-Lite-Wallboard-WebView2-win-x64-v{version}/
 `-- runtime dependencies...
 ```
 
+Publishing is a gated activity. Complete and record the 13 quality areas in [Testing strategy and release gates](docs/TESTING.md) before distributing a package. The CI artifact is for validation and is not automatically an approved release.
+
 ## Configuration
 
 The application reads `wallboard.json` from the executable folder. During development, it falls back to `Data/wallboard.json`.
@@ -238,6 +240,11 @@ $env:NETWATCH_WALLBOARD_ENV = "production"
 
 ```text
 netwatch-lite-wallboard/
+|-- .github/
+|   |-- ISSUE_TEMPLATE/
+|   |-- workflows/
+|   |-- dependabot.yml
+|   `-- pull_request_template.md
 |-- Assets/
 |   `-- netwatch-lite.ico
 |-- Data/
@@ -245,28 +252,62 @@ netwatch-lite-wallboard/
 |   |-- wallboard.demo.json
 |   `-- wallboard.production.json
 |-- docs/
+|   |-- adr/
+|   |-- ARCHITECTURE.md
+|   |-- CONFIGURATION.md
+|   |-- DEPLOYMENT.md
+|   |-- DEVELOPMENT.md
+|   |-- DOCUMENTATION_STANDARD.md
+|   |-- OPERATIONS.md
+|   |-- RELEASE_CHECKLIST.md
+|   |-- SECURITY.md
+|   |-- TESTING.md
+|   |-- TROUBLESHOOTING.md
 |   |-- developer-guide.md
 |   |-- user-guide.md
 |   `-- images/
 |-- scripts/
-|   `-- publish-portable.ps1
+|   |-- publish-portable.ps1
+|   `-- validate-docs.ps1
 |-- src/
 |   `-- NetWatchLite.Wallboard.WebView2/
+|-- tests/
+|   |-- fixtures/
+|   `-- README.md
 |-- CHANGELOG.md
 |-- AGENTS.md
+|-- CONTRIBUTING.md
 |-- CURRENT_STATUS.md
 |-- LICENSE
+|-- THIRD_PARTY_LICENSES.md
 |-- netwatch-lite-wallboard.slnx
 `-- README.md
 ```
 
 ## Documentation
 
+- [Documentation index](docs/README.md): choose the right guide for operation, development, or release work.
+- [Documentation standard](docs/DOCUMENTATION_STANDARD.md): navigation, structure, writing, links, images, and validation rules.
 - [User guide](docs/user-guide.md): how to run, configure, and operate the wallboard.
 - [Developer guide](docs/developer-guide.md): how the code works, written for a junior developer.
+- [Architecture](docs/ARCHITECTURE.md): components, runtime flow, lifecycle, and trust boundaries.
+- [Configuration contract](docs/CONFIGURATION.md): profiles, fields, defaults, and compatibility.
+- [Development](docs/DEVELOPMENT.md): contributor setup and change workflow.
+- [Testing](docs/TESTING.md): 13 mandatory pre-release quality areas and evidence rules.
+- [Deployment](docs/DEPLOYMENT.md): portable packaging, rollout, and rollback.
+- [Operations](docs/OPERATIONS.md): long-running use, recovery, diagnostics, and maintenance.
+- [Security](docs/SECURITY.md): reporting, trust model, secure configuration, and release checks.
+- [Troubleshooting](docs/TROUBLESHOOTING.md): symptom-based diagnosis for operators and developers.
+- [Release checklist](docs/RELEASE_CHECKLIST.md): reusable release evidence template.
+- [Contributing](CONTRIBUTING.md): pull request expectations and local validation.
+- [Third-party licenses](THIRD_PARTY_LICENSES.md): dependency and platform license inventory.
 - [Codex instructions](AGENTS.md): required guidance for future Codex sessions.
 - [Current status](CURRENT_STATUS.md): project phase, completed work, validation state, and next steps.
 - [Changelog](CHANGELOG.md): release history and pending changes.
+
+This is a .NET/WinForms project, so React-specific files such as `package.json` and `.env.example` are intentionally absent. Runtime settings are defined by the JSON contract above. There is currently no application API, so a separate `API.md` would be misleading.
+
+The repository does not currently host a web application or documentation website. GitHub renders the Markdown documentation directly, with [docs/README.md](docs/README.md) as its navigation home.
 
 ## Operational Notes
 

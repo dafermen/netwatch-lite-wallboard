@@ -1,0 +1,43 @@
+name: Feature request
+description: Propose an improvement to the wallboard.
+title: "[Feature]: "
+labels:
+  - enhancement
+body:
+  - type: textarea
+    id: need
+    attributes:
+      label: User need
+      description: Describe the operational problem before describing the solution.
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed behavior
+    validations:
+      required: true
+  - type: textarea
+    id: impact
+    attributes:
+      label: Operational impact
+      description: Consider memory, kiosk use, configuration compatibility, security, and deployment.
+    validations:
+      required: true
+  - type: dropdown
+    id: configuration
+    attributes:
+      label: Does this change wallboard.json?
+      options:
+        - "No"
+        - "Yes, backward-compatible"
+        - "Yes, potentially breaking"
+    validations:
+      required: true
+  - type: checkboxes
+    id: scope
+    attributes:
+      label: Product scope
+      options:
+        - label: This proposal does not silently reintroduce DOM scraping, selector monitoring, or page-content alarms.
+          required: true
