@@ -321,3 +321,7 @@ The repository does not currently host a web application or documentation websit
 ## License
 
 NetWatch Lite Wallboard is released under the [MIT License](LICENSE).
+
+## DOC-STD-20261002 — Documentation navigation
+
+Use the [documentation map](docs/README.md) for authoritative sources, reading paths and project-specific maintenance rules.
