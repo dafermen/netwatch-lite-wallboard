@@ -2,7 +2,7 @@
 
 NetWatch Lite Wallboard is a Windows desktop wallboard for support teams, NOC rooms, shared workstations, and TV displays.
 
-It is built with .NET 8, WinForms, and Microsoft Edge WebView2. Each panel is a real embedded browser view, so operational pages that refuse iframe embedding usually work here.
+It is built with .NET 10 LTS, WinForms, and Microsoft Edge WebView2. Each panel is a real embedded browser view, so operational pages that refuse iframe embedding usually work here.
 
 GitHub repository: [https://github.com/dafermen/netwatch-lite-wallboard](https://github.com/dafermen/netwatch-lite-wallboard)
 
@@ -19,7 +19,8 @@ The application is intentionally simple:
 - Restart one panel or all panels when a WebView needs a clean reload.
 - Restart visible panels automatically every configured number of hours.
 - Reduce memory use while minimized with low-power mode.
-- Show a lightweight memory indicator with restart recommendation.
+- Show estimated host plus WebView2 memory, peak use, and a restart recommendation.
+- Recover failed panels automatically with bounded retries.
 - Start in fullscreen kiosk mode and confirm before closing.
 - Auto-hide the top bar for TV displays.
 - Use dark, light, or high-contrast native shell themes.
@@ -60,7 +61,8 @@ The application is intentionally simple:
 Requirements:
 
 - Windows 10 or later.
-- .NET 8 SDK for development.
+- .NET 10 SDK for development (selected by `global.json`).
+- .NET 10 Desktop Runtime for framework-dependent portable builds.
 - Microsoft Edge WebView2 Runtime on the target machine.
 
 Run from source:
@@ -86,6 +88,8 @@ dotnet build
 
 ## Publish Portable
 
+The current build is **v0.4.0-rc.1**, an evaluation candidate. Long-running production validation remains pending. See [candidate validation](docs/releases/v0.4.0-rc.1.md) for completed checks, limitations, and requirements.
+
 Create a portable Windows x64 folder and ZIP:
 
 ```powershell
@@ -109,6 +113,8 @@ publish/NetWatch-Lite-Wallboard-WebView2-win-x64-v{version}/
 |-- wallboard.production.json
 |-- README.md
 |-- LICENSE
+|-- THIRD_PARTY_LICENSES.md
+|-- docs/
 `-- runtime dependencies...
 ```
 
@@ -129,6 +135,7 @@ Example:
   "lowPowerModeEnabled": true,
   "autoRestartEnabled": false,
   "autoRestartHours": 6,
+  "automaticRecoveryEnabled": true,
   "startFullscreen": false,
   "confirmExit": false,
   "memoryMonitorEnabled": true,
@@ -161,6 +168,7 @@ Top-level fields:
 | `lowPowerModeEnabled` | boolean | Releases visible panels while the app is minimized. |
 | `autoRestartEnabled` | boolean | Restarts visible panels on a schedule for long-running sessions. |
 | `autoRestartHours` | number | Hours between scheduled visible-panel restarts. Valid range: `1` to `24`. |
+| `automaticRecoveryEnabled` | boolean | Recover failed panels after 5, 15, and 30 seconds; enabled by default for existing JSON files. |
 | `startFullscreen` | boolean | Starts the wallboard in fullscreen mode. |
 | `confirmExit` | boolean | Shows a confirmation dialog before closing. |
 | `memoryMonitorEnabled` | boolean | Shows memory use and restart recommendation in the top bar. |
@@ -176,6 +184,12 @@ Panel fields:
 | `name` | string | Panel title. |
 | `url` | string | HTTP/HTTPS URL, `file:///` URL, or packaged local path. |
 | `refreshSeconds` | number | Refresh interval for that panel. |
+
+Memory samples include distinct processes from the application's WebView2 environment, not unrelated Edge sessions. Hover over the memory indicator or open Diagnostics for the breakdown, peak, and recent samples. `*` marks a partial sample. Shared physical pages can be counted across processes, so the total is an estimate.
+
+Automatic recovery is independent of scheduled restart. It stops after three consecutive retries and preserves the budget when a WebView control is recreated. A minute of healthy operation restores the budget; manual Refresh or Restart permits another attempt. Changing pages, minimizing in low-power mode, and closing cancel pending recovery. A browser-process failure can affect all visible panels because they share an environment.
+
+Run automated tests with `dotnet test .\netwatch-lite-wallboard.slnx -c Release`. See [Testing](docs/TESTING.md) for optional real-WebView2 tests and the repeatable 24-hour resource test.
 
 ## Settings Window
 
@@ -268,10 +282,12 @@ netwatch-lite-wallboard/
 |   `-- images/
 |-- scripts/
 |   |-- publish-portable.ps1
+|   |-- test-soak.ps1
 |   `-- validate-docs.ps1
 |-- src/
 |   `-- NetWatchLite.Wallboard.WebView2/
 |-- tests/
+|   |-- NetWatchLite.Wallboard.Tests/
 |   |-- fixtures/
 |   `-- README.md
 |-- CHANGELOG.md
@@ -279,6 +295,7 @@ netwatch-lite-wallboard/
 |-- CONTRIBUTING.md
 |-- CURRENT_STATUS.md
 |-- LICENSE
+|-- global.json
 |-- THIRD_PARTY_LICENSES.md
 |-- netwatch-lite-wallboard.slnx
 `-- README.md

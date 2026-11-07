@@ -38,6 +38,7 @@ Each record should contain:
 ## Decisions
 
 - [0001 - Focused WebView2 wallboard without scraping](0001-focused-wallboard-without-scraping.md)
+- [0002 - .NET 10, process memory, and bounded panel recovery](0002-dotnet10-memory-and-panel-recovery.md)
 
 ---
 [Previous: Security](../SECURITY.md) | [Documentation home](../README.md) | [Next: ADR 0001](0001-focused-wallboard-without-scraping.md)

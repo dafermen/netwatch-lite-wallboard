@@ -1,6 +1,6 @@
 # Test Fixtures
 
-Store sanitized, deterministic test input here when automated tests are introduced.
+Store sanitized, deterministic test input here. `wallboard-v0.3.0.json` verifies compatibility when the new automatic recovery field is absent.
 
 Recommended first fixtures:
 

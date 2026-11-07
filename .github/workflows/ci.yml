@@ -25,40 +25,36 @@ jobs:
         with:
           fetch-depth: 2
 
-      - name: Set up .NET 8
+      - name: Set up .NET 10
         uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: 8.0.x
+          dotnet-version: 10.0.x
 
       - name: Validate documentation
         shell: powershell
         run: .\scripts\validate-docs.ps1
 
       - name: Restore
-        run: dotnet restore .\src\NetWatchLite.Wallboard.WebView2\NetWatchLite.Wallboard.WebView2.csproj
+        run: dotnet restore .\netwatch-lite-wallboard.slnx
 
       - name: Build release
-        run: dotnet build .\src\NetWatchLite.Wallboard.WebView2\NetWatchLite.Wallboard.WebView2.csproj -c Release --no-restore
+        run: dotnet build .\netwatch-lite-wallboard.slnx -c Release --no-restore
 
       - name: Run test projects
-        shell: powershell
-        run: |
-          $testProjects = Get-ChildItem .\tests -Recurse -Filter "*.csproj" -ErrorAction SilentlyContinue
-          if (-not $testProjects) {
-            Write-Host "No automated test project exists yet. See docs/TESTING.md."
-          }
+        run: dotnet test .\netwatch-lite-wallboard.slnx -c Release --no-build --no-restore --logger trx --results-directory TestResults
 
-          foreach ($testProject in $testProjects) {
-            dotnet test $testProject.FullName -c Release
-            if ($LASTEXITCODE -ne 0) {
-              throw "Tests failed: $($testProject.FullName)"
-            }
-          }
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results
+          path: TestResults/*.trx
+          if-no-files-found: warn
 
       - name: Review vulnerable packages
         shell: powershell
         run: |
-          $auditOutput = dotnet list .\src\NetWatchLite.Wallboard.WebView2\NetWatchLite.Wallboard.WebView2.csproj package --vulnerable --include-transitive 2>&1 | Out-String
+          $auditOutput = dotnet list .\netwatch-lite-wallboard.slnx package --vulnerable --include-transitive 2>&1 | Out-String
           Write-Host $auditOutput
 
           if ($LASTEXITCODE -ne 0) {
@@ -90,7 +86,9 @@ jobs:
             "wallboard.demo.json",
             "wallboard.production.json",
             "README.md",
-            "LICENSE"
+            "LICENSE",
+            "THIRD_PARTY_LICENSES.md",
+            "docs/user-guide.md"
           )
 
           foreach ($requiredFile in $requiredFiles) {

@@ -6,6 +6,8 @@
 
 NetWatch Lite Wallboard is distributed as a portable Windows folder and ZIP. It is not installed as a Windows service and does not require a web server.
 
+At the user's explicit request, `0.4.0-rc.1` is provided as an evaluation portable while long-session and full acceptance checks remain pending. Its [validation record](releases/v0.4.0-rc.1.md) is not stable-release approval. Stable publication still requires the prerequisites below.
+
 ## Release Prerequisites
 
 Before publishing:
@@ -28,8 +30,9 @@ The script:
 1. Reads the version from the project file unless overridden.
 2. removes the previous output for that exact version and runtime.
 3. runs `dotnet publish` for `win-x64`.
-4. copies README and LICENSE.
-5. creates a ZIP unless `-NoZip` is supplied.
+4. stops if publishing failed and verifies required files and excluded backups/logs.
+5. copies README, licenses, root reference documents, and `docs/`.
+6. creates a ZIP and `.sha256` checksum unless `-NoZip` is supplied.
 
 Generated output is under `publish/` and must not be committed.
 
@@ -53,7 +56,7 @@ The package must not contain:
 ## Deployment To A Display Computer
 
 1. Confirm Windows 10 or Windows 11 x64.
-2. Confirm .NET 8 Desktop Runtime and WebView2 Runtime are available.
+2. Confirm .NET 10 Desktop Runtime and WebView2 Runtime are available. Previous .NET 8 portable releases remain separate builds; installing only .NET 8 does not satisfy the new runtime requirement.
 3. Extract the ZIP to a stable local folder.
 4. Replace example URLs with approved operational URLs.
 5. Start the executable with the intended profile.

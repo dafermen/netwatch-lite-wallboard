@@ -24,7 +24,9 @@ Recommended baseline:
 - Enable low-power mode if the app is regularly minimized.
 - Increase refresh intervals for heavy dashboards that do not need frequent reloads.
 
-The memory value is an approximate process working set, not a complete measurement of every WebView2 subprocess. Windows Task Manager remains the source for full process-level investigation.
+The memory value sums the host working set and distinct process IDs returned by the active WebView2 environment. It does not scan unrelated browser sessions. Shared physical pages may appear in multiple working sets, so the total is approximate. `*` marks incomplete samples. Diagnostics includes the breakdown, process count, lifetime peak, and ten recent samples; history is capped at 1,440 entries.
+
+For failed panels, automatic recovery retries after 5, 15, and 30 seconds. After the limit, use Restart manually and investigate the underlying site, network, or runtime issue. Recovery never scrapes page content or dismisses authentication prompts. Browser-process failures can affect the shared group of visible panels.
 
 ## Recovery Actions
 

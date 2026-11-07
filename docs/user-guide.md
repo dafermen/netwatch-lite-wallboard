@@ -83,6 +83,7 @@ In settings you can change:
 - Default layout.
 - Low-power mode.
 - Scheduled panel restart.
+- Automatic recovery of failed panels.
 - Fullscreen startup.
 - Close confirmation.
 - Memory monitor and warning threshold.
@@ -125,6 +126,8 @@ To reorder panels:
 3. Click **Save Changes**.
 
 The order controls where panels appear and how they rotate.
+
+In a small Settings window, scroll the Panel Details area to reach lower commands such as Delete.
 
 ## Configure URLs
 
@@ -181,6 +184,14 @@ Scheduled restart recreates visible browser panels every configured number of ho
 
 Use it for wallboards that run all day or overnight. It is safer than restarting the whole app because it only rebuilds the visible WebView2 panels.
 
+## Automatic Recovery
+
+Enable **Recover failed panels automatically** in Settings to retry loading or browser failures after 5, 15, and 30 seconds. Pending retries show their attempt and delay in the panel header.
+
+After three unsuccessful retries, the panel shows **Failed - use Restart**. Manual Refresh or Restart permits a new attempt. A page that remains healthy for a minute restores the automatic retry budget. Page changes, low-power suspension, and closing cancel pending retries. If the shared browser process fails, visible panels must reconnect together.
+
+Scheduled restart and automatic recovery are separate options. Memory warnings do not trigger automatic recovery.
+
 ## Kiosk Mode
 
 Enable **Start fullscreen** when the wallboard is used on a TV or shared display.
@@ -189,7 +200,11 @@ Enable **Confirm exit** to prevent accidental closes from `ESC`, the window clos
 
 ## Memory Monitor
 
-The memory monitor shows approximate process memory in the top bar.
+The memory monitor shows estimated combined memory for the application and its associated WebView2 processes in the top bar. Each process is counted once, even when several panels share it.
+
+Hover over the indicator or open Diagnostics to see application memory, browser memory, process count, peak use, and recent measurements. An asterisk (`*`) means the sample is incomplete, for example because a process exited while it was being measured. Shared physical memory can be counted in more than one working set, so this remains an estimate.
+
+Measurements are taken about once per minute while the monitor is enabled. Up to 1,440 samples are kept in memory; the latest ten appear in Diagnostics. Disabling the monitor stops collection. History is cleared when the application exits.
 
 When memory crosses the configured threshold, the label recommends restart. It does not restart automatically; the operator can use **Restart All**.
 

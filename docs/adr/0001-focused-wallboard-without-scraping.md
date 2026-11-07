@@ -37,4 +37,4 @@ It must not reintroduce DOM scraping, selector polling, page-content alarms, or 
 - Split scraping into an optional plugin. Rejected because there is no current product requirement for that subsystem.
 
 ---
-[Previous: Architecture decisions](README.md) | [Documentation home](../README.md) | [Next: Documentation standard](../DOCUMENTATION_STANDARD.md)
+[Previous: Architecture decisions](README.md) | [Documentation home](../README.md) | [Next: ADR 0002](0002-dotnet10-memory-and-panel-recovery.md)

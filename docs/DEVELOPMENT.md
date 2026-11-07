@@ -9,10 +9,10 @@ This is the contributor entry point. The detailed code walkthrough remains in [d
 ## Requirements
 
 - Windows 10 or later.
-- .NET 8 SDK.
+- .NET 10 SDK (stable, selected by `global.json`).
 - Microsoft Edge WebView2 Runtime.
 - Git.
-- Visual Studio 2022, Visual Studio Code, or another C# editor is optional.
+- A Visual Studio version supporting .NET 10, Visual Studio Code, or another C# editor is optional. The CLI SDK is the authoritative build requirement.
 
 ## First Setup
 
@@ -21,6 +21,7 @@ git clone https://github.com/dafermen/netwatch-lite-wallboard.git C:\Projects\ne
 cd C:\Projects\netwatch-lite-wallboard
 dotnet restore
 dotnet build .\src\NetWatchLite.Wallboard.WebView2\NetWatchLite.Wallboard.WebView2.csproj
+dotnet test .\netwatch-lite-wallboard.slnx -c Release
 ```
 
 Run:

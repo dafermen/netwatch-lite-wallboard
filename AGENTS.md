@@ -27,7 +27,7 @@ git log -3 --oneline
 
 ## Project Scope
 
-NetWatch Lite Wallboard is a Windows desktop wallboard built with .NET 8, WinForms, and Microsoft Edge WebView2.
+NetWatch Lite Wallboard is a Windows desktop wallboard built with .NET 10 LTS, WinForms, and Microsoft Edge WebView2.
 
 The current project scope is page display, page refresh, panel restart, rotation, profiles, diagnostics, kiosk behavior, memory visibility, low-power behavior, auto-hide top bar, and native shell themes.
 
@@ -67,6 +67,9 @@ Important files:
 - `docs/README.md`: authoritative documentation navigation.
 - `docs/DOCUMENTATION_STANDARD.md`: mandatory documentation structure and navigation rules.
 - `scripts/validate-docs.ps1`: local and CI documentation validation.
+- `src/NetWatchLite.Wallboard.WebView2/MemoryMonitor.cs`: distinct-process sampling and bounded history.
+- `src/NetWatchLite.Wallboard.WebView2/PanelRecoveryPolicy.cs`: persistent retry budget and recovery delays.
+- `tests/NetWatchLite.Wallboard.Tests/`: xUnit unit, configuration integration, contract, and opt-in real-WebView2 tests.
 
 ## Development Rules
 
@@ -91,6 +94,7 @@ Run these before finishing code changes:
 ```powershell
 powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\validate-docs.ps1
 dotnet build .\src\NetWatchLite.Wallboard.WebView2\NetWatchLite.Wallboard.WebView2.csproj
+dotnet test .\netwatch-lite-wallboard.slnx -c Release
 git diff --check
 ```
 
@@ -98,6 +102,8 @@ Expected current build note:
 
 - Build succeeds.
 - Warning `MSB3277` about `WindowsBase` and WebView2 may appear. This warning is known and was present in v0.3.0.
+
+Keep `global.json`, CI, app, and test projects on .NET 10. Preserve retry state across automatic panel replacements. Never count unrelated `msedgewebview2` processes. Real-browser tests require an interactive Windows session and `NETWATCH_WEBVIEW2_TESTS=1`; the long resource test is run explicitly through `scripts/test-soak.ps1`. A short run does not establish 24-hour stability.
 
 For a portable release:
 

@@ -34,6 +34,8 @@ The application does not expose a network API, host a server, scrape page conten
 | `DiagnosticsForm` | Produces a read-only runtime snapshot for support. |
 | `ThemePalette` | Centralizes native shell colors. |
 | `AppErrorLog` | Writes unexpected failures to the local application log. |
+| `MemoryMonitor` | Counts distinct host/browser process IDs, tolerates exited processes, and retains bounded history and peak measurements. |
+| `PanelRecoveryPolicy` | Keeps a bounded retry budget across WebView2 replacements and requires a stable minute before resetting it. |
 
 ## Startup Flow
 
@@ -95,6 +97,12 @@ Generated output and machine-specific backups are excluded from source control.
 - Configuration and logs must not contain passwords, access tokens, or private keys.
 
 ## Extension Rules
+
+The application and test suite target .NET 10 LTS. `global.json` selects a stable 10.0 SDK; CI restores, builds, and tests the solution on Windows. The WebView2 package remains pinned while migrating the framework to reduce simultaneous dependency changes.
+
+Panel recovery timers belong to `WebViewPanelControl`; retry state belongs to the main form's dictionary keyed by panel runtime identity. This prevents a new control from resetting the retry budget. The main form serializes replacements with the existing render semaphore. When a shared browser process exits, its controls are disposed before recreating the environment and reconnecting the visible group. Closing cancels initialization and pending retries; low-power disposal also uses the render lock.
+
+Memory enumeration uses `CoreWebView2Environment.GetProcessInfos()` on the UI thread. Only those process IDs and the host are sampled. History is bounded to avoid introducing a new long-session memory leak. Both memory accounting and retry decisions are independent of UI controls and covered by deterministic tests.
 
 - Put panel-specific behavior in `WebViewPanelControl`.
 - Put whole-window behavior in `WallboardForm`.

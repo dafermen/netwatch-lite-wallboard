@@ -45,6 +45,7 @@ The `NETWATCH_WALLBOARD_ENV` environment variable is also supported. A command-l
 | `lowPowerModeEnabled` | boolean | `true` | `true` or `false` |
 | `autoRestartEnabled` | boolean | `false` | `true` or `false` |
 | `autoRestartHours` | integer | `6` | `1` to `24` |
+| `automaticRecoveryEnabled` | boolean | `true` | Retry failed panels with bounded delays |
 | `startFullscreen` | boolean | `false` | `true` or `false` |
 | `confirmExit` | boolean | `false` | `true` or `false` |
 | `memoryMonitorEnabled` | boolean | `false` | `true` or `false` |
@@ -82,6 +83,12 @@ Supported URL forms include:
 The visual Settings window is the preferred editor. It validates common values and saves through the same normalization path used at startup.
 
 When JSON contains a zero or negative `rotationSeconds`, the reader uses `20`. When a panel contains a zero or negative `refreshSeconds`, the reader uses `30`.
+
+Positive rotation and refresh intervals are capped at `2147483` seconds to prevent overflow when converted to a Windows timer interval. The visual editor still uses `1` through `3600`.
+
+Recovery uses three attempts after 5, 15, and 30 seconds. The budget survives automatic control replacements and is restored after a healthy minute or a manual Refresh/Restart. Old JSON files without `automaticRecoveryEnabled` load with recovery enabled. Set it to `false` to retain manual-only recovery.
+
+The memory warning threshold now applies to the estimated combined host and associated WebView2 working sets. It remains advisory and never triggers an automatic restart by itself.
 
 For manual JSON edits:
 

@@ -44,6 +44,9 @@ internal sealed class WallboardConfiguration
     /// </summary>
     public int AutoRestartHours { get; set; } = 6;
 
+    /// <summary>Retries failed panels with bounded delays; independent of scheduled restart.</summary>
+    public bool AutomaticRecoveryEnabled { get; set; } = true;
+
     /// <summary>
     /// Starts the application in fullscreen mode for TV/kiosk scenarios.
     /// </summary>

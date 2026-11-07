@@ -263,7 +263,7 @@ The confirmation is intentionally in `FormClosing` so it catches the window clos
 
 ## Memory Monitor
 
-`memoryMonitorEnabled` starts a timer that checks the current process working set about once per minute.
+`memoryMonitorEnabled` starts a timer that checks the host and associated WebView2 working sets about once per minute. `MemoryMonitor` deduplicates process IDs from `CoreWebView2Environment.GetProcessInfos()`, records a lifetime peak, and retains at most 1,440 samples. Exited or inaccessible processes result in a clearly marked partial sample. Shared pages can be counted in multiple working sets, so this is an estimate rather than exact private RAM.
 
 If memory is above `memoryWarningMegabytes`, the top bar label recommends restart. This is intentionally advisory; it does not restart automatically.
 
@@ -362,7 +362,19 @@ Publish portable:
 .\scripts\publish-portable.ps1
 ```
 
-Build success is not unit-test success. No automated test project exists yet. Future test projects belong under `tests/`, and release-level work must follow all 13 quality areas in [TESTING.md](TESTING.md).
+The solution targets .NET 10. Run `dotnet test .\netwatch-lite-wallboard.slnx -c Release` to execute the xUnit suite. Configuration tests use temporary files, including an old-format compatibility fixture. Memory and retry-policy tests do not require a browser. Real-WebView2 tests are opt-in and use isolated profiles. See [TESTING.md](TESTING.md) for commands and the long resource test; release work still follows all 13 quality areas.
+
+## Automatic Failure Recovery
+
+`automaticRecoveryEnabled` defaults to true for new and old JSON. `WebViewPanelControl` handles initialization failures, navigation failures, and relevant `ProcessFailed` events. It schedules a single retry timer through `PanelRecoveryPolicy`, with 5, 15, and 30 second delays. State is preserved in `WallboardForm` when controls are recreated. Duplicate failure events cannot consume extra attempts while a retry is pending.
+
+Error-page navigation is excluded from successful-navigation handling so it cannot reset retries or hide the failure status. Canceled navigation is ignored. A healthy minute restores the budget; operator-initiated Refresh or Restart resets it explicitly. Helper-process failures are left to WebView2. A shared browser-process failure requires reconnecting all visible controls.
+
+Dispose and low-power suspension stop both refresh and recovery timers. The main form's lifetime token cancels initialization on close. Keep these boundaries intact when adding behavior.
+
+Recovery requests carry a generation number and stay pending while waiting for the render lock. The main form revalidates that generation after acquiring the lock, so successful navigation, manual reset, or disposal can cancel a queued request. Inactive time does not count toward the healthy-minute reset. Refresh on an unusable browser requests recreation rather than canceling recovery without navigating.
+
+The main form accepts internal configuration/environment factories and a profile folder for isolated lifecycle tests; normal startup uses the original loader and profile. The shared-browser integration test exercises this actual form with two panels and a failed first environment recreation.
 
 ## How To Add A Feature
 

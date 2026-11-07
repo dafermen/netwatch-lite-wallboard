@@ -16,7 +16,9 @@ For each area, record one result:
 
 ## Current Automation Level
 
-The repository currently has build and portable-package validation in CI. A dedicated automated test project has not yet been introduced. Until it exists, the release owner must perform and record the applicable manual checks. Documentation must never describe a planned test as already automated.
+The .NET 10 solution includes `tests/NetWatchLite.Wallboard.Tests`, an xUnit project. CI builds both projects and executes the deterministic configuration, file integration, contract, memory-accounting, and recovery-policy tests. Property-style checks exercise numeric bounds with fixed-seed inputs.
+
+Four optional desktop tests require an interactive Windows session: isolated renderer-crash recovery, shared-browser recovery in the main form with a deliberately failed environment factory, Settings layout at its minimum size, and repeated real-WebView2 panel creation/disposal with resource measurements. They are skipped unless `NETWATCH_WEBVIEW2_TESTS=1`. CI does not claim that skipped desktop tests passed. Mutation testing and broader fuzzing remain pending; automated tests do not replace operator acceptance or the full release checklist.
 
 ## 1. Acceptance Testing
 
@@ -45,7 +47,7 @@ Priority targets:
 - Theme name normalization.
 - URL resolution and refresh URI behavior.
 
-Current status: test harness pending. Add tests before expanding shared configuration or layout logic.
+Current coverage includes defaults, legacy configuration, invalid inputs, timer-safe bounds, memory process-ID deduplication, bounded history, and retry budgets. Layout, environment selection, and broader URL-resolution coverage remain next steps.
 
 ## 3. Property And Invariant Testing
 
@@ -203,7 +205,33 @@ git diff --check
 powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\publish-portable.ps1
 ```
 
-Run every `.csproj` under `tests/` with `dotnet test`. CI discovers these projects automatically. Until a test project exists, build success is not evidence that unit tests passed.
+Run the solution tests:
+
+```powershell
+dotnet test .\netwatch-lite-wallboard.slnx -c Release --logger trx --results-directory TestResults
+```
+
+To include the isolated real-renderer recovery test:
+
+```powershell
+$env:NETWATCH_WEBVIEW2_TESTS = "1"
+dotnet test .\netwatch-lite-wallboard.slnx -c Release --filter "Category!=Soak"
+Remove-Item Env:NETWATCH_WEBVIEW2_TESTS
+```
+
+The test uses a neutral local page and its own temporary browser profile. It intentionally crashes only its renderer through Chromium's diagnostic URL, then checks that the panel reloads and associated browser memory is measured. It does not use the operator's browser session. Temporary test profiles remain under `%TEMP%\NetWatchWebViewTests` for investigation and can be removed after test processes exit.
+
+The shared-browser test uses the actual main form and two panels with a unique profile. It verifies ownership of that profile and PID before ending its own test browser process, injects one environment-creation failure, and confirms both panels reconnect. It never selects processes by executable name alone.
+
+Run the reproducible resource test for 24 hours:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\test-soak.ps1 -Minutes 1440
+```
+
+Use `-Minutes 2` for a quick infrastructure check. The test repeatedly navigates a neutral local page and disposes/recreates its panel, writing samples to `TestResults/soak-*.csv` and results to TRX. It checks responsiveness, bounded browser-process count, and a 1536 MB budget for this single neutral fixture. This is a controlled stress test, not proof that production dashboards stay within the same budget. Complete a separate long run with the intended production layout before release.
+
+Tests use .NET 10 SDK and Desktop Runtime plus WebView2 Runtime. The pure logic tests do not create browser controls. Build success is not evidence that tests passed.
 
 ## Release Evidence
 

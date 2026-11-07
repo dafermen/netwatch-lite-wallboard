@@ -34,6 +34,14 @@ internal sealed class WallboardForm : Form
     private readonly List<WebViewPanelControl> _activePanels = [];
     private readonly Dictionary<WebViewPanelControl, ActivePanelSlot> _activePanelSlots = [];
     private readonly SemaphoreSlim _renderLock = new(1, 1);
+    private readonly MemoryMonitor _memoryMonitor = new();
+    private readonly Dictionary<string, PanelRecoveryPolicy> _recoveryPolicies = [];
+    private readonly CancellationTokenSource _lifetimeCancellation = new();
+    private readonly Func<CancellationToken, Task<WallboardConfiguration>> _configurationLoader;
+    private readonly Func<string, Task<CoreWebView2Environment>> _environmentFactory;
+    private bool _closing;
+    private bool _resourcesDisposed;
+    private bool _browserEnvironmentNeedsReconnect;
     private WallboardConfiguration _configuration = new();
     private CoreWebView2Environment? _webViewEnvironment;
     private string _webViewUserDataFolder = string.Empty;
@@ -50,8 +58,16 @@ internal sealed class WallboardForm : Form
     /// Creates the window, top bar, panel grid, timers, and keyboard handlers.
     /// The actual WebView2 environment is initialized later during the Load event because it is async.
     /// </summary>
-    public WallboardForm()
+    public WallboardForm(
+        string? webViewUserDataFolder = null,
+        Func<CancellationToken, Task<WallboardConfiguration>>? configurationLoader = null,
+        Func<string, Task<CoreWebView2Environment>>? environmentFactory = null)
     {
+        _configurationLoader = configurationLoader ?? WallboardConfigReader.LoadAsync;
+        _environmentFactory = environmentFactory ?? (folder => CoreWebView2Environment.CreateAsync(userDataFolder: folder));
+        _webViewUserDataFolder = webViewUserDataFolder ?? Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+            "NetWatchLite", "WallboardWebView2");
         Text = "NetWatch Lite Wallboard";
         BackColor = _theme.WindowBackColor;
         ForeColor = _theme.PrimaryTextColor;
@@ -84,16 +100,13 @@ internal sealed class WallboardForm : Form
     /// </summary>
     private async Task InitializeAsync()
     {
-        _webViewUserDataFolder = Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-            "NetWatchLite",
-            "WallboardWebView2");
+        _webViewEnvironment = await _environmentFactory(_webViewUserDataFolder)
+            .WaitAsync(TimeSpan.FromSeconds(30), _lifetimeCancellation.Token);
 
-        _webViewEnvironment = await CoreWebView2Environment.CreateAsync(
-            browserExecutableFolder: null,
-            userDataFolder: _webViewUserDataFolder);
-
-        await ReloadConfigurationAsync();
+        if (!_closing)
+        {
+            await ReloadConfigurationAsync();
+        }
     }
 
     /// <summary>
@@ -222,7 +235,12 @@ internal sealed class WallboardForm : Form
     private async Task ReloadConfigurationAsync()
     {
         _rotationTimer.Stop();
-        _configuration = await WallboardConfigReader.LoadAsync();
+        _configuration = await _configurationLoader(_lifetimeCancellation.Token);
+        if (_closing)
+        {
+            return;
+        }
+        _recoveryPolicies.Clear();
         _theme = ThemePalette.FromName(_configuration.Theme);
         ApplyTheme();
         _layout = NormalizeLayout(_configuration.DefaultLayout);
@@ -230,6 +248,10 @@ internal sealed class WallboardForm : Form
         _titleLabel.Text = _configuration.AppTitle;
         _rotationCheckBox.Checked = _configuration.RotationEnabled;
         await RenderCurrentPageAsync();
+        if (_closing)
+        {
+            return;
+        }
         ScheduleRotation();
         ScheduleAutoRestart();
         ScheduleMemoryMonitor();
@@ -275,7 +297,8 @@ internal sealed class WallboardForm : Form
             _currentPage + 1,
             GetPageCount(),
             _activePanels.Count,
-            _webViewUserDataFolder);
+            _webViewUserDataFolder,
+            GetMemoryDiagnostics);
         diagnosticsForm.ShowDialog(owner);
     }
 
@@ -290,7 +313,7 @@ internal sealed class WallboardForm : Form
 
         try
         {
-            if (_webViewEnvironment is null)
+            if (_closing || _webViewEnvironment is null)
             {
                 return;
             }
@@ -324,6 +347,10 @@ internal sealed class WallboardForm : Form
 
             for (var index = 0; index < panelEntries.Count; index++)
             {
+                if (_closing || _lowPowerSuspended)
+                {
+                    break;
+                }
                 var (panel, panelKey) = panelEntries[index];
                 await AddPanelControlAsync(panel, panelKey, index % _grid.ColumnCount, index / _grid.ColumnCount);
             }
@@ -358,7 +385,7 @@ internal sealed class WallboardForm : Form
     {
         _rotationTimer.Stop();
 
-        if (!_rotationCheckBox.Checked || GetPageCount() <= 1)
+        if (_closing || !_rotationCheckBox.Checked || GetPageCount() <= 1)
         {
             return;
         }
@@ -412,7 +439,7 @@ internal sealed class WallboardForm : Form
     {
         _autoRestartTimer.Stop();
 
-        if (!_configuration.AutoRestartEnabled)
+        if (_closing || !_configuration.AutoRestartEnabled)
         {
             return;
         }
@@ -429,7 +456,7 @@ internal sealed class WallboardForm : Form
         _memoryTimer.Stop();
         _memoryLabel.Visible = _configuration.MemoryMonitorEnabled;
 
-        if (!_configuration.MemoryMonitorEnabled)
+        if (_closing || !_configuration.MemoryMonitorEnabled)
         {
             return;
         }
@@ -447,7 +474,7 @@ internal sealed class WallboardForm : Form
         _topBarAutoHideTimer.Stop();
         _topBar.Visible = true;
 
-        if (!_configuration.AutoHideTopBarEnabled)
+        if (_closing || !_configuration.AutoHideTopBarEnabled)
         {
             return;
         }
@@ -467,19 +494,75 @@ internal sealed class WallboardForm : Form
         }
     }
 
+    private void OnPanelAutomaticRestartRequested(object? sender, WebViewPanelControl.RecoveryRequestedEventArgs e)
+    {
+        if (sender is WebViewPanelControl control && !_closing)
+        {
+            _ = RunSafelyAsync(() => RestartPanelAsync(control, e.Generation), "recovering panel");
+        }
+    }
+
     /// <summary>
     /// Recreates one visible panel without changing the current page or other visible panels.
     /// </summary>
-    private async Task RestartPanelAsync(WebViewPanelControl control)
+    private async Task RestartPanelAsync(WebViewPanelControl control, int? recoveryGeneration = null)
     {
         await _renderLock.WaitAsync();
 
         try
         {
-            if (_lowPowerSuspended ||
+            if (_closing || _lowPowerSuspended ||
                 _webViewEnvironment is null ||
                 !_activePanelSlots.TryGetValue(control, out var slot))
             {
+                return;
+            }
+
+            if (recoveryGeneration is { } generation)
+            {
+                if (!control.TryBeginRecovery(generation))
+                {
+                    return;
+                }
+            }
+            else
+            {
+                if (_recoveryPolicies.TryGetValue(slot.PanelKey, out var policy))
+                {
+                    policy.Reset();
+                }
+            }
+
+            _browserEnvironmentNeedsReconnect |= control.BrowserProcessFailed;
+            if (_browserEnvironmentNeedsReconnect)
+            {
+                // All controls share this browser process. Dispose them before reconnecting the group.
+                var slots = _activePanelSlots.Values.ToArray();
+                DisposeActivePanels();
+                _activePanels.Clear();
+                _grid.Controls.Clear();
+                try
+                {
+                    _webViewEnvironment = await _environmentFactory(_webViewUserDataFolder)
+                        .WaitAsync(TimeSpan.FromSeconds(30), _lifetimeCancellation.Token);
+                    _browserEnvironmentNeedsReconnect = false;
+                }
+                catch (Exception ex) when (!_closing)
+                {
+                    // Keep panel placeholders and retry budgets even if environment recreation fails.
+                    AppErrorLog.Log("reconnecting the shared browser environment", ex);
+                }
+
+                foreach (var entry in slots)
+                {
+                    if (_closing || _lowPowerSuspended)
+                    {
+                        break;
+                    }
+
+                    await AddPanelControlAsync(entry.Panel, entry.PanelKey, entry.Column, entry.Row);
+                }
+
                 return;
             }
 
@@ -488,6 +571,7 @@ internal sealed class WallboardForm : Form
             _activePanelSlots.Remove(control);
             control.ShortcutRequested -= OnPanelShortcutRequested;
             control.RestartRequested -= OnPanelRestartRequested;
+            control.AutomaticRestartRequested -= OnPanelAutomaticRestartRequested;
             control.StopTimers();
             control.Dispose();
 
@@ -505,9 +589,17 @@ internal sealed class WallboardForm : Form
     /// </summary>
     private async Task RestartVisiblePanelsAsync()
     {
-        if (_lowPowerSuspended)
+        if (_closing || _lowPowerSuspended)
         {
             return;
+        }
+
+        foreach (var slot in _activePanelSlots.Values)
+        {
+            if (_recoveryPolicies.TryGetValue(slot.PanelKey, out var policy))
+            {
+                policy.Reset();
+            }
         }
 
         await RenderCurrentPageAsync();
@@ -520,7 +612,7 @@ internal sealed class WallboardForm : Form
     /// </summary>
     private async Task HandleLowPowerResizeAsync()
     {
-        if (!_configuration.LowPowerModeEnabled)
+        if (_closing || !_configuration.LowPowerModeEnabled)
         {
             return;
         }
@@ -534,11 +626,20 @@ internal sealed class WallboardForm : Form
 
             _lowPowerSuspended = true;
             _rotationTimer.Stop();
-            DisposeActivePanels();
-            _activePanels.Clear();
-            _activePanelSlots.Clear();
-            _grid.Controls.Clear();
-            _pageLabel.Text = "Low power";
+            StopActivePanelTimers();
+            await _renderLock.WaitAsync();
+            try
+            {
+                DisposeActivePanels();
+                _activePanels.Clear();
+                _activePanelSlots.Clear();
+                _grid.Controls.Clear();
+                _pageLabel.Text = "Low power";
+            }
+            finally
+            {
+                _renderLock.Release();
+            }
             return;
         }
 
@@ -635,16 +736,49 @@ internal sealed class WallboardForm : Form
             return;
         }
 
-        using var process = Process.GetCurrentProcess();
-        var memoryMegabytes = process.WorkingSet64 / 1024 / 1024;
+        var sample = CollectMemorySample();
+        var memoryMegabytes = sample.TotalBytes / 1024 / 1024;
         var threshold = Math.Clamp(_configuration.MemoryWarningMegabytes, 256, 65536);
         _memoryLabel.Visible = true;
         _memoryLabel.ForeColor = memoryMegabytes >= threshold
             ? _theme.WarningTextColor
             : _theme.SecondaryTextColor;
         _memoryLabel.Text = memoryMegabytes >= threshold
-            ? $"Memory {memoryMegabytes:N0} MB - Restart"
-            : $"Memory {memoryMegabytes:N0} MB";
+            ? $"RAM {memoryMegabytes:N0} MB !"
+            : $"RAM {memoryMegabytes:N0} MB{(sample.IsPartial ? " *" : "")}";
+        _topBarToolTip.SetToolTip(_memoryLabel, _memoryMonitor.Describe() +
+            (memoryMegabytes >= threshold ? "Restart All is recommended. Memory alone never triggers an automatic restart." : ""));
+    }
+
+    private MemorySnapshot CollectMemorySample()
+    {
+        var processIds = Array.Empty<int>();
+        var discoveryAvailable = false;
+        try
+        {
+            if (_webViewEnvironment is not null)
+            {
+                processIds = _webViewEnvironment.GetProcessInfos().Select(info => info.ProcessId).ToArray();
+                discoveryAvailable = true;
+            }
+        }
+        catch (Exception ex) when (ex is System.Runtime.InteropServices.COMException or InvalidOperationException or NotImplementedException)
+        {
+            // A browser can exit while sampling. Display the host-only sample as partial.
+        }
+
+        return _memoryMonitor.Sample(Environment.ProcessId, processIds, discoveryAvailable, DateTimeOffset.UtcNow);
+    }
+
+    private string GetMemoryDiagnostics()
+    {
+        if (!_configuration.MemoryMonitorEnabled)
+        {
+            return "Memory monitor disabled in Settings.";
+        }
+
+        CollectMemorySample();
+        return _memoryMonitor.Describe();
     }
 
     /// <summary>
@@ -893,7 +1027,30 @@ internal sealed class WallboardForm : Form
         _autoRestartTimer.Stop();
         _memoryTimer.Stop();
         _topBarAutoHideTimer.Stop();
+        _closing = true;
+        _lifetimeCancellation.Cancel();
         DisposeActivePanels();
+        _activePanels.Clear();
+    }
+
+    protected override void Dispose(bool disposing)
+    {
+        if (disposing && !_resourcesDisposed)
+        {
+            _resourcesDisposed = true;
+            _closing = true;
+            _lifetimeCancellation.Cancel();
+            _rotationTimer.Dispose();
+            _autoRestartTimer.Dispose();
+            _memoryTimer.Dispose();
+            _topBarAutoHideTimer.Dispose();
+            _topBarToolTip.Dispose();
+            DisposeActivePanels();
+            _activePanels.Clear();
+            _lifetimeCancellation.Dispose();
+        }
+
+        base.Dispose(disposing);
     }
 
     /// <summary>
@@ -981,9 +1138,16 @@ internal sealed class WallboardForm : Form
             throw new InvalidOperationException("WebView2 environment is not initialized.");
         }
 
-        var control = new WebViewPanelControl(_theme);
+        if (!_recoveryPolicies.TryGetValue(panelKey, out var recovery))
+        {
+            recovery = new PanelRecoveryPolicy();
+            _recoveryPolicies[panelKey] = recovery;
+        }
+
+        var control = new WebViewPanelControl(_theme, recovery, _configuration.AutomaticRecoveryEnabled);
         control.ShortcutRequested += OnPanelShortcutRequested;
         control.RestartRequested += OnPanelRestartRequested;
+        control.AutomaticRestartRequested += OnPanelAutomaticRestartRequested;
         _activePanels.Add(control);
         _activePanelSlots[control] = new ActivePanelSlot(panel, panelKey, column, row);
         _grid.Controls.Add(control, column, row);
@@ -992,7 +1156,11 @@ internal sealed class WallboardForm : Form
         {
             await control.LoadPanelAsync(
                 panel,
-                _webViewEnvironment);
+                _webViewEnvironment,
+                _lifetimeCancellation.Token);
+        }
+        catch (OperationCanceledException) when (_closing)
+        {
         }
         catch (Exception ex)
         {
@@ -1016,6 +1184,7 @@ internal sealed class WallboardForm : Form
             {
                 panel.ShortcutRequested -= OnPanelShortcutRequested;
                 panel.RestartRequested -= OnPanelRestartRequested;
+                panel.AutomaticRestartRequested -= OnPanelAutomaticRestartRequested;
                 panel.StopTimers();
                 panel.Dispose();
             }
@@ -1043,6 +1212,11 @@ internal sealed class WallboardForm : Form
         }
         catch (Exception ex)
         {
+            if (_closing)
+            {
+                AppErrorLog.Log(context, ex);
+                return;
+            }
             _rotationTimer.Stop();
             AppErrorLog.ShowUnexpectedError(this, context, ex);
         }

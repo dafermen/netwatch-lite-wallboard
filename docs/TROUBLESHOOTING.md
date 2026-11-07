@@ -59,7 +59,7 @@ Sustained growth after repeated panel disposal is a defect candidate. Include up
 
 - Extract the ZIP before running it.
 - Confirm Windows is x64 and supported.
-- Install or repair the .NET 8 Desktop Runtime.
+- Install or repair the .NET 10 Desktop Runtime for the updated build. The SDK is needed only for development.
 - Install or repair Microsoft Edge WebView2 Runtime.
 - Avoid running from a network share during diagnosis.
 - Check the error log under `%LOCALAPPDATA%\NetWatchLite\WallboardLogs`.

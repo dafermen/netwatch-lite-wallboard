@@ -6,6 +6,7 @@
   "lowPowerModeEnabled": true,
   "autoRestartEnabled": false,
   "autoRestartHours": 6,
+  "automaticRecoveryEnabled": true,
   "startFullscreen": false,
   "confirmExit": false,
   "memoryMonitorEnabled": true,

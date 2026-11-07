@@ -1,14 +1,16 @@
 # Current Status
 
-Last updated: 2026-08-01
+Last updated: 2026-11-07
 
 ## Repository State
 
 - Repository path: `C:\Projects\netwatch-lite-wallboard`
 - GitHub repository: `https://github.com/dafermen/netwatch-lite-wallboard`
 - Main branch: `main`
-- Last confirmed synced commit: `0bd93fe Add Codex handoff documentation`
-- Current release version in project file: `0.3.0`
+- Remote main observed before preparing this candidate: `d75a3cc` (documentation update).
+- Current project version: `0.4.0-rc.1`; assembly/file version `0.4.0.0`.
+- Implementation base reviewed for the current stability work: `6628569`.
+- The .NET 10 portable is an evaluation candidate. The old v0.3.0 portable is preserved.
 
 ## Product Direction
 
@@ -79,7 +81,15 @@ Documentation navigation validation on 2026-08-01:
 
 ## Current Open Work
 
-No critical implementation work is currently open.
+The first four stability improvements are implemented locally: .NET 10 migration, combined host/WebView2 memory monitoring, bounded automatic recovery, and an executable test suite. Final validation results are recorded below. A 24-hour production-layout run and release acceptance remain pending.
+
+Candidate packaging on 2026-11-07:
+
+- Prepared `publish/NetWatch-Lite-Wallboard-WebView2-win-x64-v0.4.0-rc.1.zip` and SHA-256 sidecar with the complete Markdown documentation and licenses.
+- The extracted Windows x64 executable started from a path containing spaces with the demo profile and isolated browser data. Settings and Diagnostics opened; version, recovery setting, host/browser memory breakdown, and normal close were verified.
+- The package smoke check found the lower Delete command could be clipped at small window sizes. The panel editor now scrolls vertically and uses a constrained-width column; the minimum-size regression test checks that Delete is fully reachable.
+- Candidate assessment is recorded in [v0.4.0-rc.1 validation](docs/releases/v0.4.0-rc.1.md). Stable promotion remains withheld pending long-session and full acceptance checks.
+- NuGet reported no vulnerable packages for app or tests. Documentation links, version metadata, required package files, excluded backups/logs, and archive checksum were checked.
 
 Documentation and quality-system work completed after v0.3.0:
 
@@ -95,11 +105,34 @@ Documentation and quality-system work completed after v0.3.0:
 - Added a documentation standard that records why no VitePress or web-only `/docs/` route is used.
 - Added `scripts/validate-docs.ps1` and CI validation for links, images, navigation, index coverage, headings, and duplicate paths.
 
-Current test-automation gap:
+Current test automation:
 
-- No automated test project exists yet.
-- CI reports this honestly and will discover future test projects under `tests/`.
-- Unit, property, mutation, fuzzing, integration, contract, and end-to-end automation remain future implementation work.
+- `tests/NetWatchLite.Wallboard.Tests` targets .NET 10 and is included in the solution and CI.
+- Deterministic tests cover configuration, file save/read/backup integration, legacy JSON contracts, numeric invariants, distinct-process memory accounting, bounded history, and retry policy.
+- Opt-in desktop tests use isolated WebView2 profiles for renderer-crash recovery, Settings layout, and repeated panel disposal/resource measurements.
+- `scripts/test-soak.ps1 -Minutes 1440` provides a repeatable neutral-fixture resource run with CSV/TRX output under ignored `TestResults/`.
+- A broad fuzzing harness, mutation baseline, full application end-to-end coverage, and 24-hour production-layout evidence remain pending.
+
+Implementation details:
+
+- `global.json`, app, tests, and CI select .NET 10. WebView2 stays pinned at `1.0.3351.48` during framework migration.
+- `automaticRecoveryEnabled` defaults to true when absent from old JSON and is exposed in Settings/import/export/diagnostics and all example profiles.
+- Recovery delays are 5/15/30 seconds, with three attempts retained across control recreation. A successful page followed by a healthy minute or operator intervention restores the budget.
+- Memory sampling uses only the host and distinct process IDs from the active WebView2 environment. Diagnostics shows partial samples, process counts, peak, and recent history; history is capped at 1,440 samples.
+- Pending recovery is canceled on page disposal, low-power suspension, and close. Initialization is canceled at close and bounded by a timeout.
+
+Validation performed on 2026-11-06:
+
+- .NET 10 SDK `10.0.403` and Desktop Runtime `10.0.14` were installed beside the existing .NET 8 installation. `dotnet --version` selects `10.0.403` from the repository. The Microsoft installer completed with code `3010` (Windows restart pending).
+- Release build succeeded with zero errors. The known `MSB3277` WebView2/WPF warning remains; no new code warning remains.
+- All 24 tests passed with desktop tests enabled: 20 deterministic/configuration tests and four isolated UI/browser tests.
+- After the side-by-side installation, 23 tests excluding the already-measured soak case were rerun successfully with the normal `dotnet` command and system runtime `10.0.14`.
+- Real tests covered renderer failure, two-panel shared-browser failure with a failed first environment factory call, recovery-control visibility at minimum Settings size, and two minutes of repeated disposal/recreation.
+- The reviewed short resource run completed 81 cycles: approximately 392.0 MB at the start, 441.7 MB peak, 438.7 MB at the end, and at most five browser processes. These are warm-up measurements for a neutral single-panel fixture, not 24-hour production stability evidence.
+- NuGet reported no vulnerable packages for either the app or test project from the configured source.
+- Documentation validation passed for 25 Markdown files, 176 local links, and three images with alternative text. PowerShell script syntax and Git whitespace checks passed.
+- Windows x64 publish succeeded in a separate validation folder with .NET 10 runtime requirements, all three JSON profiles, and no backup JSON. The existing portable/ZIP was not replaced.
+- CSV and TRX evidence is under ignored `TestResults/`. The 24-hour neutral-fixture run and a separate long production-layout run remain pending before release.
 
 Recommended next validation:
 
@@ -119,7 +152,7 @@ High-value next steps:
 1. Add an optional UI command to open the active JSON file location.
 2. Add a small profile selector in Settings so users can switch between `default`, `demo`, and `production` without command-line arguments.
 3. Add an in-app "About" dialog showing version, build, config path, and portable folder.
-4. Introduce the first unit test project for JSON normalization and add it to the solution.
+4. Expand automated coverage to layout, environment selection, and URL resolution.
 5. Establish property tests and a Stryker.NET mutation baseline after unit coverage is meaningful.
 6. Automate selected integration and portable end-to-end checks.
 7. Investigate the known `MSB3277` `WindowsBase` warning and decide whether it is worth suppressing or resolving.
@@ -132,7 +165,7 @@ High-value next steps:
 - Read `docs/TESTING.md` before release-level work.
 - Start documentation work from `docs/README.md` and follow `docs/DOCUMENTATION_STANDARD.md`.
 - Run `scripts/validate-docs.ps1` after documentation changes.
-- Do not report build success as unit-test success while no test project exists.
+- Report build, standard tests, optional desktop tests, and long-session evidence separately.
 - If creating a new release, update the version number and changelog first.
 - If adding configuration fields, update:
   - `WallboardConfiguration.cs`

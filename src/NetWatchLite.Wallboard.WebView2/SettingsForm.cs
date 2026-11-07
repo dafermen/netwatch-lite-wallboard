@@ -24,6 +24,7 @@ internal sealed class SettingsForm : Form
     private readonly CheckBox _rotationCheckBox = new();
     private readonly CheckBox _lowPowerModeCheckBox = new();
     private readonly CheckBox _autoRestartCheckBox = new();
+    private readonly CheckBox _automaticRecoveryCheckBox = new();
     private readonly CheckBox _startFullscreenCheckBox = new();
     private readonly CheckBox _confirmExitCheckBox = new();
     private readonly CheckBox _memoryMonitorCheckBox = new();
@@ -95,7 +96,7 @@ internal sealed class SettingsForm : Form
             Padding = new Padding(14),
             BackColor = WindowBackColor
         };
-        root.RowStyles.Add(new RowStyle(SizeType.Absolute, 184));
+        root.RowStyles.Add(new RowStyle(SizeType.Absolute, 220));
         root.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
         root.RowStyles.Add(new RowStyle(SizeType.Absolute, 28));
         root.RowStyles.Add(new RowStyle(SizeType.Absolute, 64));
@@ -243,7 +244,7 @@ internal sealed class SettingsForm : Form
         {
             Dock = DockStyle.Fill,
             ColumnCount = 4,
-            RowCount = 4,
+            RowCount = 5,
             Padding = new Padding(10, 14, 10, 12)
         };
         panel.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 26));
@@ -254,11 +255,13 @@ internal sealed class SettingsForm : Form
         panel.RowStyles.Add(new RowStyle(SizeType.Absolute, 34));
         panel.RowStyles.Add(new RowStyle(SizeType.Absolute, 24));
         panel.RowStyles.Add(new RowStyle(SizeType.Absolute, 34));
+        panel.RowStyles.Add(new RowStyle(SizeType.Absolute, 28));
 
         ConfigureComboBox(_themeComboBox, ["Dark", "Light", "High contrast"]);
         ConfigureNumericInput(_autoRestartHoursInput, minimum: 1, maximum: 24, width: 90);
         ConfigureNumericInput(_memoryWarningInput, minimum: 256, maximum: 65536, width: 110);
         ConfigureRuntimeCheckBox(_autoRestartCheckBox, "Auto restart");
+        ConfigureRuntimeCheckBox(_automaticRecoveryCheckBox, "Recover failed panels automatically");
         ConfigureRuntimeCheckBox(_startFullscreenCheckBox, "Start fullscreen");
         ConfigureRuntimeCheckBox(_confirmExitCheckBox, "Confirm exit");
         ConfigureRuntimeCheckBox(_memoryMonitorCheckBox, "Memory monitor");
@@ -280,6 +283,8 @@ internal sealed class SettingsForm : Form
         panel.Controls.Add(_confirmExitCheckBox, 1, 3);
         panel.Controls.Add(_memoryMonitorCheckBox, 2, 3);
         panel.Controls.Add(_autoHideTopBarCheckBox, 3, 3);
+        panel.Controls.Add(_automaticRecoveryCheckBox, 0, 4);
+        panel.SetColumnSpan(_automaticRecoveryCheckBox, 4);
 
         group.Controls.Add(panel);
         return group;
@@ -365,14 +370,17 @@ internal sealed class SettingsForm : Form
         var editor = new TableLayoutPanel
         {
             Dock = DockStyle.Fill,
+            AutoScroll = true,
+            AutoScrollMinSize = new Size(0, 432),
             ColumnCount = 1,
             RowCount = 4,
             Padding = new Padding(12, 16, 12, 12)
         };
+        editor.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
         editor.RowStyles.Add(new RowStyle(SizeType.Absolute, 68));
         editor.RowStyles.Add(new RowStyle(SizeType.Absolute, 68));
         editor.RowStyles.Add(new RowStyle(SizeType.Absolute, 68));
-        editor.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
+        editor.RowStyles.Add(new RowStyle(SizeType.Absolute, 200));
 
         ConfigureTextInput(_panelNameTextBox);
         ConfigureTextInput(_panelUrlTextBox);
@@ -505,6 +513,7 @@ internal sealed class SettingsForm : Form
         _rotationCheckBox.CheckedChanged += (_, _) => RunSafely(() => MarkUnsavedChanges(), "tracking rotation changes");
         _lowPowerModeCheckBox.CheckedChanged += (_, _) => RunSafely(() => MarkUnsavedChanges(), "tracking low power mode changes");
         _autoRestartCheckBox.CheckedChanged += (_, _) => RunSafely(() => MarkUnsavedChanges(), "tracking auto restart changes");
+        _automaticRecoveryCheckBox.CheckedChanged += (_, _) => RunSafely(() => MarkUnsavedChanges(), "tracking panel recovery changes");
         _startFullscreenCheckBox.CheckedChanged += (_, _) => RunSafely(() => MarkUnsavedChanges(), "tracking fullscreen startup changes");
         _confirmExitCheckBox.CheckedChanged += (_, _) => RunSafely(() => MarkUnsavedChanges(), "tracking confirm exit changes");
         _memoryMonitorCheckBox.CheckedChanged += (_, _) => RunSafely(() => MarkUnsavedChanges(), "tracking memory monitor changes");
@@ -534,6 +543,7 @@ internal sealed class SettingsForm : Form
         _rotationCheckBox.Checked = _configuration.RotationEnabled;
         _lowPowerModeCheckBox.Checked = _configuration.LowPowerModeEnabled;
         _autoRestartCheckBox.Checked = _configuration.AutoRestartEnabled;
+        _automaticRecoveryCheckBox.Checked = _configuration.AutomaticRecoveryEnabled;
         _startFullscreenCheckBox.Checked = _configuration.StartFullscreen;
         _confirmExitCheckBox.Checked = _configuration.ConfirmExit;
         _memoryMonitorCheckBox.Checked = _configuration.MemoryMonitorEnabled;
@@ -847,6 +857,7 @@ internal sealed class SettingsForm : Form
         _configuration.DefaultLayout = _defaultLayoutComboBox.SelectedItem is int layout ? layout : 4;
         _configuration.LowPowerModeEnabled = _lowPowerModeCheckBox.Checked;
         _configuration.AutoRestartEnabled = _autoRestartCheckBox.Checked;
+        _configuration.AutomaticRecoveryEnabled = _automaticRecoveryCheckBox.Checked;
         _configuration.AutoRestartHours = (int)_autoRestartHoursInput.Value;
         _configuration.StartFullscreen = _startFullscreenCheckBox.Checked;
         _configuration.ConfirmExit = _confirmExitCheckBox.Checked;
@@ -997,6 +1008,7 @@ internal sealed class SettingsForm : Form
             DefaultLayout = configuration.DefaultLayout,
             LowPowerModeEnabled = configuration.LowPowerModeEnabled,
             AutoRestartEnabled = configuration.AutoRestartEnabled,
+            AutomaticRecoveryEnabled = configuration.AutomaticRecoveryEnabled,
             AutoRestartHours = configuration.AutoRestartHours,
             StartFullscreen = configuration.StartFullscreen,
             ConfirmExit = configuration.ConfirmExit,
@@ -1027,6 +1039,7 @@ internal sealed class SettingsForm : Form
         _configuration.DefaultLayout = configuration.DefaultLayout;
         _configuration.LowPowerModeEnabled = configuration.LowPowerModeEnabled;
         _configuration.AutoRestartEnabled = configuration.AutoRestartEnabled;
+        _configuration.AutomaticRecoveryEnabled = configuration.AutomaticRecoveryEnabled;
         _configuration.AutoRestartHours = configuration.AutoRestartHours;
         _configuration.StartFullscreen = configuration.StartFullscreen;
         _configuration.ConfirmExit = configuration.ConfirmExit;
@@ -1067,6 +1080,7 @@ internal sealed class SettingsForm : Form
                 : 4,
             LowPowerModeEnabled = configuration.LowPowerModeEnabled,
             AutoRestartEnabled = configuration.AutoRestartEnabled,
+            AutomaticRecoveryEnabled = configuration.AutomaticRecoveryEnabled,
             AutoRestartHours = Math.Clamp(configuration.AutoRestartHours, 1, 24),
             StartFullscreen = configuration.StartFullscreen,
             ConfirmExit = configuration.ConfirmExit,

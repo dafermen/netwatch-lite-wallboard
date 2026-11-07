@@ -17,6 +17,7 @@ internal sealed class DiagnosticsForm : Form
     private readonly int _activePanelCount;
     private readonly string _webViewUserDataFolder;
     private readonly TextBox _diagnosticsTextBox = new();
+    private readonly Func<string> _memoryDiagnostics;
 
     /// <summary>
     /// Builds the diagnostics window.
@@ -33,7 +34,8 @@ internal sealed class DiagnosticsForm : Form
         int currentPage,
         int pageCount,
         int activePanelCount,
-        string webViewUserDataFolder)
+        string webViewUserDataFolder,
+        Func<string> memoryDiagnostics)
     {
         _configuration = configuration;
         _layout = layout;
@@ -41,6 +43,7 @@ internal sealed class DiagnosticsForm : Form
         _pageCount = pageCount;
         _activePanelCount = activePanelCount;
         _webViewUserDataFolder = webViewUserDataFolder;
+        _memoryDiagnostics = memoryDiagnostics;
 
         Text = "Diagnostics";
         BackColor = Color.FromArgb(17, 24, 39);
@@ -105,7 +108,7 @@ internal sealed class DiagnosticsForm : Form
     private void RefreshDiagnosticsText()
     {
         var assembly = Assembly.GetExecutingAssembly().GetName();
-        var process = Process.GetCurrentProcess();
+        using var process = Process.GetCurrentProcess();
         var builder = new StringBuilder();
 
         builder.AppendLine("NetWatch Lite Wallboard Diagnostics");
@@ -113,6 +116,7 @@ internal sealed class DiagnosticsForm : Form
         builder.AppendLine($"Version: {assembly.Version}");
         builder.AppendLine($"Process: {process.ProcessName} ({process.Id})");
         builder.AppendLine($"Working set: {process.WorkingSet64 / 1024 / 1024:N0} MB");
+        builder.AppendLine(_memoryDiagnostics());
         builder.AppendLine();
         builder.AppendLine("Paths");
         builder.AppendLine($"Environment: {GetEnvironmentDisplayName()}");
@@ -130,6 +134,7 @@ internal sealed class DiagnosticsForm : Form
         builder.AppendLine($"Low power mode: {_configuration.LowPowerModeEnabled}");
         builder.AppendLine($"Auto restart: {_configuration.AutoRestartEnabled}");
         builder.AppendLine($"Auto restart hours: {_configuration.AutoRestartHours}");
+        builder.AppendLine($"Automatic recovery: {_configuration.AutomaticRecoveryEnabled}");
         builder.AppendLine($"Start fullscreen: {_configuration.StartFullscreen}");
         builder.AppendLine($"Confirm exit: {_configuration.ConfirmExit}");
         builder.AppendLine($"Memory monitor: {_configuration.MemoryMonitorEnabled}");

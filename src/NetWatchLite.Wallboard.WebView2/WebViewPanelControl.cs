@@ -14,16 +14,25 @@ internal sealed class WebViewPanelControl : UserControl
     private readonly ToolTip _panelToolTip = new();
     private readonly WebView2Control _webView = new();
     private readonly System.Windows.Forms.Timer _refreshTimer = new();
+    private readonly System.Windows.Forms.Timer _recoveryTimer = new();
+    private readonly PanelRecoveryPolicy _recovery;
+    private readonly bool _automaticRecoveryEnabled;
     private WallboardPanel? _panel;
     private bool _disposed;
     private bool _isActivePanel;
     private Uri? _targetUri;
+    private bool _showingErrorPage;
+    private int _scheduledRecoveryGeneration;
+
+    public bool BrowserProcessFailed { get; private set; }
 
     /// <summary>
     /// Builds the panel title bar, refresh/restart buttons, hosted WebView2 control, and refresh timer.
     /// </summary>
-    public WebViewPanelControl(ThemePalette theme)
+    public WebViewPanelControl(ThemePalette theme, PanelRecoveryPolicy recovery, bool automaticRecoveryEnabled)
     {
+        _recovery = recovery;
+        _automaticRecoveryEnabled = automaticRecoveryEnabled;
         BackColor = theme.PanelBackColor;
         Dock = DockStyle.Fill;
         Margin = new Padding(4);
@@ -91,7 +100,16 @@ internal sealed class WebViewPanelControl : UserControl
         Controls.Add(_webView);
         Controls.Add(titleBar);
 
-        _refreshTimer.Tick += (_, _) => RefreshPanel();
+        _refreshTimer.Tick += (_, _) => RefreshPanel(resetRecovery: false);
+        _recoveryTimer.Tick += (_, _) =>
+        {
+            _recoveryTimer.Stop();
+            if (!_disposed && _isActivePanel)
+            {
+                _statusLabel.Text = "Reconnecting...";
+                AutomaticRestartRequested?.Invoke(this, new RecoveryRequestedEventArgs(_scheduledRecoveryGeneration));
+            }
+        };
 
         TitleLabel = titleLabel;
     }
@@ -107,6 +125,11 @@ internal sealed class WebViewPanelControl : UserControl
     /// Raised when the operator asks the main form to destroy and recreate this panel.
     /// </summary>
     public event EventHandler? RestartRequested;
+
+    public event EventHandler<RecoveryRequestedEventArgs>? AutomaticRestartRequested;
+
+    public bool TryBeginRecovery(int generation) =>
+        !_disposed && _isActivePanel && _recovery.TryBeginAttempt(generation);
 
     /// <summary>
     /// Initializes WebView2 and navigates to the configured panel URL.
@@ -131,7 +154,7 @@ internal sealed class WebViewPanelControl : UserControl
         TitleLabel.Text = panel.Name;
         _statusLabel.Text = $"{panel.RefreshSeconds}s refresh";
 
-        await _webView.EnsureCoreWebView2Async(environment);
+        await _webView.EnsureCoreWebView2Async(environment).WaitAsync(TimeSpan.FromSeconds(30), cancellationToken);
 
         if (cancellationToken.IsCancellationRequested || _disposed)
         {
@@ -146,7 +169,7 @@ internal sealed class WebViewPanelControl : UserControl
     /// <summary>
     /// Reloads this panel without affecting the other visible panels.
     /// </summary>
-    public void RefreshPanel()
+    public void RefreshPanel(bool resetRecovery = true)
     {
         if (_disposed)
         {
@@ -156,7 +179,22 @@ internal sealed class WebViewPanelControl : UserControl
         RunPanelAction(
             () =>
             {
-                if (_webView.CoreWebView2 is null || _targetUri is null)
+                if (_webView.CoreWebView2 is null || BrowserProcessFailed)
+                {
+                    if (resetRecovery)
+                    {
+                        RestartRequested?.Invoke(this, EventArgs.Empty);
+                    }
+
+                    return;
+                }
+
+                if (resetRecovery)
+                {
+                    _recoveryTimer.Stop();
+                    _recovery.Reset();
+                }
+                if (_targetUri is null)
                 {
                     return;
                 }
@@ -167,6 +205,7 @@ internal sealed class WebViewPanelControl : UserControl
                 }
 
                 _statusLabel.Text = "Refreshing...";
+                _showingErrorPage = false;
                 _webView.CoreWebView2.Navigate(BuildRefreshUri(_targetUri).ToString());
             },
             $"refreshing panel '{_panel?.Name ?? "Panel"}'");
@@ -179,6 +218,8 @@ internal sealed class WebViewPanelControl : UserControl
     {
         _isActivePanel = false;
         _refreshTimer.Stop();
+        _recoveryTimer.Stop();
+        _recovery.MarkInactive();
     }
 
     /// <summary>
@@ -188,12 +229,18 @@ internal sealed class WebViewPanelControl : UserControl
     /// <param name="exception">Exception that prevented the panel from loading.</param>
     public void ShowPanelError(string panelName, Exception exception)
     {
+        if (_disposed)
+        {
+            return;
+        }
+
         _statusLabel.Text = "Panel error";
         _refreshTimer.Stop();
 
         var message = System.Net.WebUtility.HtmlEncode(
             $"{panelName} could not be initialized: {exception.Message}");
-        ShowErrorHtml(message);
+        TryShowErrorHtml(message);
+        ScheduleRecovery();
     }
 
     /// <summary>
@@ -238,7 +285,11 @@ internal sealed class WebViewPanelControl : UserControl
     private void ScheduleRefresh(int refreshSeconds)
     {
         _refreshTimer.Stop();
-        _refreshTimer.Interval = Math.Max(1, refreshSeconds) * 1000;
+        if (_recovery.IsPending || _showingErrorPage)
+        {
+            return;
+        }
+        _refreshTimer.Interval = Math.Clamp(refreshSeconds, 1, int.MaxValue / 1000) * 1000;
         _refreshTimer.Start();
     }
 
@@ -256,6 +307,7 @@ internal sealed class WebViewPanelControl : UserControl
                 }
 
                 _statusLabel.Text = "Loading...";
+                _showingErrorPage = false;
                 _webView.CoreWebView2.Navigate(BuildRefreshUri(_targetUri).ToString());
             },
             $"navigating panel '{_panel?.Name ?? "Panel"}'");
@@ -278,16 +330,34 @@ internal sealed class WebViewPanelControl : UserControl
                 return;
             }
 
+            // NavigateToString is a local error page, not a recovered operational page.
+            if (_showingErrorPage)
+            {
+                return;
+            }
+
             if (e.IsSuccess)
             {
+                _recoveryTimer.Stop();
+                _recovery.MarkHealthy(DateTimeOffset.UtcNow);
+                if (_panel is not null && !_refreshTimer.Enabled)
+                {
+                    ScheduleRefresh(_panel.RefreshSeconds);
+                }
                 _statusLabel.Text = $"Loaded {DateTime.Now:T}";
+                return;
+            }
+
+            if (e.WebErrorStatus == CoreWebView2WebErrorStatus.OperationCanceled)
+            {
                 return;
             }
 
             var name = _panel?.Name ?? "Panel";
             var message = System.Net.WebUtility.HtmlEncode($"{name} failed to load: {e.WebErrorStatus}");
-            ShowErrorHtml(message);
+            TryShowErrorHtml(message);
             _statusLabel.Text = "Load failed";
+            ScheduleRecovery();
         }
         catch (Exception ex)
         {
@@ -309,6 +379,7 @@ internal sealed class WebViewPanelControl : UserControl
     /// </summary>
     private void ShowErrorHtml(string message)
     {
+        _showingErrorPage = true;
         var errorHtml = """
             <!doctype html>
             <html>
@@ -358,20 +429,60 @@ internal sealed class WebViewPanelControl : UserControl
     /// </summary>
     private void OnWebViewProcessFailed(object? sender, CoreWebView2ProcessFailedEventArgs e)
     {
+        if (_disposed || !_isActivePanel)
+        {
+            return;
+        }
+
         var panelName = _panel?.Name ?? "Panel";
         AppErrorLog.LogMessage(
             $"WebView2 process failure in panel '{panelName}'",
             $"Kind: {e.ProcessFailedKind}; Reason: {e.Reason}; ExitCode: {e.ExitCode}");
 
-        RunPanelAction(
-            () =>
-            {
-                _refreshTimer.Stop();
-                _statusLabel.Text = "Browser process failed";
-                ShowErrorHtml(System.Net.WebUtility.HtmlEncode(
-                    $"{panelName} browser process failed. See diagnostic log: {AppErrorLog.LogFilePath}"));
-            },
-            $"handling WebView2 process failure for panel '{panelName}'");
+        if (e.ProcessFailedKind is not (CoreWebView2ProcessFailedKind.BrowserProcessExited or
+            CoreWebView2ProcessFailedKind.RenderProcessExited or CoreWebView2ProcessFailedKind.RenderProcessUnresponsive))
+        {
+            return; // WebView2 handles helper-process recovery itself.
+        }
+
+        BrowserProcessFailed |= e.ProcessFailedKind == CoreWebView2ProcessFailedKind.BrowserProcessExited;
+        _refreshTimer.Stop();
+        _statusLabel.Text = "Browser process failed";
+        // A dead browser cannot render an error page. Native status and recovery remain available.
+        ScheduleRecovery();
+    }
+
+    private void TryShowErrorHtml(string message)
+    {
+        try
+        {
+            ShowErrorHtml(message);
+        }
+        catch (Exception ex)
+        {
+            AppErrorLog.Log("displaying panel error", ex);
+        }
+    }
+
+    private void ScheduleRecovery()
+    {
+        _refreshTimer.Stop();
+        if (_disposed || !_isActivePanel || _recovery.IsPending)
+        {
+            return;
+        }
+
+        if (!_automaticRecoveryEnabled || !_recovery.TrySchedule(DateTimeOffset.UtcNow, out var delay))
+        {
+            _statusLabel.Text = "Failed - use Restart";
+            return;
+        }
+
+        _statusLabel.Text = $"Retry {_recovery.Attempts}/3 in {delay.TotalSeconds:N0}s";
+        _scheduledRecoveryGeneration = _recovery.Generation;
+        AppErrorLog.LogMessage($"Recovering panel '{_panel?.Name}'", _statusLabel.Text);
+        _recoveryTimer.Interval = (int)delay.TotalMilliseconds;
+        _recoveryTimer.Start();
     }
 
     /// <summary>
@@ -396,6 +507,7 @@ internal sealed class WebViewPanelControl : UserControl
             {
                 _refreshTimer.Stop();
                 _statusLabel.Text = "Panel error";
+                ScheduleRecovery();
             }
             catch
             {
@@ -415,6 +527,8 @@ internal sealed class WebViewPanelControl : UserControl
             _isActivePanel = false;
 
             _refreshTimer.Stop();
+            _recoveryTimer.Stop();
+            _recovery.MarkInactive();
 
             if (_webView.CoreWebView2 is not null)
             {
@@ -425,6 +539,7 @@ internal sealed class WebViewPanelControl : UserControl
             _webView.KeyDown -= OnWebViewKeyDown;
 
             _refreshTimer.Dispose();
+            _recoveryTimer.Dispose();
             _panelToolTip.Dispose();
             _webView.Dispose();
         }
@@ -546,5 +661,10 @@ internal sealed class WebViewPanelControl : UserControl
         public Keys KeyCode { get; }
 
         public Keys Modifiers { get; }
+    }
+
+    public sealed class RecoveryRequestedEventArgs(int generation) : EventArgs
+    {
+        public int Generation { get; } = generation;
     }
 }

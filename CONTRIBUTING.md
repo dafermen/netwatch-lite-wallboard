@@ -33,7 +33,7 @@ dotnet build .\src\NetWatchLite.Wallboard.WebView2\NetWatchLite.Wallboard.WebVie
 git diff --check
 ```
 
-Run each test project under `tests/` with `dotnet test`. No automated test project exists yet, so a successful build must not be reported as a successful unit-test run.
+Use .NET 10 and run `dotnet test .\netwatch-lite-wallboard.slnx -c Release`. The xUnit suite covers configuration, process-memory accounting, and retry budgets. Real-WebView2 and long resource tests are opt-in; see `docs/TESTING.md`. Build success is not evidence that tests passed.
 
 Follow `docs/TESTING.md` for risk-based and release-level validation.
 

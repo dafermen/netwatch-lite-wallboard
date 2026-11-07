@@ -2,4 +2,7 @@
   <Folder Name="/src/">
     <Project Path="src/NetWatchLite.Wallboard.WebView2/NetWatchLite.Wallboard.WebView2.csproj" />
   </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/NetWatchLite.Wallboard.Tests/NetWatchLite.Wallboard.Tests.csproj" />
+  </Folder>
 </Solution>

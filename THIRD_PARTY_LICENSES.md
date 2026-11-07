@@ -12,11 +12,13 @@ Package details and license metadata are available from the installed NuGet pack
 
 ## Platform Dependencies
 
-- .NET 8 Runtime and SDK are licensed by Microsoft.
+- .NET 10 Runtime and SDK are licensed by Microsoft.
 - Microsoft Edge WebView2 Runtime is licensed by Microsoft.
 - Windows is required and licensed separately.
 
 ## Release Maintenance
+
+Development tests use xUnit.net (Apache-2.0), xunit.runner.visualstudio (Apache-2.0), and Microsoft.NET.Test.Sdk (MIT). These test-only dependencies are not part of the portable app. Review exact package license metadata when upgrading them.
 
 Before every release:
 

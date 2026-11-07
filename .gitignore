@@ -1,10 +1,12 @@
 # .NET build output
 bin/
 obj/
+TestResults/
 
 # Publish artifacts
 publish/
 *.zip
+*.zip.sha256
 
 # User/local environment files
 .DS_Store

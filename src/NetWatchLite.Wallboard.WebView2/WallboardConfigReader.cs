@@ -35,8 +35,11 @@ internal static class WallboardConfigReader
     /// <param name="cancellationToken">Token used to cancel JSON file IO.</param>
     /// <returns>A normalized wallboard configuration. Invalid files fall back to defaults.</returns>
     public static async Task<WallboardConfiguration> LoadAsync(CancellationToken cancellationToken = default)
+        => await LoadFileAsync(ResolveWallboardFilePath(), cancellationToken);
+
+    internal static async Task<WallboardConfiguration> LoadFileAsync(
+        string filePath, CancellationToken cancellationToken = default)
     {
-        var filePath = ResolveWallboardFilePath();
 
         if (!File.Exists(filePath))
         {
@@ -54,6 +57,10 @@ internal static class WallboardConfigReader
             // Normalize immediately after deserialization so UI and rendering code do not need to
             // defend against unsupported layouts, empty names, invalid URLs, or bad timing values.
             return Normalize(configuration);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
         }
         catch (Exception ex)
         {
@@ -73,8 +80,11 @@ internal static class WallboardConfigReader
     public static async Task<string> SaveAsync(
         WallboardConfiguration configuration,
         CancellationToken cancellationToken = default)
+        => await SaveFileAsync(configuration, ResolveWritableWallboardFilePath(), cancellationToken);
+
+    internal static async Task<string> SaveFileAsync(
+        WallboardConfiguration configuration, string filePath, CancellationToken cancellationToken = default)
     {
-        var filePath = ResolveWritableWallboardFilePath();
         var normalized = Normalize(configuration);
         var directory = Path.GetDirectoryName(filePath);
 
@@ -240,7 +250,7 @@ internal static class WallboardConfigReader
     /// </summary>
     /// <param name="configuration">Configuration parsed from JSON.</param>
     /// <returns>Normalized configuration with supported layout and timing values.</returns>
-    private static WallboardConfiguration Normalize(WallboardConfiguration? configuration)
+    internal static WallboardConfiguration Normalize(WallboardConfiguration? configuration)
     {
         if (configuration is null)
         {
@@ -253,7 +263,7 @@ internal static class WallboardConfigReader
             {
                 Name = string.IsNullOrWhiteSpace(panel.Name) ? "Wallboard Panel" : panel.Name.Trim(),
                 Url = panel.Url.Trim(),
-                RefreshSeconds = panel.RefreshSeconds <= 0 ? 30 : panel.RefreshSeconds
+                RefreshSeconds = panel.RefreshSeconds <= 0 ? 30 : Math.Min(panel.RefreshSeconds, int.MaxValue / 1000)
             })
             .ToList();
 
@@ -263,11 +273,12 @@ internal static class WallboardConfigReader
                 ? "NetWatch Lite Wallboard"
                 : configuration.AppTitle.Trim(),
             RotationEnabled = configuration.RotationEnabled,
-            RotationSeconds = configuration.RotationSeconds <= 0 ? 20 : configuration.RotationSeconds,
+            RotationSeconds = configuration.RotationSeconds <= 0 ? 20 : Math.Min(configuration.RotationSeconds, int.MaxValue / 1000),
             DefaultLayout = NormalizeLayout(configuration.DefaultLayout),
             LowPowerModeEnabled = configuration.LowPowerModeEnabled,
             AutoRestartEnabled = configuration.AutoRestartEnabled,
             AutoRestartHours = Math.Clamp(configuration.AutoRestartHours, 1, 24),
+            AutomaticRecoveryEnabled = configuration.AutomaticRecoveryEnabled,
             StartFullscreen = configuration.StartFullscreen,
             ConfirmExit = configuration.ConfirmExit,
             MemoryMonitorEnabled = configuration.MemoryMonitorEnabled,
@@ -286,9 +297,9 @@ internal static class WallboardConfigReader
     /// </summary>
     /// <param name="panel">Panel declaration parsed from JSON.</param>
     /// <returns>True when the panel can be navigated by WebView2.</returns>
-    private static bool IsValidPanel(WallboardPanel panel)
+    private static bool IsValidPanel(WallboardPanel? panel)
     {
-        if (string.IsNullOrWhiteSpace(panel.Url))
+        if (panel is null || string.IsNullOrWhiteSpace(panel.Url))
         {
             return false;
         }

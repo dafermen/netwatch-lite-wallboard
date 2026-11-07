@@ -1,0 +1,18 @@
+{
+  "appTitle": "Compatibility fixture",
+  "rotationEnabled": true,
+  "rotationSeconds": 90,
+  "defaultLayout": 4,
+  "lowPowerModeEnabled": true,
+  "autoRestartEnabled": true,
+  "autoRestartHours": 6,
+  "startFullscreen": true,
+  "confirmExit": true,
+  "memoryMonitorEnabled": true,
+  "memoryWarningMegabytes": 1500,
+  "autoHideTopBarEnabled": true,
+  "theme": "high-contrast",
+  "panels": [
+    { "name": "Fixture panel", "url": "https://example.org/", "refreshSeconds": 60 }
+  ]
+}

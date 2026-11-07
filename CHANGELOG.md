@@ -4,6 +4,17 @@ All notable changes to NetWatch Lite Wallboard are documented here.
 
 ## Unreleased
 
+## v0.4.0-rc.1 - 2026-11-07
+
+Evaluation candidate. Long-running production validation and the full acceptance checklist remain pending; this is not an approved stable release.
+
+- Migrated the Windows application, SDK selection, tests, and CI to .NET 10 LTS; updated Desktop Runtime requirements while retaining compatibility with existing JSON profiles.
+- Expanded memory monitoring to the host plus distinct processes in the active WebView2 environment, with partial-sample indication, peak use, and bounded history in Diagnostics.
+- Added configurable automatic panel recovery with 5/15/30-second delays, a persistent three-attempt budget, and disposal/close cancellation.
+- Added xUnit coverage for configuration, file integration, legacy contracts, numeric invariants, memory accounting, and recovery, plus opt-in real-WebView2 crash/resource tests and a timed soak-test script.
+- Added complete Markdown documentation, third-party notices, package-content checks, and SHA-256 output to portable packaging. Publishing now stops if `dotnet publish` fails.
+- Made the panel editor scrollable so Delete and other lower commands remain reachable at small Settings window sizes; added a regression assertion.
+
 - Standardized documentation navigation with an audience-based index and previous/next reading paths.
 - Added a documentation standard tailored to the native .NET desktop architecture.
 - Added automated documentation validation for local links, image alt text, navigation blocks, index coverage, headings, and duplicated paths.
