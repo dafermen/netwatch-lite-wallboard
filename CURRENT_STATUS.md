@@ -90,6 +90,7 @@ Candidate packaging on 2026-11-07:
 - The package smoke check found the lower Delete command could be clipped at small window sizes. The panel editor now scrolls vertically and uses a constrained-width column; the minimum-size regression test checks that Delete is fully reachable.
 - Candidate assessment is recorded in [v0.4.0-rc.1 validation](docs/releases/v0.4.0-rc.1.md). Stable promotion remains withheld pending long-session and full acceptance checks.
 - NuGet reported no vulnerable packages for app or tests. Documentation links, version metadata, required package files, excluded backups/logs, and archive checksum were checked.
+- The final candidate suite passed all 24 tests on 2026-11-07 after the editor scrolling fix. Documentation validation passed for 26 Markdown files and 186 local links. Remote documentation from `d75a3cc` was integrated while preserving its text and local navigation.
 
 Documentation and quality-system work completed after v0.3.0:
 
