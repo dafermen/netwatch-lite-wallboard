@@ -90,6 +90,8 @@ dotnet build
 
 The current build is **v0.4.0-rc.4**, an evaluation candidate with portable startup integrity checks. Long-running production validation remains pending. See [candidate validation](docs/releases/v0.4.0-rc.4.md) for completed checks, limitations, and requirements.
 
+Download the tested ZIP and its SHA-256 sidecar from the [v0.4.0-rc.4 prerelease](https://github.com/dafermen/netwatch-lite-wallboard/releases/tag/v0.4.0-rc.4). The release tag identifies the existing binary's source commit (`9f30c6b`); newer documentation on `main` does not rebuild or replace that archive. This is an evaluation prerelease, not a stable release.
+
 Create a portable Windows x64 folder and ZIP:
 
 ```powershell
@@ -97,7 +99,7 @@ cd C:\Projects\netwatch-lite-wallboard
 .\scripts\publish-portable.ps1
 ```
 
-Create only the folder, without ZIP:
+For preliminary validation only, create the folder without a ZIP. Final portable delivery always requires the versioned ZIP and checksum:
 
 ```powershell
 .\scripts\publish-portable.ps1 -NoZip

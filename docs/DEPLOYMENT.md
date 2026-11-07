@@ -6,7 +6,7 @@
 
 NetWatch Lite Wallboard is distributed as a portable Windows folder and ZIP. It is not installed as a Windows service and does not require a web server.
 
-At the user's explicit request, `0.4.0-rc.4` is provided as an evaluation portable while long-session and full acceptance checks remain pending. Its [validation record](releases/v0.4.0-rc.4.md) is not stable-release approval. All previous packages are retained and are not moved or overwritten. Stable publication still requires the prerequisites below.
+At the user's explicit request, `0.4.0-rc.4` is provided as an [evaluation prerelease with ZIP and checksum](https://github.com/dafermen/netwatch-lite-wallboard/releases/tag/v0.4.0-rc.4) while long-session and full acceptance checks remain pending. Its [validation record](releases/v0.4.0-rc.4.md) is not stable-release approval. All previous packages are retained and are not moved or overwritten. Stable publication still requires the prerequisites below.
 
 ## Release Prerequisites
 
@@ -49,6 +49,12 @@ artifacts/
 ```
 
 If publishing fails, no new final package is approved; staging/evidence remain for diagnosis. To rebuild an existing version, archive its generated outputs manually first or use a new full version. Do not use an output folder as an operational installation.
+
+## Portable History Policy
+
+Every new portable delivered after a build must have both its extracted version under `artifacts/portable/` and its versioned ZIP plus `.zip.sha256` under `artifacts/packages/`, within this same project. Retain older versions without overwriting them. The default script already creates and tests the ZIP; `-NoZip` is for preliminary validation or an explicit exception, not final delivery. A development-only `dotnet build` does not create a distributable package.
+
+The local ZIP is also the binary intended for an approved GitHub publication. Pushing source does not upload it: attach the tested ZIP and checksum to the corresponding GitHub Release or explicitly authorized evaluation prerelease, following the publication rules below. Do not commit generated archives, configurations from working installations, or browser profiles into Git history.
 
 ## Runtime And Launcher
 
@@ -114,7 +120,9 @@ To roll back:
 
 ## GitHub Publication
 
-CI may create a validation artifact, but a successful workflow alone is not release approval. Publish a GitHub release only after the release checklist is approved and the ZIP has been tested as an extracted package.
+CI may create a validation artifact, but a successful workflow alone is not release approval. Stable releases require the approved release checklist and a tested extracted ZIP. An evaluation prerelease may be published only with explicit maintainer authorization, clear pending-test/usage limits, `prerelease=true`, and without marking it as Latest. This does not waive stable-release gates.
+
+For rc.4, the existing ZIP and checksum were published without rebuilding. Tag `v0.4.0-rc.4` targets `9f30c6b19ddf97cb757c4db06bf588e357030f62`, matching the application's ProductVersion. Documentation updates continue on `main`; the binary's embedded documentation reflects its build commit. Both assets were downloaded from GitHub and compared to the local originals. Keep this separation explicit and never replace a published asset with a different build under the same filename/version.
 
 ---
 [Previous: Operations](OPERATIONS.md) | [Documentation home](README.md) | [Next: Release checklist](RELEASE_CHECKLIST.md)

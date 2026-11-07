@@ -8,9 +8,17 @@ Last updated: 2026-11-07
 - GitHub repository: `https://github.com/dafermen/netwatch-lite-wallboard`
 - Main branch: `main`
 - Stage-2 source base / previously synchronized main: `44ec4c5` (icon and organized portable stage). The preceding push CI passed.
+- Stage-2 implementation delivered and synchronized at `9f30c6b`; [push CI passed](https://github.com/dafermen/netwatch-lite-wallboard/actions/runs/42384610906). The [rc.4 evaluation prerelease](https://github.com/dafermen/netwatch-lite-wallboard/releases/tag/v0.4.0-rc.4) now publishes that exact binary and checksum; documentation-only updates continue on `main`.
 - Current project version: `0.4.0-rc.4`; assembly/file version `0.4.0.0`.
 - Implementation base reviewed for the current stability work: `6628569`.
 - The .NET 10 portable is an evaluation candidate. The old v0.3.0 portable is preserved.
+
+## Portable Archive Policy
+
+- Every newly delivered portable must include a versioned ZIP and SHA-256 sidecar in this project's `artifacts/packages/`, in addition to the extracted folder under `artifacts/portable/`. Preserve previous versions; `-NoZip` is not a final-delivery workflow.
+- Use the tested ZIP/checksum for an approved GitHub Release or explicitly authorized evaluation prerelease. Keep generated files out of Git; report a source push separately from binary publication.
+- rc.2, rc.3 and rc.4 ZIPs/checksums are already retained locally. No application rebuild or replacement of these packages is needed for this documentation-only policy update.
+- On 2026-11-07, the user explicitly authorized public rc.4 prerelease distribution. Release ID `437673152` is published (`draft=false`, `prerelease=true`, not Latest) with exactly the existing ZIP and checksum. The tag targets the binary's source commit `9f30c6b`, not a later documentation commit. Both downloaded assets matched the local originals; current documentation is available on `main`, while embedded package docs remain those of its build commit.
 
 ## Product Direction
 
@@ -91,7 +99,7 @@ Documentation navigation validation on 2026-08-01:
 - The preliminary package protected 281 files. Measured quiet checks were about 1.0 s for the complete package and 0.54 s after restoration on this machine; these are not a universal performance guarantee. Timings are in the evidence folder.
 - The preliminary exact ZIP also passed all 132 assertions. Evidence: `artifacts/verification/c34c3fef20bd4f9c804692d9b82f3b11/`. An isolated UI smoke opened demo, saved at the root with an exact-original backup, closed, and restarted successfully from another working directory. Default/production JSON remained unchanged, with no JSON under `app/` and a separate browser-data folder. A deliberately damaged layout then showed the recovery dialog, blocked the child, wrote only the separate startup log, and left existing application logs/profiles unchanged; restoring the layout passed verification again.
 - Fresh NuGet restore/audit found no vulnerable dependencies in app or tests. Documentation validation passed for 32 Markdown files, 260 local links and three images; PowerShell syntax and Git whitespace checks passed. Only the known MSB3277 warning remains.
-- The user requests a new portable and GitHub synchronization. Delivery must regenerate the final rc.4 ZIP from the publication commit through the same 132-assertion gate, push reviewed source only, then confirm matching remote SHA, clean tree and push CI. Generated evidence stays ignored; it is not uploaded as source or a GitHub Release. See [integrity reference](docs/PORTABLE_INTEGRITY.md) and [rc.4 validation](docs/releases/v0.4.0-rc.4.md). Stable/24-hour production acceptance remains pending.
+- Final rc.4 delivery completed from `9f30c6b`: the exact ZIP passed 132 assertions (`artifacts/verification/9227bc3efdb94b5d85faa22bc171e41c/`), the checksum matched, local/remote SHA matched with a clean tree, and push CI passed. The ZIP is `artifacts/packages/NetWatch-Lite-Wallboard-v0.4.0-rc.4-win-x64.zip`; its SHA-256 is `67bd69247f9aa95827ccf481e7ff337cf2527455a1bd0df065db502629b3d53d`. Earlier packages were preserved. Before the subsequent public prerelease upload, all 132 exact-ZIP checks passed again (`artifacts/verification/f27f5bd5edc64e6bb03471247631f5b3/`); both remote assets were downloaded and verified byte-identical by SHA-256. See [integrity reference](docs/PORTABLE_INTEGRITY.md) and [rc.4 validation](docs/releases/v0.4.0-rc.4.md). Stable/24-hour production acceptance remains pending.
 
 ### Application Icon And Publication
 
