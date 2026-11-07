@@ -34,9 +34,17 @@ dotnet run --project .\src\NetWatchLite.Wallboard.WebView2\NetWatchLite.Wallboar
 
 From a portable build:
 
+Extract the entire ZIP into a new folder and open **NetWatch-Lite-Wallboard.exe at the root**. Keep `app/` intact: it contains the application and included .NET 10 runtime. WebView2 Runtime is still required. Read `START-HERE.txt` for the short instructions.
+
+The app uses a four-panel display icon in Windows and on its main, Settings, and Diagnostics windows. Website icons inside the browser panels are unchanged. No icon setting or extra file copying is needed.
+
 ```powershell
 .\NetWatch-Lite-Wallboard.exe
 ```
+
+Keep your `wallboard.json`, environment profiles, and local pages at the package root, not inside `app/`. Settings still saves and backs up the selected profile there. Browser sessions and logs retain their previous locations.
+
+For an update, export/back up your configuration, extract the new ZIP into a different folder, then copy your JSON profiles and local pages into the new root. Never copy old DLLs or overwrite the old working folder. Confirm the profile/path in Diagnostics before saving. See [Deployment](DEPLOYMENT.md) for rollback.
 
 ## Main Buttons
 

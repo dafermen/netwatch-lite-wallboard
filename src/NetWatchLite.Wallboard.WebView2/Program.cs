@@ -12,8 +12,13 @@ internal static class Program
     /// The STAThread attribute is required for WinForms and WebView2 COM interop on Windows.
     /// </summary>
     [STAThread]
-    private static void Main()
+    private static int Main(string[] args)
     {
+        if (args.Length > 0 && args[0] == "--package-check")
+        {
+            return PackageCheck.RunAsync(args).GetAwaiter().GetResult();
+        }
+
         Application.SetUnhandledExceptionMode(UnhandledExceptionMode.CatchException);
         Application.ThreadException += (_, e) =>
             AppErrorLog.ShowUnexpectedError(null, "handling a UI event", e.Exception);
@@ -45,6 +50,9 @@ internal static class Program
         catch (Exception ex)
         {
             AppErrorLog.ShowUnexpectedError(null, "running the wallboard", ex);
+            return 1;
         }
+
+        return 0;
     }
 }

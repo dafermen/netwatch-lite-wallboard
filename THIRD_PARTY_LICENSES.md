@@ -12,7 +12,8 @@ Package details and license metadata are available from the installed NuGet pack
 
 ## Platform Dependencies
 
-- .NET 10 Runtime and SDK are licensed by Microsoft.
+- The portable now redistributes the .NET 10 Desktop Runtime inside `app/`. Exact runtime package license/notices are copied into `licenses/dotnet-runtime/` and `licenses/windows-desktop/`; WebView2 SDK license/notices are in `licenses/webview2/`. These original files are required package contents, not replaced by this inventory. See the [.NET runtime license](https://github.com/dotnet/runtime/blob/main/LICENSE.TXT), [.NET third-party notices](https://github.com/dotnet/runtime/blob/main/THIRD-PARTY-NOTICES.TXT), and [Windows Desktop license](https://github.com/dotnet/windowsdesktop/blob/main/LICENSE).
+- The .NET SDK is a development dependency; Windows .NET Framework 4.x is an OS prerequisite for the root launcher, not a bundled second runtime.
 - Microsoft Edge WebView2 Runtime is licensed by Microsoft.
 - Windows is required and licensed separately.
 

@@ -20,6 +20,10 @@ The .NET 10 solution includes `tests/NetWatchLite.Wallboard.Tests`, an xUnit pro
 
 Four optional desktop tests require an interactive Windows session: isolated renderer-crash recovery, shared-browser recovery in the main form with a deliberately failed environment factory, Settings layout at its minimum size, and repeated real-WebView2 panel creation/disposal with resource measurements. They are skipped unless `NETWATCH_WEBVIEW2_TESTS=1`. CI does not claim that skipped desktop tests passed. Mutation testing and broader fuzzing remain pending; automated tests do not replace operator acceptance or the full release checklist.
 
+Portable layout tests cover legacy/development path compatibility, root profile save/read/backup, missing-profile fallback, local pages, and report overwrite refusal. `scripts/test-portable.ps1` separately exercises the actual root launcher and self-contained payload from an extracted ZIP, without opening the browser. Publishing and CI run these package tests automatically. See [Deployment](DEPLOYMENT.md) for the pipeline and limits.
+
+Icon regressions inspect every embedded ICO frame for expected dimensions, transparency, and nonempty pixels, and construct the three native windows on an STA thread to check independent icon lifetimes. Package probes also confirm the embedded icon is available without loose assets. Visual acceptance still checks real title-bar icons in the main, Settings, and Diagnostics windows.
+
 ## 1. Acceptance Testing
 
 Confirm the release solves its intended user scenarios.
@@ -47,7 +51,7 @@ Priority targets:
 - Theme name normalization.
 - URL resolution and refresh URI behavior.
 
-Current coverage includes defaults, legacy configuration, invalid inputs, timer-safe bounds, memory process-ID deduplication, bounded history, and retry budgets. Layout, environment selection, and broader URL-resolution coverage remain next steps.
+Current coverage includes defaults, legacy configuration, invalid inputs, timer-safe bounds, memory process-ID deduplication, bounded history, retry budgets, portable configuration paths, and local-page resolution. Package checks cover profile selection/precedence. Broader layout, malformed-profile-name, and URL-resolution coverage remain next steps.
 
 ## 3. Property And Invariant Testing
 
@@ -187,6 +191,8 @@ Validate:
 - Supported Windows 10 and Windows 11 machines, based on available test devices.
 - x64 portable output.
 - Presence of a compatible WebView2 Runtime.
+- Included .NET 10 Desktop Runtime is actually used, rather than a global installation.
+- Root launcher preserves command-line quoting, environment-variable precedence, and profile aliases.
 - Startup from a path containing spaces.
 - Default, demo, and production profile selection.
 - Clean extraction and launch of the ZIP.
@@ -232,6 +238,14 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\test-soak.ps1 -Min
 Use `-Minutes 2` for a quick infrastructure check. The test repeatedly navigates a neutral local page and disposes/recreates its panel, writing samples to `TestResults/soak-*.csv` and results to TRX. It checks responsiveness, bounded browser-process count, and a 1536 MB budget for this single neutral fixture. This is a controlled stress test, not proof that production dashboards stay within the same budget. Complete a separate long run with the intended production layout before release.
 
 Tests use .NET 10 SDK and Desktop Runtime plus WebView2 Runtime. The pure logic tests do not create browser controls. Build success is not evidence that tests passed.
+
+To retest a generated ZIP:
+
+```powershell
+.\scripts\test-portable.ps1 -ZipPath .\artifacts\packages\NetWatch-Lite-Wallboard-v0.4.0-rc.3-win-x64.zip
+```
+
+Evidence remains under ignored `artifacts/verification/{run-id}/`. The script tests a disposable copy in a path containing spaces with a different working directory, sets unusable global .NET locations, and checks the runtime-reported directory is inside `app/`. It covers default/demo/production/custom and missing profiles, environment aliases/precedence, preserved quoted arguments, unchanged configuration bytes, and missing required-file rejection. The application's probe never starts WebView2 or saves JSON. Save/read/backup behavior is tested separately by xUnit. These checks do not replace an interactive smoke pass of the exact ZIP or a clean-machine compatibility test.
 
 ## Release Evidence
 

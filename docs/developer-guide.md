@@ -76,8 +76,13 @@ Microsoft Edge WebView2
 | `SettingsForm.cs` | Visual editor for the JSON configuration. |
 | `DiagnosticsForm.cs` | Read-only troubleshooting window. |
 | `AppErrorLog.cs` | Writes unexpected errors to a local log file. |
+| `AppIcon.cs` | Applies an independent clone of the embedded ICO to each native window and disposes it with that window. |
 | `Data/wallboard.json` | Default development configuration. |
 | `scripts/publish-portable.ps1` | Creates a portable publish folder and ZIP. |
+| `PortablePaths.cs` | Resolves the editable content root for flat and organized portables. |
+| `PackageCheck.cs` | Produces a read-only runtime/configuration report without opening WinForms or WebView2. |
+| `src/NetWatchLite.Wallboard.Launcher/Launcher.cs` | Small Windows Framework launcher that forwards arguments to `app/`. |
+| `scripts/test-portable.ps1` | Extracts/copies a package into a disposable directory and verifies the real executables and profiles. |
 
 ## Configuration Model
 
@@ -116,7 +121,7 @@ There are no monitoring, scraping, selector, severity, or alarm fields in the cu
 
 1. If an environment was selected, try `wallboard.{environment}.json`.
 2. Otherwise use `wallboard.json`.
-3. Look beside the executable first.
+3. Look at the organized portable root (or beside the executable in old flat packages).
 4. During development, fall back to the repository `Data/` folder.
 5. If no valid file can be loaded, use a safe built-in default.
 
@@ -285,6 +290,14 @@ Supported JSON values are:
 
 Themes apply to the native shell and panel chrome. WebView2 page content is not restyled.
 
+## Application Icon
+
+`Assets/netwatch-lite.png` is the generated transparent raster master; `scripts/build-icon.ps1` resamples it into `Assets/netwatch-lite.ico` with 16/24/32/48/64/128/256 pixel frames. The original prompt and provenance are recorded in the source-only `Assets/README.md`. Conversion does not call an external image service.
+
+The project uses the ICO both as `ApplicationIcon` and an explicitly named embedded resource. The portable launcher compiler uses the same ICO. `AppIcon.ApplyTo` loads that resource, assigns a separate clone to each of the three forms, and disposes the clone on the form's `Disposed` event. No runtime asset path or current-directory lookup is needed. User-supplied form icons are not owned like WinForms' internally scaled small icon; see the [WinForms implementation](https://github.com/dotnet/winforms/blob/v10.0.0/src/System.Windows.Forms/System/Windows/Forms/Form.cs).
+
+Keep the master, derived ICO, embedded resource name, launcher input, and icon tests consistent when changing the design. Native message-box status symbols and WebView2 website favicons are deliberately unchanged.
+
 ## URL Resolution
 
 Panels support:
@@ -295,7 +308,7 @@ Panels support:
 - `pages/status.html`
 - `/status/index.html`
 
-Relative paths are resolved beside the executable first. During development, the app also checks the repository structure.
+Relative paths are resolved at the portable content root first, outside `app/`. Old flat packages still use the executable directory. During development, the app also checks the repository structure.
 
 Root-relative local paths are resolved under `wwwroot`.
 
@@ -361,6 +374,12 @@ Publish portable:
 ```powershell
 .\scripts\publish-portable.ps1
 ```
+
+Publishing includes .NET 10 in `app/` and builds a small root launcher using the Windows .NET Framework compiler, not another .NET 10 installation. The launcher forwards Windows arguments with correct quote/backslash escaping. It deliberately does not implement startup hashing in this first stage.
+
+The script builds in fresh staging, tests the exact extracted ZIP, then promotes it into `artifacts/portable/` and `artifacts/packages/`. It refuses existing outputs instead of deleting them. `-NoZip` still runs tests against a disposable folder copy. See [Deployment](DEPLOYMENT.md) for the full pipeline and runtime patching responsibilities.
+
+`PortablePaths` is shared by JSON and local-page resolution. It recognizes the exact `app/` layout using parent launcher/marker presence, never the current directory. Preserve tests for profile-specific save/backup paths and missing-profile fallback whenever changing this helper.
 
 The solution targets .NET 10. Run `dotnet test .\netwatch-lite-wallboard.slnx -c Release` to execute the xUnit suite. Configuration tests use temporary files, including an old-format compatibility fixture. Memory and retry-policy tests do not require a browser. Real-WebView2 tests are opt-in and use isolated profiles. See [TESTING.md](TESTING.md) for commands and the long resource test; release work still follows all 13 quality areas.
 

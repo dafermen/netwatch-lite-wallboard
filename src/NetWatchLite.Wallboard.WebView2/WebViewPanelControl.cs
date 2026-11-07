@@ -550,9 +550,12 @@ internal sealed class WebViewPanelControl : UserControl
     /// <summary>
     /// Resolves an absolute URL or local URL into a URI WebView2 can navigate.
     /// Local development builds prefer files from the repository so editing local HTML is reflected
-    /// immediately. Published builds use files beside the executable to stay portable.
+    /// immediately. Published builds use files at the portable content root.
     /// </summary>
     private static Uri ResolvePanelUri(string url)
+        => ResolvePanelUri(url, AppContext.BaseDirectory);
+
+    internal static Uri ResolvePanelUri(string url, string baseDirectory)
     {
         if (Uri.TryCreate(url, UriKind.Absolute, out var absoluteUri))
         {
@@ -565,10 +568,10 @@ internal sealed class WebViewPanelControl : UserControl
         var queryPart = separatorIndex >= 0 ? url[(separatorIndex + 1)..] : string.Empty;
         var relativePath = pathPart.TrimStart('/').Replace('/', Path.DirectorySeparatorChar);
         var localRoot = rootRelative ? "wwwroot" : string.Empty;
-        var developmentPath = ResolveDevelopmentLocalPath(localRoot, relativePath);
-        var runtimePath = Path.Combine(AppContext.BaseDirectory, localRoot, relativePath);
+        var developmentPath = ResolveDevelopmentLocalPath(baseDirectory, localRoot, relativePath);
+        var runtimePath = Path.Combine(PortablePaths.ResolveContentDirectory(baseDirectory), localRoot, relativePath);
 
-        if (IsDevelopmentOutputDirectory(AppContext.BaseDirectory) &&
+        if (IsDevelopmentOutputDirectory(baseDirectory) &&
             File.Exists(developmentPath))
         {
             runtimePath = developmentPath;
@@ -610,10 +613,10 @@ internal sealed class WebViewPanelControl : UserControl
     /// <summary>
     /// Builds a repository-local path from a normal bin/Debug or bin/Release output path.
     /// </summary>
-    private static string ResolveDevelopmentLocalPath(string localRoot, string relativePath)
+    private static string ResolveDevelopmentLocalPath(string baseDirectory, string localRoot, string relativePath)
     {
         return Path.GetFullPath(Path.Combine(
-            AppContext.BaseDirectory,
+            baseDirectory,
             "..",
             "..",
             "..",

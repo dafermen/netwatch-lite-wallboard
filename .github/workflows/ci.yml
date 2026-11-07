@@ -68,43 +68,23 @@ jobs:
       - name: Validate latest patch formatting
         run: git diff --check HEAD^ HEAD
 
-      - name: Publish portable folder
+      - name: Publish and test self-contained portable ZIP
         shell: powershell
-        run: .\scripts\publish-portable.ps1 -NoZip
+        run: .\scripts\publish-portable.ps1
 
-      - name: Validate portable contents
-        shell: powershell
-        run: |
-          $portableFolder = Get-ChildItem .\publish -Directory | Select-Object -First 1
-          if (-not $portableFolder) {
-            throw "Portable output folder was not created."
-          }
-
-          $requiredFiles = @(
-            "NetWatch-Lite-Wallboard.exe",
-            "wallboard.json",
-            "wallboard.demo.json",
-            "wallboard.production.json",
-            "README.md",
-            "LICENSE",
-            "THIRD_PARTY_LICENSES.md",
-            "docs/user-guide.md"
-          )
-
-          foreach ($requiredFile in $requiredFiles) {
-            if (-not (Test-Path (Join-Path $portableFolder.FullName $requiredFile))) {
-              throw "Portable output is missing $requiredFile."
-            }
-          }
-
-          if (Get-ChildItem $portableFolder.FullName -Recurse -Filter "wallboard.backup.json") {
-            throw "Portable output contains wallboard.backup.json."
-          }
+      - name: Upload package test evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: portable-test-results
+          path: artifacts/verification/**/*.json
+          if-no-files-found: warn
+          retention-days: 7
 
       - name: Upload portable validation artifact
         uses: actions/upload-artifact@v4
         with:
           name: netwatch-lite-wallboard-portable
-          path: publish/NetWatch-Lite-Wallboard-WebView2-*
+          path: artifacts/packages/*
           if-no-files-found: error
           retention-days: 7

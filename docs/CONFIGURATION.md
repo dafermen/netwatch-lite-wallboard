@@ -34,6 +34,10 @@ dotnet run --project .\src\NetWatchLite.Wallboard.WebView2\NetWatchLite.Wallboar
 
 The `NETWATCH_WALLBOARD_ENV` environment variable is also supported. A command-line value takes precedence.
 
+Organized portables keep all `wallboard*.json` files at the root, beside the launcher, not inside `app/`. Both loading and saving use that root regardless of the working directory. Old flat packages keep their original paths; development still uses `Data/`. A missing selected profile loads the default file if available but saves to its own `wallboard.{environment}.json`, never silently into the default profile. Backups stay beside the active JSON.
+
+Updating a portable does not migrate or overwrite existing files automatically. Extract into a new folder and copy the profiles/local pages you want to retain, as described in [Deployment](DEPLOYMENT.md). Browser cookies and authentication remain in their existing LocalAppData location.
+
 ## Top-Level Fields
 
 | JSON field | Type | Default | Normalized range or values |

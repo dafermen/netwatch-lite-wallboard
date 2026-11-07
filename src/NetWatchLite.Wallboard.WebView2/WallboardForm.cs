@@ -69,6 +69,7 @@ internal sealed class WallboardForm : Form
             Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
             "NetWatchLite", "WallboardWebView2");
         Text = "NetWatch Lite Wallboard";
+        AppIcon.ApplyTo(this);
         BackColor = _theme.WindowBackColor;
         ForeColor = _theme.PrimaryTextColor;
         KeyPreview = true;

@@ -24,7 +24,7 @@ The application targets .NET 8, whose support ends on November 10, 2026. Its mem
 
 ## Consequences
 
-New builds require .NET 10 Desktop Runtime. Existing JSON profiles remain readable. Memory totals will generally be larger because browser processes are now included; shared physical pages mean the value is approximate. A crash in the shared browser process requires reconnecting all visible panels. The monitor remains advisory and never restarts panels solely because memory is high.
+New builds require .NET 10 Desktop Runtime (bundled in organized portables from rc.2; see [ADR 0003](0003-organized-self-contained-portables.md)). Existing JSON profiles remain readable. Memory totals will generally be larger because browser processes are now included; shared physical pages mean the value is approximate. A crash in the shared browser process requires reconnecting all visible panels. The monitor remains advisory and never restarts panels solely because memory is high.
 
 Resource tests produce repeatable CSV/TRX evidence, but short runs cannot establish 24-hour production stability. The existing MSB3277 WebView2/WPF warning remains tracked separately.
 
@@ -36,4 +36,4 @@ Resource tests produce repeatable CSV/TRX evidence, but short runs cannot establ
 - Treat a green build as release acceptance: rejected because browser lifecycle and production dashboards need separate runtime validation.
 
 ---
-[Previous: ADR 0001](0001-focused-wallboard-without-scraping.md) | [Documentation home](../README.md) | [Next: Documentation standard](../DOCUMENTATION_STANDARD.md)
+[Previous: ADR 0001](0001-focused-wallboard-without-scraping.md) | [Documentation home](../README.md) | [Next: ADR 0003](0003-organized-self-contained-portables.md)

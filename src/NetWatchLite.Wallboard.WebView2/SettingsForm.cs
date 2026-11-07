@@ -63,6 +63,7 @@ internal sealed class SettingsForm : Form
         _showDiagnostics = showDiagnostics;
 
         Text = "Wallboard Settings";
+        AppIcon.ApplyTo(this);
         BackColor = WindowBackColor;
         ForeColor = PrimaryTextColor;
         Font = new Font("Segoe UI", 9F);

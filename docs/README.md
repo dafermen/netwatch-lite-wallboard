@@ -25,6 +25,8 @@ This is the documentation home for NetWatch Lite Wallboard. The project is a nat
 2. [Deployment](DEPLOYMENT.md)
 3. [Release checklist](RELEASE_CHECKLIST.md)
 4. [v0.4.0-rc.1 candidate validation](releases/v0.4.0-rc.1.md)
+5. [v0.4.0-rc.2 organized portable validation](releases/v0.4.0-rc.2.md)
+6. [v0.4.0-rc.3 application icon validation](releases/v0.4.0-rc.3.md)
 
 ## Engineering
 

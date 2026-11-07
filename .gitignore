@@ -5,6 +5,7 @@ TestResults/
 
 # Publish artifacts
 publish/
+artifacts/
 *.zip
 *.zip.sha256
 

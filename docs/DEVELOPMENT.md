@@ -67,7 +67,9 @@ Preserve unrelated local changes.
 - Keep async UI handlers guarded by the existing error-handling helpers.
 - Stop timers and detach events during disposal.
 - Never reintroduce DOM scraping or page-content alarms without an explicit product decision.
-- Never commit `bin/`, `obj/`, `publish/`, ZIP files, logs, or local backups.
+- Never commit `bin/`, `obj/`, `publish/`, `artifacts/`, ZIP files, logs, or local backups.
+
+Portable publishing also uses the Windows .NET Framework C# compiler for its small root launcher. The actual application remains .NET 10. Generated packages include the .NET 10 Desktop Runtime. Run `scripts/publish-portable.ps1` for a fresh version; it refuses existing output and runs `scripts/test-portable.ps1` before promoting the exact ZIP. See [Deployment](DEPLOYMENT.md).
 
 ## Configuration Changes
 

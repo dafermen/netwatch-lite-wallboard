@@ -4,6 +4,27 @@ All notable changes to NetWatch Lite Wallboard are documented here.
 
 ## Unreleased
 
+## v0.4.0-rc.3 - 2026-11-07
+
+Evaluation candidate; the existing stable-release and long-session gates remain open.
+
+- Added an original generated dashboard-display icon, transparent PNG master, reproducible multi-resolution ICO conversion script, and recorded generation prompt.
+- Applied the same embedded icon to the main, Settings, and Diagnostics windows, the application executable, and the root portable launcher.
+- Gave each native window its own disposable icon clone, without external asset lookup or changes to configuration/profiles.
+- Added icon frame/lifetime regressions and embedded-icon package checks. Preserved native message-box status symbols and website favicons.
+- Prepared the organized .NET 10 portable and icon changes for GitHub synchronization; generated packages remain excluded from source control.
+
+## v0.4.0-rc.2 - 2026-11-07
+
+Evaluation candidate for portable packaging stage 1. Stable acceptance and long production runs remain pending.
+
+- Organized versioned output under `artifacts/portable/` and `artifacts/packages/`, preserving historical `publish/` packages and refusing to overwrite existing version outputs.
+- Included the .NET 10 Desktop Runtime in `app/`, without trimming or single-file extraction. WebView2 Runtime remains an external prerequisite.
+- Added a lightweight root Windows Framework launcher that preserves quoted arguments and all environment-profile aliases; startup per-file integrity validation remains deferred.
+- Kept editable profiles/local pages at the portable root, with legacy flat/development compatibility and unchanged LocalAppData sessions/logs.
+- Added xUnit path/save/backup/local-page regressions and isolated real-process tests of the exact ZIP, bundled-runtime use, profile selection, argument forwarding, unchanged JSON, and missing required-file detection.
+- Updated CI to build/test the ZIP and upload package-check evidence, plus user/developer/deployment guidance and ADR 0003.
+
 ## v0.4.0-rc.1 - 2026-11-07
 
 Evaluation candidate. Long-running production validation and the full acceptance checklist remain pending; this is not an approved stable release.

@@ -7,8 +7,8 @@ Last updated: 2026-11-07
 - Repository path: `C:\Projects\netwatch-lite-wallboard`
 - GitHub repository: `https://github.com/dafermen/netwatch-lite-wallboard`
 - Main branch: `main`
-- Remote main observed before preparing this candidate: `d75a3cc` (documentation update).
-- Current project version: `0.4.0-rc.1`; assembly/file version `0.4.0.0`.
+- Remote main observed before the icon/publication update: `0223547`. Fetch confirmed no divergent commits before publication.
+- Current project version: `0.4.0-rc.3`; assembly/file version `0.4.0.0`.
 - Implementation base reviewed for the current stability work: `6628569`.
 - The .NET 10 portable is an evaluation candidate. The old v0.3.0 portable is preserved.
 
@@ -81,7 +81,31 @@ Documentation navigation validation on 2026-08-01:
 
 ## Current Open Work
 
-The first four stability improvements are implemented locally: .NET 10 migration, combined host/WebView2 memory monitoring, bounded automatic recovery, and an executable test suite. Final validation results are recorded below. A 24-hour production-layout run and release acceptance remain pending.
+### Application Icon And Publication
+
+- Added an original transparent four-panel display icon using built-in image generation. The master PNG, seven-frame ICO, conversion script, and original prompt/provenance are in `Assets/` and `scripts/build-icon.ps1`.
+- The application and root launcher use the same ICO. Main, Settings, and Diagnostics load independent embedded clones and dispose them with each window; no loose icon file or configuration change is needed at runtime.
+- Full suite passed 37 tests, zero failures/skips, including desktop/WebView2 regressions. TRX: `TestResults/dafer_DESKTOP-1DUT53N_2026-11-07_09_24_25_net10.0.trx`. The two icon tests passed again after removing a test-analyzer warning (`09_27_01` TRX); only the known MSB3277 remains.
+- Visual source-build smoke confirmed the new title-bar icon in all three windows using demo and an isolated browser profile. Windows were closed without saving or changing source JSON.
+- The user explicitly requested GitHub synchronization of this icon update and the preceding local portable stage. Publish reviewed source only, not generated packages, test reports, browser data, or backups. Final remote SHA, clean working tree, and push CI must be verified before reporting synchronization.
+- Candidate packaging is `0.4.0-rc.3` and preserves rc.2 output. Package checks now include the embedded icon in all ten process probes. See [rc.3 validation](docs/releases/v0.4.0-rc.3.md). Stable acceptance and 24-hour production validation remain pending.
+- The preliminary exact ZIP passed all 85 assertions; evidence: `artifacts/verification/44a4931e74504a8e82940498445d1ecd/`. NuGet reported no vulnerable dependencies. Documentation validation passed for 29 Markdown files, 219 local links, and three images; PowerShell syntax, configuration preservation, and Git whitespace checks passed. The final committed build must pass the same exact-ZIP gate.
+
+The first four stability improvements are implemented: .NET 10 migration, combined host/WebView2 memory monitoring, bounded automatic recovery, and an executable test suite. Portable packaging stage 1 is now implemented locally; validation is tracked in [rc.2](docs/releases/v0.4.0-rc.2.md). A 24-hour production-layout run and release acceptance remain pending.
+
+Portable stage 1 on 2026-11-07:
+
+- Output moves to `artifacts/portable/` and `artifacts/packages/`; historical `publish/` folders and ZIPs remain untouched.
+- The root executable forwards arguments to `app/`, which includes .NET 10 Desktop Runtime. The root uses Windows .NET Framework 4.x; WebView2 Runtime stays external.
+- JSON profiles/local pages remain at the portable root, independently of working directory. Source `Data/`, flat packages, schema, profile aliases/precedence, save/backup semantics, browser sessions, and log locations are preserved.
+- Publishing builds in unique staging and refuses existing final outputs rather than deleting them. Package tests use disposable copies and a no-window, read-only runtime/configuration probe.
+- All 35 xUnit tests passed with desktop tests enabled (zero failed/skipped), including 11 new path/save/backup/local-page/report regressions. TRX: `TestResults/dafer_DESKTOP-1DUT53N_2026-11-07_09_04_28_net10.0.trx`.
+- The complete preliminary folder pipeline passed 75 isolated package assertions, including bundled runtime `10.0.14`, argument quoting, profile aliases/precedence, unchanged JSON, and missing-file detection. Evidence: `artifacts/verification/dbe31993f56f44e88d788c336ec3744f/`. The final ZIP must pass the same checks before promotion.
+- The rc.2 ZIP passed the same 75 assertions after extraction; evidence: `artifacts/verification/16e965859dff4170b40227b5d63dd7e1/`. Its root launcher opened the demo profile from a path with spaces and a different working directory. Settings/Diagnostics, profile/root paths, save confirmation, panel reload, and normal close were checked with isolated browser data. Saving created an exact original demo backup at the root; default/production files remained unchanged and no JSON appeared inside `app/`.
+- A repeated publish of the same version was refused before building; the existing ZIP hash remained unchanged. Original runtime/Desktop/WebView2 notices are included under `licenses/`. After recording this evidence, the deliverable is regenerated through the same exact-ZIP gate so its documentation is current.
+- NuGet audit found no vulnerable packages for either project. Documentation validation passed for 28 Markdown files, 210 local links, and three images. PowerShell syntax and Git whitespace checks passed. The known MSB3277 warning remains. Package smoke is a delivery check, not full release acceptance.
+- Per-file startup integrity validation, signing, automatic updates, broad fuzzing/mutation baseline, and long production acceptance remain outside this stage.
+- Initially kept local for rc.2; the subsequent icon update explicitly requests GitHub publication of both stages.
 
 Candidate packaging on 2026-11-07:
 
@@ -153,7 +177,7 @@ High-value next steps:
 1. Add an optional UI command to open the active JSON file location.
 2. Add a small profile selector in Settings so users can switch between `default`, `demo`, and `production` without command-line arguments.
 3. Add an in-app "About" dialog showing version, build, config path, and portable folder.
-4. Expand automated coverage to layout, environment selection, and URL resolution.
+4. Expand automated coverage to broader layout, malformed profile names, and URL resolution.
 5. Establish property tests and a Stryker.NET mutation baseline after unit coverage is meaningful.
 6. Automate selected integration and portable end-to-end checks.
 7. Investigate the known `MSB3277` `WindowsBase` warning and decide whether it is worth suppressing or resolving.
@@ -162,7 +186,7 @@ High-value next steps:
 
 - Start by reading `AGENTS.md`.
 - Do not assume scraping exists; it was removed.
-- Do not edit generated artifacts under `publish/`, `bin/`, or `obj/`.
+- Do not edit generated artifacts under `publish/`, `artifacts/`, `bin/`, or `obj/`. Never overwrite an existing version folder that may contain operator configuration.
 - Read `docs/TESTING.md` before release-level work.
 - Start documentation work from `docs/README.md` and follow `docs/DOCUMENTATION_STANDARD.md`.
 - Run `scripts/validate-docs.ps1` after documentation changes.

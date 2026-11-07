@@ -34,6 +34,8 @@ The application does not expose a network API, host a server, scrape page conten
 | `DiagnosticsForm` | Produces a read-only runtime snapshot for support. |
 | `ThemePalette` | Centralizes native shell colors. |
 | `AppErrorLog` | Writes unexpected failures to the local application log. |
+| `PortablePaths` | Keeps editable JSON and local pages at the organized package root while preserving flat/development layouts. |
+| Portable launcher | Uses Windows .NET Framework to forward arguments to the self-contained .NET 10 payload in `app/`. |
 | `MemoryMonitor` | Counts distinct host/browser process IDs, tolerates exited processes, and retains bounded history and peak measurements. |
 | `PanelRecoveryPolicy` | Keeps a bounded retry budget across WebView2 replacements and requires a stable minute before resetting it. |
 
@@ -46,6 +48,8 @@ The application does not expose a network API, host a server, scrape page conten
 5. The main form applies theme and runtime options.
 6. The current page of panels is created and navigated.
 7. Rotation, memory, auto-restart, and top-bar timers are scheduled as configured.
+
+In organized portables, the root launcher first opens `app/NetWatch-Lite-Wallboard.exe`. A read-only `--package-check` path exits before WinForms/WebView2 initialization for isolated packaging tests. It is not a per-file integrity validator. See [ADR 0003](adr/0003-organized-self-contained-portables.md).
 
 ## Configuration Flow
 
@@ -80,10 +84,10 @@ Each panel still owns its own WebView2 control. When layouts change, pages rotat
 |---|---|
 | Source configuration | `Data/wallboard.json` |
 | Environment profiles | `Data/wallboard.{environment}.json` |
-| Portable configuration | Beside the executable |
+| Portable configuration/local pages | Package root, outside `app/`; old flat layouts still use the executable directory |
 | WebView2 profile | `%LOCALAPPDATA%\NetWatchLite\WallboardWebView2` |
 | Error log | `%LOCALAPPDATA%\NetWatchLite\WallboardLogs\wallboard-errors.log` |
-| Generated package | `publish/` |
+| Generated package | `artifacts/portable/` and `artifacts/packages/`; historical `publish/` is preserved |
 
 Generated output and machine-specific backups are excluded from source control.
 

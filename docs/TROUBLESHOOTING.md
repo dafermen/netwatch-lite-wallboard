@@ -59,7 +59,7 @@ Sustained growth after repeated panel disposal is a defect candidate. Include up
 
 - Extract the ZIP before running it.
 - Confirm Windows is x64 and supported.
-- Install or repair the .NET 10 Desktop Runtime for the updated build. The SDK is needed only for development.
+- For new organized self-contained packages, extract the complete ZIP into a new folder and keep `app/` intact: .NET 10 is included. The root launcher uses Windows .NET Framework 4.x. For rc.1/older framework-dependent builds, install or repair the matching Desktop Runtime. The SDK is needed only for development.
 - Install or repair Microsoft Edge WebView2 Runtime.
 - Avoid running from a network share during diagnosis.
 - Check the error log under `%LOCALAPPDATA%\NetWatchLite\WallboardLogs`.

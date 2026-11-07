@@ -46,6 +46,7 @@ internal sealed class DiagnosticsForm : Form
         _memoryDiagnostics = memoryDiagnostics;
 
         Text = "Diagnostics";
+        AppIcon.ApplyTo(this);
         BackColor = Color.FromArgb(17, 24, 39);
         ForeColor = Color.White;
         Font = new Font("Segoe UI", 9F);
@@ -123,6 +124,7 @@ internal sealed class DiagnosticsForm : Form
         builder.AppendLine($"Configuration: {WallboardConfigReader.GetConfigurationFilePath()}");
         builder.AppendLine($"Error log: {AppErrorLog.LogFilePath}");
         builder.AppendLine($"App base: {AppContext.BaseDirectory}");
+        builder.AppendLine($"Configuration/content root: {PortablePaths.ContentDirectory}");
         builder.AppendLine($"WebView2 data: {_webViewUserDataFolder}");
         builder.AppendLine();
         builder.AppendLine("Runtime");

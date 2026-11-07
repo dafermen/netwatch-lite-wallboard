@@ -61,6 +61,10 @@ Important files:
 - `Data/wallboard.demo.json`: demo profile.
 - `Data/wallboard.production.json`: production-style profile.
 - `scripts/publish-portable.ps1`: portable publish helper.
+- `scripts/test-portable.ps1`: isolated exact-ZIP/folder package checks; evidence under `artifacts/verification/`.
+- `scripts/build-launcher.ps1` and `src/NetWatchLite.Wallboard.Launcher/Launcher.cs`: Windows Framework bootstrap, preserving all arguments, without startup hashing yet.
+- `src/NetWatchLite.Wallboard.WebView2/PortablePaths.cs`: shared root resolution for JSON and local pages; preserve old flat/development layouts.
+- `AppIcon.cs`, `Assets/netwatch-lite.png`, `Assets/netwatch-lite.ico`, and `scripts/build-icon.ps1`: one embedded multi-resolution icon for all native windows and both executables. Keep per-window disposal and the icon regression tests; do not depend on loose assets at runtime.
 - `docs/TESTING.md`: mandatory quality areas and release evidence rules.
 - `docs/RELEASE_CHECKLIST.md`: release approval template.
 - `docs/adr/`: durable architecture decisions.
@@ -81,7 +85,7 @@ Important files:
 - Keep whole-wallboard behavior inside `WallboardForm`.
 - Dispose WebView2 controls and stop timers when rebuilding or closing panels.
 - Avoid changing unrelated files.
-- Do not commit or publish `publish/`, `bin/`, `obj/`, `*.zip`, `*.backup.json`, or local logs.
+- Do not commit generated `publish/`, `artifacts/`, `bin/`, `obj/`, `*.zip`, `*.backup.json`, or local logs. Only approved clean package files are distributable.
 - Do not add React/Node conventions such as `package.json` or `.env` files unless the technology stack actually changes.
 - Do not claim a planned or manual test is automated.
 - Keep every document under `docs/` reachable from its index and preserve the `docs-nav` block.
@@ -112,6 +116,8 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\publish-portable.p
 ```
 
 Verify the generated folder does not include `wallboard.backup.json`.
+
+Portable stage 1 uses `artifacts/portable/<full-version>/` and `artifacts/packages/`, includes .NET 10 Desktop Runtime inside `app/`, and keeps JSON/local pages at the root. The root launcher uses Windows .NET Framework 4.x; WebView2 Runtime remains external. Publishing refuses existing outputs, builds in staging, and tests the exact ZIP before promotion. Never delete or overwrite an existing deployment to rebuild. `-NoZip` still tests a disposable folder copy. Preserve profile aliases, command-line precedence, root save/backup paths, LocalAppData browser sessions, and legacy flat/development paths. The read-only `--package-check` probe never saves configuration or opens WebView2; its report must be a new absolute path. Per-file startup integrity validation remains deferred to stage 2.
 
 Before any deployable release, follow all 13 quality areas in `docs/TESTING.md` and complete `docs/RELEASE_CHECKLIST.md`. Every area must be `Passed`, `Failed`, or `Not applicable` with a reason. Do not publish with an applicable failure or untested area.
 

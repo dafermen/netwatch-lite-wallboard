@@ -62,7 +62,7 @@ Requirements:
 
 - Windows 10 or later.
 - .NET 10 SDK for development (selected by `global.json`).
-- .NET 10 Desktop Runtime for framework-dependent portable builds.
+- The new portable includes the .NET 10 Desktop Runtime; no separate .NET 10 installation is needed. Older framework-dependent packages still require it.
 - Microsoft Edge WebView2 Runtime on the target machine.
 
 Run from source:
@@ -88,7 +88,7 @@ dotnet build
 
 ## Publish Portable
 
-The current build is **v0.4.0-rc.1**, an evaluation candidate. Long-running production validation remains pending. See [candidate validation](docs/releases/v0.4.0-rc.1.md) for completed checks, limitations, and requirements.
+The current build is **v0.4.0-rc.3**, an evaluation candidate with the application icon and organized, self-contained packaging. Long-running production validation remains pending. See [candidate validation](docs/releases/v0.4.0-rc.3.md) for completed checks, limitations, and requirements.
 
 Create a portable Windows x64 folder and ZIP:
 
@@ -106,8 +106,10 @@ Create only the folder, without ZIP:
 Expected output:
 
 ```text
-publish/NetWatch-Lite-Wallboard-WebView2-win-x64-v{version}/
+artifacts/portable/NetWatch-Lite-Wallboard-v{version}-win-x64/
 |-- NetWatch-Lite-Wallboard.exe
+|-- START-HERE.txt
+|-- portable-layout.json
 |-- wallboard.json
 |-- wallboard.demo.json
 |-- wallboard.production.json
@@ -115,14 +117,19 @@ publish/NetWatch-Lite-Wallboard-WebView2-win-x64-v{version}/
 |-- LICENSE
 |-- THIRD_PARTY_LICENSES.md
 |-- docs/
-`-- runtime dependencies...
+|-- licenses/
+`-- app/  (application, DLLs, and .NET 10 Desktop Runtime)
 ```
+
+ZIP and SHA-256 files are written to `artifacts/packages/`. Tests extract the exact ZIP into a disposable path containing spaces before it is promoted to that directory. Existing version folders and ZIPs are never overwritten; previous `publish/` packages remain untouched.
+
+Open the root executable. It uses Windows .NET Framework 4.x only to launch `app/NetWatch-Lite-Wallboard.exe`, preserving arguments and environment profiles. WebView2 Runtime is still required. This first stage does not hash all files at each startup or provide a digital signature. See [Deployment](docs/DEPLOYMENT.md) for safe updates and runtime maintenance.
 
 Publishing is a gated activity. Complete and record the 13 quality areas in [Testing strategy and release gates](docs/TESTING.md) before distributing a package. The CI artifact is for validation and is not automatically an approved release.
 
 ## Configuration
 
-The application reads `wallboard.json` from the executable folder. During development, it falls back to `Data/wallboard.json`.
+The application reads `wallboard.json` from the portable root, outside `app/`. Old flat packages still use the executable folder. During development, configurations remain in `Data/`. The schema, profile selection, and save/backup rules are unchanged.
 
 Example:
 
@@ -260,6 +267,7 @@ netwatch-lite-wallboard/
 |   |-- dependabot.yml
 |   `-- pull_request_template.md
 |-- Assets/
+|   |-- netwatch-lite.png
 |   `-- netwatch-lite.ico
 |-- Data/
 |   |-- wallboard.json
@@ -281,10 +289,15 @@ netwatch-lite-wallboard/
 |   |-- user-guide.md
 |   `-- images/
 |-- scripts/
+|   |-- build-icon.ps1
+|   |-- build-launcher.ps1
+|   |-- portable-package.ps1
 |   |-- publish-portable.ps1
+|   |-- test-portable.ps1
 |   |-- test-soak.ps1
 |   `-- validate-docs.ps1
 |-- src/
+|   |-- NetWatchLite.Wallboard.Launcher/
 |   `-- NetWatchLite.Wallboard.WebView2/
 |-- tests/
 |   |-- NetWatchLite.Wallboard.Tests/
@@ -328,6 +341,7 @@ The repository does not currently host a web application or documentation websit
 
 ## Operational Notes
 
+- The executable, portable launcher, main window, Settings, and Diagnostics share a dashboard-display icon. It is embedded and does not require loose image files or a website favicon. Browser pages keep their own favicons.
 - Use `defaultLayout: 1` for a single focus dashboard.
 - Use `defaultLayout: 4` for a classic 2x2 NOC view.
 - Use `defaultLayout: 6` or `8` for dense TV walls.

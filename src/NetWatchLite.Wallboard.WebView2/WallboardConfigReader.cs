@@ -143,18 +143,22 @@ internal static class WallboardConfigReader
 
     /// <summary>
     /// Resolves the runtime configuration path, preferring the repository's Data/wallboard.json
-    /// when running from a local build output. Published builds use the JSON beside the executable.
+    /// when running from a local build output. Published builds use the portable content root.
     /// </summary>
     /// <returns>Absolute path to the wallboard JSON file that should be read.</returns>
     private static string ResolveWallboardFilePath()
-    {
-        var fileName = GetConfigurationFileName();
-        var defaultRuntimePath = Path.Combine(AppContext.BaseDirectory, WallboardFileName);
-        var defaultDevelopmentPath = ResolveDevelopmentWallboardFilePath(WallboardFileName);
-        var runtimePath = Path.Combine(AppContext.BaseDirectory, fileName);
-        var developmentPath = ResolveDevelopmentWallboardFilePath(fileName);
+        => ResolveWallboardFilePath(AppContext.BaseDirectory, ActiveEnvironmentName);
 
-        if (IsDevelopmentOutputDirectory(AppContext.BaseDirectory) &&
+    internal static string ResolveWallboardFilePath(string baseDirectory, string environmentName)
+    {
+        var fileName = string.IsNullOrWhiteSpace(environmentName) ? WallboardFileName : $"wallboard.{environmentName}.json";
+        var contentDirectory = PortablePaths.ResolveContentDirectory(baseDirectory);
+        var defaultRuntimePath = Path.Combine(contentDirectory, WallboardFileName);
+        var defaultDevelopmentPath = ResolveDevelopmentWallboardFilePath(baseDirectory, WallboardFileName);
+        var runtimePath = Path.Combine(contentDirectory, fileName);
+        var developmentPath = ResolveDevelopmentWallboardFilePath(baseDirectory, fileName);
+
+        if (IsDevelopmentOutputDirectory(baseDirectory) &&
             File.Exists(developmentPath))
         {
             return developmentPath;
@@ -165,9 +169,9 @@ internal static class WallboardConfigReader
             return runtimePath;
         }
 
-        if (!string.IsNullOrWhiteSpace(ActiveEnvironmentName))
+        if (!string.IsNullOrWhiteSpace(environmentName))
         {
-            if (IsDevelopmentOutputDirectory(AppContext.BaseDirectory) &&
+            if (IsDevelopmentOutputDirectory(baseDirectory) &&
                 File.Exists(defaultDevelopmentPath))
             {
                 return defaultDevelopmentPath;
@@ -190,25 +194,28 @@ internal static class WallboardConfigReader
     /// </summary>
     /// <returns>Writable path for the active configuration profile.</returns>
     private static string ResolveWritableWallboardFilePath()
-    {
-        var fileName = GetConfigurationFileName();
+        => ResolveWritableWallboardFilePath(AppContext.BaseDirectory, ActiveEnvironmentName);
 
-        if (IsDevelopmentOutputDirectory(AppContext.BaseDirectory))
+    internal static string ResolveWritableWallboardFilePath(string baseDirectory, string environmentName)
+    {
+        var fileName = string.IsNullOrWhiteSpace(environmentName) ? WallboardFileName : $"wallboard.{environmentName}.json";
+
+        if (IsDevelopmentOutputDirectory(baseDirectory))
         {
-            return ResolveDevelopmentWallboardFilePath(fileName);
+            return ResolveDevelopmentWallboardFilePath(baseDirectory, fileName);
         }
 
-        return Path.Combine(AppContext.BaseDirectory, fileName);
+        return Path.Combine(PortablePaths.ResolveContentDirectory(baseDirectory), fileName);
     }
 
     /// <summary>
     /// Builds the repository development JSON path from a normal bin/Debug or bin/Release output.
     /// </summary>
     /// <returns>Expected Data/wallboard.json path for local development.</returns>
-    private static string ResolveDevelopmentWallboardFilePath(string fileName)
+    private static string ResolveDevelopmentWallboardFilePath(string baseDirectory, string fileName)
     {
         return Path.GetFullPath(Path.Combine(
-            AppContext.BaseDirectory,
+            baseDirectory,
             "..",
             "..",
             "..",
