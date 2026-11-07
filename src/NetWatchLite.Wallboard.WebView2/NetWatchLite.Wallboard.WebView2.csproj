@@ -20,7 +20,7 @@
 
   <!-- WebView2 provides the embedded Edge browser controls used by every wallboard panel. -->
   <ItemGroup>
-    <PackageReference Include="Microsoft.Web.WebView2" Version="1.0.3351.48" />
+    <PackageReference Include="Microsoft.Web.WebView2" Version="1.0.4314.35" />
     <InternalsVisibleTo Include="NetWatchLite.Wallboard.Tests" />
     <EmbeddedResource Include="../../Assets/netwatch-lite.ico" LogicalName="NetWatchLite.Wallboard.AppIcon.ico" />
   </ItemGroup>
