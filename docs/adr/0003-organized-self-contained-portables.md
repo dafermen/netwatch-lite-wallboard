@@ -5,6 +5,7 @@
 <!-- /docs-nav -->
 
 - Status: Accepted
+- Integrity stage implemented subsequently by [ADR 0004](0004-portable-startup-integrity.md); original stage-1 decisions below remain historical.
 - Date: 2026-11-07
 
 ## Context
@@ -37,4 +38,4 @@ The layout marker is a presence-based layout indicator, not a signature or a tru
 - Bundle a fixed WebView2 browser runtime: deferred; it increases package/patching responsibility beyond this stage.
 
 ---
-[Previous: ADR 0002](0002-dotnet10-memory-and-panel-recovery.md) | [Documentation home](../README.md) | [Next: Documentation standard](../DOCUMENTATION_STANDARD.md)
+[Previous: ADR 0002](0002-dotnet10-memory-and-panel-recovery.md) | [Documentation home](../README.md) | [Next: ADR 0004](0004-portable-startup-integrity.md)

@@ -38,6 +38,8 @@ Extract the entire ZIP into a new folder and open **NetWatch-Lite-Wallboard.exe 
 
 The app uses a four-panel display icon in Windows and on its main, Settings, and Diagnostics windows. Website icons inside the browser panels are unchanged. No icon setting or extra file copying is needed.
 
+The root launcher now checks the program files before opening. Leave `integrity-manifest.xml`, `portable-layout.json`, and `app/` intact. Checking the bundled runtime can add startup time, especially on slow disks. Your JSON profiles, local pages, and browser sessions are not included in the hashes or rewritten. If startup is blocked, preserve those files and extract the complete original ZIP into a new local folder; never mix old DLLs into `app/` or recreate the manifest to silence an error. See [Portable integrity](PORTABLE_INTEGRITY.md).
+
 ```powershell
 .\NetWatch-Lite-Wallboard.exe
 ```

@@ -7,8 +7,8 @@ Last updated: 2026-11-07
 - Repository path: `C:\Projects\netwatch-lite-wallboard`
 - GitHub repository: `https://github.com/dafermen/netwatch-lite-wallboard`
 - Main branch: `main`
-- Remote main observed before the icon/publication update: `0223547`. Fetch confirmed no divergent commits before publication.
-- Current project version: `0.4.0-rc.3`; assembly/file version `0.4.0.0`.
+- Stage-2 source base / previously synchronized main: `44ec4c5` (icon and organized portable stage). The preceding push CI passed.
+- Current project version: `0.4.0-rc.4`; assembly/file version `0.4.0.0`.
 - Implementation base reviewed for the current stability work: `6628569`.
 - The .NET 10 portable is an evaluation candidate. The old v0.3.0 portable is preserved.
 
@@ -80,6 +80,18 @@ Documentation navigation validation on 2026-08-01:
 - Browser, responsive, theme, and `/docs/` route checks are not applicable because this repository uses GitHub-rendered Markdown and has no hosted documentation website.
 
 ## Current Open Work
+
+### Portable Integrity Stage 2
+
+- Implemented pre-runtime validation in the Windows Framework root launcher. The external XML must match its embedded reference; every `app/` file plus `portable-layout.json` is checked for expected length/SHA-256. Extra files, unreadable/redirected paths, unsafe metadata, and XML DTDs fail closed.
+- Validator limits the reference to 4 MiB/4,096 files and uses bounded streaming/enumeration rather than loading runtime files into memory. Root startup failures have a separate bounded log; quiet verify/package-check modes do not write operator logs.
+- Wallboard JSON/custom profiles/backups, local pages, browser sessions/cookies, existing logs, source/flat layout behavior, aliases and save/fallback semantics are unchanged. No automatic repair, updater, signing, or integrity-disable setting was added.
+- Added 30 shared-source integrity tests. Both full desktop runs passed 67 tests, zero failures/skips; the final bounded-enumeration run is `TestResults/dafer_DESKTOP-1DUT53N_2026-11-07_09_52_02_net10.0.trx`.
+- The preliminary folder pipeline passed 132 package assertions, including absent/corrupt/locked runtime files, altered manifests/layout, stale DLLs, junction rejection, custom/malformed editable profiles, report overwrite refusal, and blocked child startup. Evidence: `artifacts/verification/79c799d892844b3093e60f6cc33a9aa6/`.
+- The preliminary package protected 281 files. Measured quiet checks were about 1.0 s for the complete package and 0.54 s after restoration on this machine; these are not a universal performance guarantee. Timings are in the evidence folder.
+- The preliminary exact ZIP also passed all 132 assertions. Evidence: `artifacts/verification/c34c3fef20bd4f9c804692d9b82f3b11/`. An isolated UI smoke opened demo, saved at the root with an exact-original backup, closed, and restarted successfully from another working directory. Default/production JSON remained unchanged, with no JSON under `app/` and a separate browser-data folder. A deliberately damaged layout then showed the recovery dialog, blocked the child, wrote only the separate startup log, and left existing application logs/profiles unchanged; restoring the layout passed verification again.
+- Fresh NuGet restore/audit found no vulnerable dependencies in app or tests. Documentation validation passed for 32 Markdown files, 260 local links and three images; PowerShell syntax and Git whitespace checks passed. Only the known MSB3277 warning remains.
+- The user requests a new portable and GitHub synchronization. Delivery must regenerate the final rc.4 ZIP from the publication commit through the same 132-assertion gate, push reviewed source only, then confirm matching remote SHA, clean tree and push CI. Generated evidence stays ignored; it is not uploaded as source or a GitHub Release. See [integrity reference](docs/PORTABLE_INTEGRITY.md) and [rc.4 validation](docs/releases/v0.4.0-rc.4.md). Stable/24-hour production acceptance remains pending.
 
 ### Application Icon And Publication
 

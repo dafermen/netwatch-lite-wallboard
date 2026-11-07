@@ -24,9 +24,12 @@ Do not create empty test projects to make the repository look covered. Each proj
 6. Opt-in real-WebView2 renderer recovery, main-form shared-browser recovery despite an environment-factory failure, Settings layout, and repeated disposal/resource tests.
 7. Organized/flat/development content paths, default/demo/production save/read/backup, missing-profile fallback, local pages, and read-only package-report overwrite protection.
 8. Embedded icon frame dimensions, transparency/nonempty content, and independent main/Settings/Diagnostics icon lifetimes. Package probes verify the icon resource is present without loose image files.
+9. Shared Framework-compatible startup-integrity logic: hashes/lengths, required files, canonical/unique paths, malformed metadata/XML, DTD/size bounds, stale files, and unchanged editable profiles/content.
 
 Run `dotnet test .\netwatch-lite-wallboard.slnx -c Release`. Real-browser tests are skipped unless `NETWATCH_WEBVIEW2_TESTS=1`. Run `scripts/test-soak.ps1 -Minutes 1440` for the 24-hour neutral-fixture resource test. Test output belongs under the ignored `TestResults/` directory. Broader layout/URL tests, mutation testing, and broader fuzzing remain future work.
 
 `scripts/test-portable.ps1 -ZipPath <archive>` performs real-process package checks from a disposable extraction under `artifacts/verification/`. It verifies bundled-runtime use, launcher argument forwarding, configuration profiles, root paths, unchanged JSON, and missing-file detection. Publishing invokes it before promoting a ZIP. It never opens WebView2 or edits the original package; see [Deployment](../docs/DEPLOYMENT.md).
+
+The same script now calls the actual root launcher's `--verify-only` mode with damaged/missing/locked payloads, changed manifests/layout, stale DLLs, and a junction. Failed `--package-check` launches must not create the child's JSON report. Custom profiles still load, malformed editable JSON is not rewritten/hashed by integrity, and report paths cannot overwrite existing configuration. All mutations are confined to the disposable test copy; timings/diagnostics remain outside it. See [Portable integrity](../docs/PORTABLE_INTEGRITY.md).
 
 See [Testing Strategy And Release Gates](../docs/TESTING.md) for the complete quality model.

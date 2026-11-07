@@ -66,6 +66,12 @@ The panel host disables developer tools, default context menus, status bar, zoom
 
 Loaded websites remain responsible for their own content security, authentication, authorization, and session lifetime.
 
+## Portable Integrity Boundary
+
+The root Framework launcher verifies the embedded/external reference and exact protected bytes before loading the portable .NET runtime. The external manifest is never parsed, and XML/path/size bounds and reparse-point rejection fail closed. Verification never reads or repairs root wallboard configurations, local pages, browser sessions, or authentication data. Detailed scope and recovery are in [Portable integrity](PORTABLE_INTEGRITY.md).
+
+Hashes detect changed/missing/unreadable/stale program files; they are not publisher signatures, malware scanning, a sandbox, or protection against replacement of the entire launcher/reference or changes after verification. Direct payload starts bypass the gate. Windows/.NET Framework and external WebView2 remain outside it. Use trusted ZIPs, appropriate Windows file permissions, current dependencies, backups, and independent release acceptance. Do not regenerate a manifest to approve a damaged deployment.
+
 ## Data Retention
 
 Browser profile data persists under `%LOCALAPPDATA%\NetWatchLite\WallboardWebView2`. Anyone with access to the Windows account may be able to use existing site sessions.

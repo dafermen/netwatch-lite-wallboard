@@ -4,6 +4,17 @@ All notable changes to NetWatch Lite Wallboard are documented here.
 
 ## Unreleased
 
+## v0.4.0-rc.4 - 2026-11-07
+
+Evaluation candidate for portable integrity stage 2; stable acceptance and long production runs remain pending.
+
+- Embedded a finalized path/length/SHA-256 manifest in the independent Framework launcher, requiring an identical external manifest before protected file checks and .NET 10 startup.
+- Protected all `app/` files and `portable-layout.json`; rejected missing/changed/unreadable/extra files, malformed metadata/paths, XML DTDs, and redirected payloads with bounded enumeration.
+- Kept editable profiles/backups, local pages, browser sessions, and existing logs outside hashing and repair; profile arguments and fallback/save behavior remain unchanged.
+- Added quiet verification with new-file-only reports, clear normal startup errors and a bounded separate diagnostic log. No automatic repair, signing, updater, or integrity-disable setting was introduced.
+- Added shared-validator xUnit coverage and real-launcher package tests for corruption, locking, junctions, report overwrite refusal, mutable data, and blocked child startup; included CI diagnostics/timing evidence.
+- Updated operator/developer/security/deployment documentation, ADR 0004, and handoff guidance. Preserved older portable packages.
+
 ## v0.4.0-rc.3 - 2026-11-07
 
 Evaluation candidate; the existing stable-release and long-session gates remain open.

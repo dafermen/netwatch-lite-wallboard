@@ -83,6 +83,8 @@ $layout = [ordered]@{ schemaVersion = 1; version = $Version; runtime = $Runtime;
 $instructions = @(
     'NetWatch Lite Wallboard portable - extract the COMPLETE ZIP into a new folder.',
     'Open NetWatch-Lite-Wallboard.exe at the ROOT. Keep app/ intact. .NET 10 is included.',
+    'The root launcher verifies app/ and portable-layout.json before starting. Keep integrity-manifest.xml intact.',
+    'If files are missing/changed, extract a fresh complete ZIP. Never repair by mixing DLLs or rebuilding the manifest.',
     'Microsoft Edge WebView2 Runtime is still required. The launcher uses Windows .NET Framework 4.x.',
     'Editable configuration: wallboard.json and wallboard.{environment}.json at the ROOT.',
     'Profiles: NetWatch-Lite-Wallboard.exe --environment production',

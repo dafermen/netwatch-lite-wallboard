@@ -88,7 +88,7 @@ dotnet build
 
 ## Publish Portable
 
-The current build is **v0.4.0-rc.3**, an evaluation candidate with the application icon and organized, self-contained packaging. Long-running production validation remains pending. See [candidate validation](docs/releases/v0.4.0-rc.3.md) for completed checks, limitations, and requirements.
+The current build is **v0.4.0-rc.4**, an evaluation candidate with portable startup integrity checks. Long-running production validation remains pending. See [candidate validation](docs/releases/v0.4.0-rc.4.md) for completed checks, limitations, and requirements.
 
 Create a portable Windows x64 folder and ZIP:
 
@@ -110,6 +110,7 @@ artifacts/portable/NetWatch-Lite-Wallboard-v{version}-win-x64/
 |-- NetWatch-Lite-Wallboard.exe
 |-- START-HERE.txt
 |-- portable-layout.json
+|-- integrity-manifest.xml
 |-- wallboard.json
 |-- wallboard.demo.json
 |-- wallboard.production.json
@@ -123,7 +124,7 @@ artifacts/portable/NetWatch-Lite-Wallboard-v{version}-win-x64/
 
 ZIP and SHA-256 files are written to `artifacts/packages/`. Tests extract the exact ZIP into a disposable path containing spaces before it is promoted to that directory. Existing version folders and ZIPs are never overwritten; previous `publish/` packages remain untouched.
 
-Open the root executable. It uses Windows .NET Framework 4.x only to launch `app/NetWatch-Lite-Wallboard.exe`, preserving arguments and environment profiles. WebView2 Runtime is still required. This first stage does not hash all files at each startup or provide a digital signature. See [Deployment](docs/DEPLOYMENT.md) for safe updates and runtime maintenance.
+Open the root executable. Its Windows .NET Framework launcher compares the external manifest with its embedded copy and verifies sizes/SHA-256 for `app/` and `portable-layout.json` before starting the included .NET 10 application. Missing, altered, unreadable, redirected, or unexpected payload files block startup. Editable JSON profiles, local pages, browser sessions, and application logs are excluded and never repaired or rewritten. This is corruption/incomplete-copy detection, not a digital publisher signature. WebView2 Runtime is still required. See [Portable integrity](docs/PORTABLE_INTEGRITY.md) and [Deployment](docs/DEPLOYMENT.md).
 
 Publishing is a gated activity. Complete and record the 13 quality areas in [Testing strategy and release gates](docs/TESTING.md) before distributing a package. The CI artifact is for validation and is not automatically an approved release.
 
@@ -325,6 +326,7 @@ netwatch-lite-wallboard/
 - [Development](docs/DEVELOPMENT.md): contributor setup and change workflow.
 - [Testing](docs/TESTING.md): 13 mandatory pre-release quality areas and evidence rules.
 - [Deployment](docs/DEPLOYMENT.md): portable packaging, rollout, and rollback.
+- [Portable integrity](docs/PORTABLE_INTEGRITY.md): startup checks, protected/editable boundaries, diagnostics, and recovery.
 - [Operations](docs/OPERATIONS.md): long-running use, recovery, diagnostics, and maintenance.
 - [Security](docs/SECURITY.md): reporting, trust model, secure configuration, and release checks.
 - [Troubleshooting](docs/TROUBLESHOOTING.md): symptom-based diagnosis for operators and developers.

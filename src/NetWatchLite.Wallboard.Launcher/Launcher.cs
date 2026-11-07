@@ -1,7 +1,9 @@
 using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using System.Reflection;
 using System.Text;
 using System.Windows.Forms;
 
@@ -13,12 +15,31 @@ namespace NetWatchLite.Wallboard.Launcher
         [STAThread]
         private static int Main(string[] args)
         {
+            string root = AppDomain.CurrentDomain.BaseDirectory;
+            bool verifyOnly = args.Length > 0 && args[0] == "--verify-only";
+            bool packageCheck = args.Length > 0 && args[0] == "--package-check";
+            if (verifyOnly && !(args.Length == 1 || (args.Length == 3 && args[1] == "--report"))) return 2;
             try
             {
-                string root = AppDomain.CurrentDomain.BaseDirectory;
+                byte[] expected;
+                using (var stream = Assembly.GetExecutingAssembly().GetManifestResourceStream(PackageIntegrity.ResourceName))
+                {
+                    if (stream == null || stream.Length > PackageIntegrity.MaximumManifestBytes)
+                        throw new InvalidDataException("Embedded integrity manifest missing or too large.");
+                    using (var buffer = new MemoryStream()) { stream.CopyTo(buffer); expected = buffer.ToArray(); }
+                }
+                var errors = PackageIntegrity.Validate(root, expected);
+                if (verifyOnly)
+                {
+                    if (args.Length == 3) WriteReport(root, args[2], errors);
+                    return errors.Count == 0 ? 0 : 1;
+                }
+                if (errors.Count > 0)
+                {
+                    if (!packageCheck) ShowFailure(errors);
+                    return 1;
+                }
                 string executable = Path.Combine(root, "app", "NetWatch-Lite-Wallboard.exe");
-                if (!File.Exists(executable) || !File.Exists(Path.Combine(root, "portable-layout.json")))
-                    throw new FileNotFoundException("Extract the complete portable ZIP into a new folder. Do not copy only the executable.");
 
                 var start = new ProcessStartInfo(executable);
                 start.UseShellExecute = false;
@@ -27,7 +48,7 @@ namespace NetWatchLite.Wallboard.Launcher
                 using (var child = Process.Start(start))
                 {
                     // Package checks need the real application's exit code; normal startup stays lightweight.
-                    if (args.Length > 0 && args[0] == "--package-check")
+                    if (packageCheck)
                     {
                         child.WaitForExit();
                         return child.ExitCode;
@@ -37,10 +58,45 @@ namespace NetWatchLite.Wallboard.Launcher
             }
             catch (Exception ex)
             {
-                if (args.Length == 0 || args[0] != "--package-check")
-                    MessageBox.Show(ex.Message, "NetWatch Lite Wallboard", MessageBoxButtons.OK, MessageBoxIcon.Error);
-                return 1;
+                if (!verifyOnly && !packageCheck) ShowFailure(new List<string> { ex.Message });
+                return verifyOnly ? 2 : 1;
             }
+        }
+
+        private static void WriteReport(string root, string path, List<string> errors)
+        {
+            string full = Path.GetFullPath(path);
+            string app = Path.Combine(root, "app") + Path.DirectorySeparatorChar;
+            if (!Path.IsPathRooted(path) || !string.Equals(path, full, StringComparison.OrdinalIgnoreCase) ||
+                full.StartsWith(app, StringComparison.OrdinalIgnoreCase))
+                throw new ArgumentException("Use a new absolute report path outside app/.");
+            using (var stream = new FileStream(full, FileMode.CreateNew, FileAccess.Write))
+            using (var writer = new StreamWriter(stream, new UTF8Encoding(false)))
+                writer.Write(errors.Count == 0 ? "PASS: portable payload integrity." : string.Join(Environment.NewLine, errors));
+        }
+
+        private static void ShowFailure(List<string> errors)
+        {
+            string report = string.Join(Environment.NewLine, errors);
+            string logPath = "A diagnostic log could not be written.";
+            try
+            {
+                string folder = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "NetWatchLite", "WallboardLogs");
+                Directory.CreateDirectory(folder);
+                string log = Path.Combine(folder, "portable-startup.log");
+                // Bound this launcher's own log; existing application logs and all configuration remain untouched.
+                var mode = File.Exists(log) && new FileInfo(log).Length >= 1024 * 1024 ? FileMode.Create : FileMode.Append;
+                using (var stream = new FileStream(log, mode, FileAccess.Write, FileShare.Read))
+                using (var writer = new StreamWriter(stream, new UTF8Encoding(false)))
+                    writer.WriteLine(DateTimeOffset.UtcNow.ToString("O") + Environment.NewLine + report.Substring(0, Math.Min(report.Length, 32768)));
+                logPath = log;
+            }
+            catch { /* Logging must not hide the primary package error. */ }
+            Application.EnableVisualStyles();
+            MessageBox.Show("The portable package is incomplete, changed, or unreadable. Startup was blocked.\n\n" +
+                string.Join(Environment.NewLine, errors.Take(12)) +
+                "\n\nExtract the COMPLETE ZIP into a NEW folder. Preserve your wallboard*.json profiles and local pages. Do not copy only the EXE or mix app/ files.\n\nDiagnostics: " + logPath,
+                "NetWatch Lite Wallboard - Portable validation", MessageBoxButtons.OK, MessageBoxIcon.Error);
         }
 
         internal static string QuoteArgument(string argument)

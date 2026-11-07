@@ -36,6 +36,7 @@ The application does not expose a network API, host a server, scrape page conten
 | `AppErrorLog` | Writes unexpected failures to the local application log. |
 | `PortablePaths` | Keeps editable JSON and local pages at the organized package root while preserving flat/development layouts. |
 | Portable launcher | Uses Windows .NET Framework to forward arguments to the self-contained .NET 10 payload in `app/`. |
+| `PackageIntegrity` | Validates the embedded manifest, external copy, protected file sizes/hashes, paths, and unexpected payload files before loading the portable runtime. |
 | `MemoryMonitor` | Counts distinct host/browser process IDs, tolerates exited processes, and retains bounded history and peak measurements. |
 | `PanelRecoveryPolicy` | Keeps a bounded retry budget across WebView2 replacements and requires a stable minute before resetting it. |
 
@@ -49,7 +50,7 @@ The application does not expose a network API, host a server, scrape page conten
 6. The current page of panels is created and navigated.
 7. Rotation, memory, auto-restart, and top-bar timers are scheduled as configured.
 
-In organized portables, the root launcher first opens `app/NetWatch-Lite-Wallboard.exe`. A read-only `--package-check` path exits before WinForms/WebView2 initialization for isolated packaging tests. It is not a per-file integrity validator. See [ADR 0003](adr/0003-organized-self-contained-portables.md).
+In organized portables, the Windows Framework root launcher validates `app/` and `portable-layout.json` against an embedded manifest before opening `app/NetWatch-Lite-Wallboard.exe`. Its `--verify-only` mode never starts the payload. The separate application's `--package-check` path exits before WinForms/WebView2 initialization for deployment tests. Source builds and direct payload execution do not pass through this root gate. See [ADR 0004](adr/0004-portable-startup-integrity.md) and [Portable integrity](PORTABLE_INTEGRITY.md).
 
 ## Configuration Flow
 

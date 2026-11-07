@@ -6,7 +6,7 @@
 
 NetWatch Lite Wallboard is distributed as a portable Windows folder and ZIP. It is not installed as a Windows service and does not require a web server.
 
-At the user's explicit request, `0.4.0-rc.3` is provided as an evaluation portable while long-session and full acceptance checks remain pending. Its [validation record](releases/v0.4.0-rc.3.md) is not stable-release approval. Previous `publish/` and rc.2 packages are retained and are not moved or overwritten. Stable publication still requires the prerequisites below.
+At the user's explicit request, `0.4.0-rc.4` is provided as an evaluation portable while long-session and full acceptance checks remain pending. Its [validation record](releases/v0.4.0-rc.4.md) is not stable-release approval. All previous packages are retained and are not moved or overwritten. Stable publication still requires the prerequisites below.
 
 ## Release Prerequisites
 
@@ -31,10 +31,10 @@ The script:
 2. Refuses existing output paths and redirected artifact directories; never deletes an existing deployment.
 3. Runs self-contained `dotnet publish` for `win-x64` inside a fresh `artifacts/.staging/` folder, without trimming or single-file extraction.
 4. Moves only freshly published JSON examples to the package root. DLLs and .NET 10 stay in `app/`.
-5. Builds a small root launcher using the Windows .NET Framework C# compiler; the launcher forwards all arguments and does not validate per-file hashes.
+5. Builds a root launcher using the Windows .NET Framework C# compiler, embedding the manifest of the finalized payload and layout. It validates before forwarding arguments to the application.
 6. Copies README, licenses, root reference documents, `docs/`, layout metadata, and start instructions.
 7. Checks required files, runtime/version metadata, and excluded backups/logs.
-8. Creates and extracts the exact ZIP, runs isolated package checks, then promotes the folder and ZIP. `-NoZip` tests a disposable folder copy instead.
+8. Creates and extracts the exact ZIP, runs isolated package/startup-integrity checks including deliberately damaged disposable copies, then promotes the folder and ZIP. `-NoZip` tests a disposable folder copy instead.
 9. Writes a SHA-256 sidecar for the final ZIP.
 
 Generated output must not be committed:
@@ -54,6 +54,8 @@ If publishing fails, no new final package is approved; staging/evidence remain f
 
 The real application and .NET 10 Desktop Runtime are inside `app/`. The root executable is a small .NET Framework 4.x launcher, using the Windows component already available on supported machines. It starts the child with the package root as working directory and preserves arguments, quoting, and inherited environment variables. Normal startup returns after handing off; `--package-check` waits and propagates the child's exit code.
 
+Before handing off, it validates the original embedded/external manifest and immutable bytes. `--verify-only` runs only that gate and never starts the .NET 10 child. Program files must be ordinary local files, not junctions/symlinks or cloud placeholders marked as reparse points. Validation does not access editable JSON profiles or browser data. Follow [Portable integrity](PORTABLE_INTEGRITY.md) for diagnostics, recovery, and the precise limitations; no automatic repair, signing, or updater is added.
+
 `PortablePaths` recognizes `app/` only when its parent contains the product launcher and `portable-layout.json`. Configuration and local content then resolve from the parent, independently of the working directory. Old flat portable and development layouts are still supported. Do not rename/remove the launcher or layout marker.
 
 Bundling .NET removes the separate .NET 10 installation requirement, not Windows or WebView2 requirements. It does not make browser sessions portable: existing LocalAppData paths are unchanged. Rebuild/redeploy with supported .NET security patches; bundled runtimes do not update through the machine's shared .NET installation. See [Microsoft deployment guidance](https://learn.microsoft.com/en-us/dotnet/core/deploying/).
@@ -62,7 +64,7 @@ Bundling .NET removes the separate .NET 10 installation requirement, not Windows
 
 - `NetWatch-Lite-Wallboard.exe`
 - `app/` containing application assemblies, WebView2 loader files, and the .NET 10 Desktop Runtime
-- `portable-layout.json` and `START-HERE.txt`
+- `portable-layout.json`, `integrity-manifest.xml`, and `START-HERE.txt`
 - `licenses/` containing original bundled .NET runtime/Desktop and WebView2 SDK license/notices
 - `wallboard.json`
 - Supported environment profiles
@@ -92,12 +94,12 @@ Do not overwrite a working deployment until its current configuration has been e
 ## Package Tests
 
 ```powershell
-.\scripts\test-portable.ps1 -ZipPath .\artifacts\packages\NetWatch-Lite-Wallboard-v0.4.0-rc.3-win-x64.zip
+.\scripts\test-portable.ps1 -ZipPath .\artifacts\packages\NetWatch-Lite-Wallboard-v0.4.0-rc.4-win-x64.zip
 ```
 
 Tests run in a disposable copy under `artifacts/verification/`, never in the original deployment. They verify required files, the included Desktop Runtime, root/direct-payload startup from a different working directory, argument quoting, default/demo/production/custom profiles, environment-variable precedence and aliases, missing-profile fallback, unchanged JSON hashes, and detection of missing required files. Reports are outside the copied package. No WebView2 instance or user browser profile is opened by these checks.
 
-The application's read-only `--package-check <absolute-new-report.json>` command exists for these deployment tests. It writes runtime/configuration paths and normalized title/count to a new report, refuses to overwrite an existing report, and never saves configuration. Treat reports as local diagnostics and review them before sharing. These checks are not full UI acceptance, startup cryptographic validation, or proof of operation on every Windows machine.
+The application's read-only `--package-check <absolute-new-report.json>` command exists for deployment tests. The root launcher's `--verify-only --report <absolute-new-report.txt>` checks integrity without starting the payload. Neither report command overwrites existing files. Tests verify runtime failures block the child before it creates a report, valid custom profiles remain usable, malformed JSON remains outside the integrity contract, and the original package is unchanged. Timings/diagnostics stay under `artifacts/verification/`. These checks are not full UI acceptance or proof of operation on every Windows machine.
 
 ## Rollback
 

@@ -1,9 +1,9 @@
-# Shared structural checks for publishing and tests. Per-file startup hashes are a later stage.
+# Shared structural checks; the root launcher's verify-only mode checks the immutable payload hashes.
 function Assert-PortableContents {
     param([Parameter(Mandatory = $true)][string]$PortablePath)
 
     $required = @(
-        'NetWatch-Lite-Wallboard.exe', 'portable-layout.json', 'START-HERE.txt',
+        'NetWatch-Lite-Wallboard.exe', 'portable-layout.json', 'integrity-manifest.xml', 'START-HERE.txt',
         'wallboard.json', 'wallboard.demo.json', 'wallboard.production.json',
         'README.md', 'LICENSE', 'THIRD_PARTY_LICENSES.md', 'docs\user-guide.md',
         'licenses\dotnet-runtime\LICENSE.TXT', 'licenses\dotnet-runtime\THIRD-PARTY-NOTICES.TXT',

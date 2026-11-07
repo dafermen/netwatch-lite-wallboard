@@ -24,6 +24,8 @@ Portable layout tests cover legacy/development path compatibility, root profile 
 
 Icon regressions inspect every embedded ICO frame for expected dimensions, transparency, and nonempty pixels, and construct the three native windows on an STA thread to check independent icon lifetimes. Package probes also confirm the embedded icon is available without loose assets. Visual acceptance still checks real title-bar icons in the main, Settings, and Diagnostics windows.
 
+Startup-integrity unit tests link the Framework-compatible validator source and exercise complete/corrupt/missing payloads, malformed manifests/paths, DTD/size guards, mutable-data preservation, and stale files. Package tests run the real Framework launcher with missing/corrupt/locked runtime files, altered manifests/layout, junctions, custom/malformed editable profiles, new-file-only reports, and blocked child startup. This byte-corruption coverage is not a Stryker mutation-testing baseline. See [Portable integrity](PORTABLE_INTEGRITY.md).
+
 ## 1. Acceptance Testing
 
 Confirm the release solves its intended user scenarios.
@@ -242,10 +244,12 @@ Tests use .NET 10 SDK and Desktop Runtime plus WebView2 Runtime. The pure logic 
 To retest a generated ZIP:
 
 ```powershell
-.\scripts\test-portable.ps1 -ZipPath .\artifacts\packages\NetWatch-Lite-Wallboard-v0.4.0-rc.3-win-x64.zip
+.\scripts\test-portable.ps1 -ZipPath .\artifacts\packages\NetWatch-Lite-Wallboard-v0.4.0-rc.4-win-x64.zip
 ```
 
 Evidence remains under ignored `artifacts/verification/{run-id}/`. The script tests a disposable copy in a path containing spaces with a different working directory, sets unusable global .NET locations, and checks the runtime-reported directory is inside `app/`. It covers default/demo/production/custom and missing profiles, environment aliases/precedence, preserved quoted arguments, unchanged configuration bytes, and missing required-file rejection. The application's probe never starts WebView2 or saves JSON. Save/read/backup behavior is tested separately by xUnit. These checks do not replace an interactive smoke pass of the exact ZIP or a clean-machine compatibility test.
+
+The integrity cases additionally verify actual launcher exit codes and diagnostics, plus absence of the child's runtime report when startup must be blocked. All damaged files are restored in `finally` blocks within the disposable copy. `integrity-timings.json` records measured checks; CI uploads these reports without claiming a universal startup-time limit. Do not run intentionally damaged runtime files directly. The quiet launcher checks do not write operator startup logs; normal failure-message/logging and successful UI startup receive a separate isolated manual smoke pass.
 
 ## Release Evidence
 

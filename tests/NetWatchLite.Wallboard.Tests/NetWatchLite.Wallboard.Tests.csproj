@@ -13,5 +13,6 @@
     <PackageReference Include="xunit.runner.visualstudio" Version="4.0.1" PrivateAssets="all" />
     <ProjectReference Include="../../src/NetWatchLite.Wallboard.WebView2/NetWatchLite.Wallboard.WebView2.csproj" />
     <Content Include="../fixtures/*.json" Link="fixtures/%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
+    <Compile Include="../../src/NetWatchLite.Wallboard.Launcher/PackageIntegrity.cs" Link="Launcher/PackageIntegrity.cs" />
   </ItemGroup>
 </Project>

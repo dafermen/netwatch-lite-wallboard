@@ -38,6 +38,8 @@ Organized portables keep all `wallboard*.json` files at the root, beside the lau
 
 Updating a portable does not migrate or overwrite existing files automatically. Extract into a new folder and copy the profiles/local pages you want to retain, as described in [Deployment](DEPLOYMENT.md). Browser cookies and authentication remain in their existing LocalAppData location.
 
+Startup integrity validation deliberately does not read, hash, normalize, or write `wallboard*.json`, including custom profiles and backups. Existing application behavior for missing/malformed JSON remains unchanged. The JSON files inside `app/` are runtime metadata, not editable wallboard settings; they and the root `portable-layout.json` are protected. See [Portable integrity](PORTABLE_INTEGRITY.md).
+
 ## Top-Level Fields
 
 | JSON field | Type | Default | Normalized range or values |

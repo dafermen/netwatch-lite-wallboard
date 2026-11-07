@@ -82,6 +82,7 @@ Microsoft Edge WebView2
 | `PortablePaths.cs` | Resolves the editable content root for flat and organized portables. |
 | `PackageCheck.cs` | Produces a read-only runtime/configuration report without opening WinForms or WebView2. |
 | `src/NetWatchLite.Wallboard.Launcher/Launcher.cs` | Small Windows Framework launcher that forwards arguments to `app/`. |
+| `src/NetWatchLite.Wallboard.Launcher/PackageIntegrity.cs` | Framework-compatible validator shared as source with tests; checks program bytes before the portable .NET runtime is loaded. |
 | `scripts/test-portable.ps1` | Extracts/copies a package into a disposable directory and verifies the real executables and profiles. |
 
 ## Configuration Model
@@ -375,7 +376,9 @@ Publish portable:
 .\scripts\publish-portable.ps1
 ```
 
-Publishing includes .NET 10 in `app/` and builds a small root launcher using the Windows .NET Framework compiler, not another .NET 10 installation. The launcher forwards Windows arguments with correct quote/backslash escaping. It deliberately does not implement startup hashing in this first stage.
+Publishing includes .NET 10 in `app/` and builds a root launcher using the Windows .NET Framework compiler, not another .NET 10 installation. After the payload/layout are finalized, the script records file paths, lengths, and SHA-256 in `integrity-manifest.xml` and embeds identical bytes in that launcher. The launcher validates before forwarding Windows arguments with their original quoting and profile semantics. It never hashes or repairs operator configuration.
+
+The validator uses .NET Framework-compatible C# syntax. The xUnit project links the same source file, while package tests run the actual Framework executable. Keep both compilation paths working; do not introduce .NET 10-only APIs or a dependency on the payload being checked. Unit fixtures cover paths/schema/hash metadata, malformed references, and mutable-data preservation. Actual-process tests cover missing/corrupt/locked runtime files, modified manifests, stale DLLs, junctions, report overwrite refusal, and blocked child startup. See [Portable integrity](PORTABLE_INTEGRITY.md) for limits and CLI contracts.
 
 The script builds in fresh staging, tests the exact extracted ZIP, then promotes it into `artifacts/portable/` and `artifacts/packages/`. It refuses existing outputs instead of deleting them. `-NoZip` still runs tests against a disposable folder copy. See [Deployment](DEPLOYMENT.md) for the full pipeline and runtime patching responsibilities.
 

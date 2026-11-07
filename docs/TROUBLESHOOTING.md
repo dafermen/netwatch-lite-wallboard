@@ -45,7 +45,7 @@ Sustained growth after repeated panel disposal is a defect candidate. Include up
 
 - Check the command line for `--environment`.
 - Check `NETWATCH_WALLBOARD_ENV`.
-- Confirm `wallboard.{environment}.json` exists beside the executable or in the development data location.
+- Confirm `wallboard.{environment}.json` exists at the portable root (outside `app/`) or in the development data location.
 - Use Diagnostics to see the selected environment and exact path.
 
 ## Fullscreen Or Top Bar Behavior Is Unexpected
@@ -63,6 +63,8 @@ Sustained growth after repeated panel disposal is a defect candidate. Include up
 - Install or repair Microsoft Edge WebView2 Runtime.
 - Avoid running from a network share during diagnosis.
 - Check the error log under `%LOCALAPPDATA%\NetWatchLite\WallboardLogs`.
+
+If the root launcher reports a validation failure, read `portable-startup.log` in that log directory or run the quiet verification command in [Portable integrity](PORTABLE_INTEGRITY.md). Preserve your JSON profiles/local pages and extract the full trusted ZIP into a new ordinary local folder. Missing/changed manifests, locked files, stale DLLs, and reparse-point/cloud-placeholder payloads can block startup. Do not delete configuration, clear browser sessions, copy old DLLs, or rebuild the manifest as a repair. The validator leaves editable JSON to the existing application reader.
 
 ## Build Warning MSB3277
 

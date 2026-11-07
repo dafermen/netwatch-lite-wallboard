@@ -71,6 +71,8 @@ Preserve unrelated local changes.
 
 Portable publishing also uses the Windows .NET Framework C# compiler for its small root launcher. The actual application remains .NET 10. Generated packages include the .NET 10 Desktop Runtime. Run `scripts/publish-portable.ps1` for a fresh version; it refuses existing output and runs `scripts/test-portable.ps1` before promoting the exact ZIP. See [Deployment](DEPLOYMENT.md).
 
+The launcher and `PackageIntegrity.cs` must compile with the Windows Framework compiler, independently of bundled .NET files. The validator source is also linked into xUnit tests; real-process package checks prove the legacy executable blocks invalid payloads before launching them. Generate/compile the embedded manifest only from a finalized fresh publish, never from an operator's deployment. See [Portable integrity](PORTABLE_INTEGRITY.md).
+
 ## Configuration Changes
 
 For a top-level setting, update:
