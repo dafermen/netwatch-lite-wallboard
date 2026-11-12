@@ -128,6 +128,8 @@ Stage 2 checks every `app/` file and `portable-layout.json` against size/SHA-256
 
 Memory protection stays off in old/example JSON unless explicitly enabled by the operator. Ignore partial/discontinuous samples and editing/minimized/rendering states; use existing serialized panel recreation, never kill processes or clear sessions. Profile switching is session-only and strictly validates the exact selected file before changing active state; CLI startup precedence/fallback/save contracts remain unchanged. Support export is an allowlist, not regex-redacted logs; keep Copy/raw diagnostics separate. Run both xUnit and `scripts/test-release-package.ps1` for these boundaries. Do not equate a mocked publisher, a real draft, and a public prerelease.
 
+Release scripts run under Windows PowerShell 5.1 on hosted Windows. Do not interpolate quoted string literals into native `gh --jq` arguments: legacy native argument passing can remove those quotes. Extract fixed JSON fields and compare using PowerShell objects/values instead. Test live read-only CLI boundaries separately from mocks before a draft run.
+
 Before any deployable release, follow all 13 quality areas in `docs/TESTING.md` and complete `docs/RELEASE_CHECKLIST.md`. Every area must be `Passed`, `Failed`, or `Not applicable` with a reason. Do not publish with an applicable failure or untested area.
 
 ## Git And Release Notes

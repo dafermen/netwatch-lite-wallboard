@@ -15,9 +15,8 @@ $assets = Assert-ReleaseAssets -PackageDirectory $PackageDirectory -Version $ver
 & (Join-Path $PSScriptRoot 'test-portable.ps1') -ZipPath $assets.Zip
 
 # All remote reads must succeed. Never treat an authentication/network error as an absent release.
-$existing = gh api "repos/$Repository/releases" --paginate --jq ".[] | select(.tag_name == `"$Tag`") | .id"
-if ($LASTEXITCODE -ne 0) { throw 'Cannot inspect existing GitHub releases.' }
-if ($existing) { throw 'Release already exists; it will not be replaced.' }
+$existingTags = Get-GitHubReleaseTags -Repository $Repository
+if ($existingTags -ccontains $Tag) { throw 'Release already exists; it will not be replaced.' }
 $refs = gh api "repos/$Repository/git/matching-refs/tags/$Tag"
 if ($LASTEXITCODE -ne 0) { throw 'Cannot inspect existing tags.' }
 if (@($refs | ConvertFrom-Json | Where-Object { $_.ref -ceq "refs/tags/$Tag" }).Count) { throw 'Tag already exists; it will not be moved.' }

@@ -47,6 +47,12 @@ jobs:
         shell: powershell
         run: .\scripts\test-release-package.ps1
 
+      - name: Test read-only GitHub CLI boundary
+        shell: powershell
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: .\scripts\test-release-cli.ps1 -Repository $env:GITHUB_REPOSITORY
+
       - name: Upload test results
         if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2

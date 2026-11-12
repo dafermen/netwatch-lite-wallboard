@@ -32,6 +32,8 @@ Operational-safety coverage adds log byte/file limits, concurrent writers, locke
 
 `scripts/test-release-package.ps1` runs isolated PowerShell fixtures after a Release build. It checks tag/source/hash/ProductVersion binding and uses a simulated GitHub client to prove Draft never publishes and a tampered download cannot publish. These tests do not call GitHub. A real authorized workflow draft run is separate evidence; never infer it from local mocks.
 
+`scripts/test-release-cli.ps1` separately exercises the real, read-only release-tag query under Windows PowerShell 5.1 in CI/manual validation. It never creates or edits a release and does not replace publisher mocks or draft/download tests. This boundary caught native argument quoting that a simulated command cannot reproduce.
+
 Confirm the release solves its intended user scenarios.
 
 Minimum checks:

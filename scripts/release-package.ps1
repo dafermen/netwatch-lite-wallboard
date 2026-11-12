@@ -1,3 +1,11 @@
+function Get-GitHubReleaseTags {
+    param([string]$Repository)
+    if ($Repository -notmatch '^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$') { throw 'Invalid GitHub repository.' }
+    $tags = gh api "repos/$Repository/releases" --paginate --jq '.[].tag_name'
+    if ($LASTEXITCODE -ne 0) { throw 'Cannot inspect existing GitHub releases.' }
+    return $tags
+}
+
 function Assert-PrereleaseIdentity {
     param([string]$Tag, [string]$Version, [string]$SourceCommit)
     if ($Tag -cnotmatch '^v\d+\.\d+\.\d+-rc\.\d+$' -or $Tag -cne ('v' + $Version)) {

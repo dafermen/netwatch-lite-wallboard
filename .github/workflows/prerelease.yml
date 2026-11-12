@@ -72,6 +72,11 @@ jobs:
           $audit = dotnet list .\netwatch-lite-wallboard.slnx package --vulnerable --include-transitive 2>&1 | Out-String
           Write-Host $audit
           if ($LASTEXITCODE -ne 0 -or $audit -match 'has the following vulnerable packages|NU1900') { throw 'Dependency audit failed or was incomplete.' }
+      - name: Test read-only GitHub CLI boundary
+        shell: powershell
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: .\scripts\test-release-cli.ps1 -Repository $env:GITHUB_REPOSITORY
       - name: Build and test exact ZIP
         shell: powershell
         run: .\scripts\publish-portable.ps1
