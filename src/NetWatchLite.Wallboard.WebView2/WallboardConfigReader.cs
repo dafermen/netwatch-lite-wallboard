@@ -25,7 +25,46 @@ internal static class WallboardConfigReader
     /// Optional runtime profile selected by --environment, --env, --config-env, or
     /// NETWATCH_WALLBOARD_ENV. Empty means the default wallboard.json is active.
     /// </summary>
-    public static string ActiveEnvironmentName { get; } = ResolveActiveEnvironmentName();
+    public static string ActiveEnvironmentName { get; private set; } = ResolveActiveEnvironmentName();
+
+    internal static string[] GetAvailableProfiles(string? baseDirectory = null)
+    {
+        baseDirectory ??= AppContext.BaseDirectory;
+        var directory = Path.GetDirectoryName(ResolveWritableWallboardFilePath(baseDirectory, string.Empty))!;
+        var profiles = new HashSet<string>(StringComparer.Ordinal) { string.Empty, ActiveEnvironmentName };
+        if (Directory.Exists(directory))
+            foreach (var path in Directory.EnumerateFiles(directory, "wallboard.*.json"))
+            {
+                var file = Path.GetFileName(path);
+                var name = file[10..^5];
+                var canonical = name.ToLowerInvariant();
+                if (IsSelectableProfileName(canonical)) profiles.Add(canonical);
+            }
+        return profiles.OrderBy(name => name, StringComparer.Ordinal).ToArray();
+    }
+
+    internal static bool IsSelectableProfileName(string name)
+        => name.Length == 0 || (name.Length <= 240 && name == NormalizeEnvironmentName(name) &&
+            !name.Equals("backup", StringComparison.Ordinal) && !name.Contains('.'));
+
+    internal static async Task<WallboardConfiguration> LoadProfileForSelectionAsync(
+        string baseDirectory, string name, CancellationToken cancellationToken = default)
+    {
+        if (!IsSelectableProfileName(name)) throw new ArgumentException("Invalid profile name.");
+        // Explicit UI selection must not silently fall back to a different file on a typo or malformed JSON.
+        var path = ResolveWritableWallboardFilePath(baseDirectory, name);
+        await using var stream = File.OpenRead(path);
+        var configuration = await JsonSerializer.DeserializeAsync<WallboardConfiguration>(stream, JsonOptions, cancellationToken)
+            ?? throw new JsonException("The selected profile is empty.");
+        return Normalize(configuration);
+    }
+
+    internal static async Task SelectProfileAsync(string name, CancellationToken cancellationToken = default)
+    {
+        await LoadProfileForSelectionAsync(AppContext.BaseDirectory, name, cancellationToken);
+        cancellationToken.ThrowIfCancellationRequested();
+        ActiveEnvironmentName = name;
+    }
 
     /// <summary>
     /// Loads <c>wallboard.json</c> from the executable folder or development source folder.
@@ -290,6 +329,9 @@ internal static class WallboardConfigReader
             ConfirmExit = configuration.ConfirmExit,
             MemoryMonitorEnabled = configuration.MemoryMonitorEnabled,
             MemoryWarningMegabytes = Math.Clamp(configuration.MemoryWarningMegabytes, 256, 65536),
+            MemoryProtectionEnabled = configuration.MemoryProtectionEnabled,
+            MemoryProtectionSustainedMinutes = Math.Clamp(configuration.MemoryProtectionSustainedMinutes, 1, 60),
+            MemoryProtectionCooldownMinutes = Math.Clamp(configuration.MemoryProtectionCooldownMinutes, 5, 1440),
             AutoHideTopBarEnabled = configuration.AutoHideTopBarEnabled,
             Theme = ThemePalette.NormalizeName(configuration.Theme),
             Panels = panels.Count == 0 ? CreateDefaultConfiguration().Panels : panels

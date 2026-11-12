@@ -37,4 +37,4 @@ This is not digital signing, malware protection, an immutable filesystem boundar
 - Add signing or a full updater now: deferred as separate delivery/security work, not implied by hashes.
 
 ---
-[Previous: ADR 0003](0003-organized-self-contained-portables.md) | [Documentation home](../README.md) | [Next: Documentation standard](../DOCUMENTATION_STANDARD.md)
+[Previous: ADR 0003](0003-organized-self-contained-portables.md) | [Documentation home](../README.md) | [Next: ADR 0005](0005-operational-safety-and-manual-publication.md)

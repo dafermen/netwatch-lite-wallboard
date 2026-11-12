@@ -28,6 +28,10 @@ Startup-integrity unit tests link the Framework-compatible validator source and 
 
 ## 1. Acceptance Testing
 
+Operational-safety coverage adds log byte/file limits, concurrent writers, locked logs, oversized legacy tails, support-report allowlisting/new-file behavior, strict profile selection and non-writing discovery, memory defaults/round-trips and sustained/cooldown/budget/partial/gap invariants. An additional desktop test verifies unsaved invalid panel edits still require confirmation before profile switching; minimum-size checks include the profile selector and protection checkbox.
+
+`scripts/test-release-package.ps1` runs isolated PowerShell fixtures after a Release build. It checks tag/source/hash/ProductVersion binding and uses a simulated GitHub client to prove Draft never publishes and a tampered download cannot publish. These tests do not call GitHub. A real authorized workflow draft run is separate evidence; never infer it from local mocks.
+
 Confirm the release solves its intended user scenarios.
 
 Minimum checks:

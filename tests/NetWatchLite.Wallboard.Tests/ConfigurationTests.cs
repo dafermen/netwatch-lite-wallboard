@@ -18,6 +18,9 @@ public sealed class ConfigurationTests : IDisposable
         Assert.Equal(4, configuration.DefaultLayout);
         Assert.Equal("high-contrast", configuration.Theme);
         Assert.True(configuration.AutomaticRecoveryEnabled);
+        Assert.False(configuration.MemoryProtectionEnabled);
+        Assert.Equal(5, configuration.MemoryProtectionSustainedMinutes);
+        Assert.Equal(30, configuration.MemoryProtectionCooldownMinutes);
         Assert.Equal(60, Assert.Single(configuration.Panels).RefreshSeconds);
     }
 

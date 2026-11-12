@@ -73,6 +73,8 @@ Portable publishing also uses the Windows .NET Framework C# compiler for its sma
 
 The launcher and `PackageIntegrity.cs` must compile with the Windows Framework compiler, independently of bundled .NET files. The validator source is also linked into xUnit tests; real-process package checks prove the legacy executable blocks invalid payloads before launching them. Generate/compile the embedded manifest only from a finalized fresh publish, never from an operator's deployment. See [Portable integrity](PORTABLE_INTEGRITY.md).
 
+For operational-safety changes, run `scripts/test-release-package.ps1` after building Release. It uses temporary fixtures and a mock GitHub command, never a live release. To exercise real publication, use the manual prerelease workflow with explicit approval and start in `artifact-only` or `draft`; see [Deployment](DEPLOYMENT.md). Do not replace a published version when code or dependency bytes change.
+
 ## Configuration Changes
 
 For a top-level setting, update:

@@ -10,6 +10,8 @@ NetWatch Lite Wallboard is licensed under MIT. It also depends on third-party so
 
 Package details and license metadata are available from the installed NuGet package and the [Microsoft.Web.WebView2 package page](https://www.nuget.org/packages/Microsoft.Web.WebView2).
 
+The rc.5 update pins SDK `1.0.4314.35`, the stable package reviewed on 2026-11-11. Packaging copies its original `LICENSE.txt` and `NOTICE.txt` as before. [Microsoft release notes](https://learn.microsoft.com/en-us/microsoft-edge/webview2/release-notes/sdk/1-0-4314-35) describe the SDK update; external WebView2 Runtime remains a separate Microsoft dependency.
+
 ## Platform Dependencies
 
 - The portable now redistributes the .NET 10 Desktop Runtime inside `app/`. Exact runtime package license/notices are copied into `licenses/dotnet-runtime/` and `licenses/windows-desktop/`; WebView2 SDK license/notices are in `licenses/webview2/`. These original files are required package contents, not replaced by this inventory. See the [.NET runtime license](https://github.com/dotnet/runtime/blob/main/LICENSE.TXT), [.NET third-party notices](https://github.com/dotnet/runtime/blob/main/THIRD-PARTY-NOTICES.TXT), and [Windows Desktop license](https://github.com/dotnet/windowsdesktop/blob/main/LICENSE).

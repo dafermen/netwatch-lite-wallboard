@@ -32,6 +32,13 @@ internal sealed class SettingsForm : Form
     private readonly NumericUpDown _rotationSecondsInput = new();
     private readonly NumericUpDown _autoRestartHoursInput = new();
     private readonly NumericUpDown _memoryWarningInput = new();
+    private readonly CheckBox _memoryProtectionCheckBox = new() { Name = "MemoryProtection" };
+    private readonly NumericUpDown _memorySustainedInput = new();
+    private readonly NumericUpDown _memoryCooldownInput = new();
+    private readonly ComboBox _profileComboBox = new() { Name = "ProfileSelector" };
+    private bool _hasUnsavedChanges;
+    private readonly Func<bool> _confirmDiscardProfile;
+    internal string? RequestedProfileName { get; private set; }
     private readonly ComboBox _defaultLayoutComboBox = new();
     private readonly ComboBox _themeComboBox = new();
     private readonly DataGridView _panelGrid = new();
@@ -57,10 +64,14 @@ internal sealed class SettingsForm : Form
     /// The incoming configuration is cloned immediately so UI edits are isolated until Save is pressed.
     /// </summary>
     /// <param name="configuration">Current runtime configuration.</param>
-    public SettingsForm(WallboardConfiguration configuration, Action<IWin32Window> showDiagnostics)
+    public SettingsForm(WallboardConfiguration configuration, Action<IWin32Window> showDiagnostics,
+        Func<bool>? confirmDiscardProfile = null)
     {
         _configuration = CloneConfiguration(configuration);
         _showDiagnostics = showDiagnostics;
+        _confirmDiscardProfile = confirmDiscardProfile ?? (() => MessageBox.Show(this,
+            "Discard unsaved edits and switch profile? Choose No to stay and save your changes first.",
+            "Switch Profile", MessageBoxButtons.YesNo, MessageBoxIcon.Warning, MessageBoxDefaultButton.Button2) == DialogResult.Yes);
 
         Text = "Wallboard Settings";
         AppIcon.ApplyTo(this);
@@ -97,7 +108,7 @@ internal sealed class SettingsForm : Form
             Padding = new Padding(14),
             BackColor = WindowBackColor
         };
-        root.RowStyles.Add(new RowStyle(SizeType.Absolute, 220));
+        root.RowStyles.Add(new RowStyle(SizeType.Absolute, 280));
         root.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
         root.RowStyles.Add(new RowStyle(SizeType.Absolute, 28));
         root.RowStyles.Add(new RowStyle(SizeType.Absolute, 64));
@@ -176,7 +187,7 @@ internal sealed class SettingsForm : Form
         {
             Dock = DockStyle.Fill,
             ColumnCount = 6,
-            RowCount = 2,
+            RowCount = 4,
             Padding = new Padding(10, 14, 10, 12)
         };
         panel.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 36));
@@ -187,6 +198,8 @@ internal sealed class SettingsForm : Form
         panel.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 12));
         panel.RowStyles.Add(new RowStyle(SizeType.Absolute, 26));
         panel.RowStyles.Add(new RowStyle(SizeType.Absolute, 34));
+        panel.RowStyles.Add(new RowStyle(SizeType.Absolute, 30));
+        panel.RowStyles.Add(new RowStyle(SizeType.Absolute, 36));
 
         _titleTextBox.Width = 420;
         _titleTextBox.BackColor = InputColor;
@@ -229,6 +242,22 @@ internal sealed class SettingsForm : Form
         panel.Controls.Add(_lowPowerModeCheckBox, 4, 1);
         panel.SetColumnSpan(_lowPowerModeCheckBox, 2);
 
+        panel.Controls.Add(CreateInlineLabel("Profile"), 0, 2);
+        ConfigureComboBox(_profileComboBox, []);
+        _profileComboBox.DisplayMember = nameof(ProfileChoice.DisplayName);
+        foreach (var name in WallboardConfigReader.GetAvailableProfiles())
+            _profileComboBox.Items.Add(new ProfileChoice(name));
+        _profileComboBox.SelectedItem = _profileComboBox.Items.Cast<ProfileChoice>()
+            .FirstOrDefault(choice => choice.Name == WallboardConfigReader.ActiveEnvironmentName);
+        panel.Controls.Add(_profileComboBox, 0, 3);
+        panel.SetColumnSpan(_profileComboBox, 4);
+        var switchButton = CreateCommandButton("Switch Profile", (_, _) => RequestProfileSwitch());
+        switchButton.Name = "SwitchProfile";
+        switchButton.Dock = DockStyle.Top;
+        switchButton.Height = 36;
+        panel.Controls.Add(switchButton, 4, 3);
+        panel.SetColumnSpan(switchButton, 2);
+
         group.Controls.Add(panel);
         return group;
     }
@@ -245,7 +274,7 @@ internal sealed class SettingsForm : Form
         {
             Dock = DockStyle.Fill,
             ColumnCount = 4,
-            RowCount = 5,
+            RowCount = 7,
             Padding = new Padding(10, 14, 10, 12)
         };
         panel.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 26));
@@ -257,6 +286,8 @@ internal sealed class SettingsForm : Form
         panel.RowStyles.Add(new RowStyle(SizeType.Absolute, 24));
         panel.RowStyles.Add(new RowStyle(SizeType.Absolute, 34));
         panel.RowStyles.Add(new RowStyle(SizeType.Absolute, 28));
+        panel.RowStyles.Add(new RowStyle(SizeType.Absolute, 24));
+        panel.RowStyles.Add(new RowStyle(SizeType.Absolute, 34));
 
         ConfigureComboBox(_themeComboBox, ["Dark", "Light", "High contrast"]);
         ConfigureNumericInput(_autoRestartHoursInput, minimum: 1, maximum: 24, width: 90);
@@ -267,6 +298,9 @@ internal sealed class SettingsForm : Form
         ConfigureRuntimeCheckBox(_confirmExitCheckBox, "Confirm exit");
         ConfigureRuntimeCheckBox(_memoryMonitorCheckBox, "Memory monitor");
         ConfigureRuntimeCheckBox(_autoHideTopBarCheckBox, "Auto-hide bar");
+        ConfigureRuntimeCheckBox(_memoryProtectionCheckBox, "Memory protection");
+        ConfigureNumericInput(_memorySustainedInput, minimum: 1, maximum: 60, width: 110);
+        ConfigureNumericInput(_memoryCooldownInput, minimum: 5, maximum: 1440, width: 110);
 
         panel.Controls.Add(CreateInlineLabel("Theme"), 0, 0);
         panel.Controls.Add(CreateInlineLabel("Restart"), 1, 0);
@@ -286,6 +320,13 @@ internal sealed class SettingsForm : Form
         panel.Controls.Add(_autoHideTopBarCheckBox, 3, 3);
         panel.Controls.Add(_automaticRecoveryCheckBox, 0, 4);
         panel.SetColumnSpan(_automaticRecoveryCheckBox, 4);
+        panel.Controls.Add(CreateInlineLabel("Protection"), 0, 5);
+        panel.Controls.Add(CreateInlineLabel("High for (min)"), 2, 5);
+        panel.Controls.Add(CreateInlineLabel("Cooldown (min)"), 3, 5);
+        panel.Controls.Add(_memoryProtectionCheckBox, 0, 6);
+        panel.SetColumnSpan(_memoryProtectionCheckBox, 2);
+        panel.Controls.Add(_memorySustainedInput, 2, 6);
+        panel.Controls.Add(_memoryCooldownInput, 3, 6);
 
         group.Controls.Add(panel);
         return group;
@@ -510,6 +551,9 @@ internal sealed class SettingsForm : Form
     /// </summary>
     private void WireChangeHandlers()
     {
+        _memoryProtectionCheckBox.CheckedChanged += (_, _) => MarkUnsavedChanges();
+        _memorySustainedInput.ValueChanged += (_, _) => MarkUnsavedChanges();
+        _memoryCooldownInput.ValueChanged += (_, _) => MarkUnsavedChanges();
         _titleTextBox.TextChanged += (_, _) => RunSafely(() => MarkUnsavedChanges(), "tracking title changes");
         _rotationCheckBox.CheckedChanged += (_, _) => RunSafely(() => MarkUnsavedChanges(), "tracking rotation changes");
         _lowPowerModeCheckBox.CheckedChanged += (_, _) => RunSafely(() => MarkUnsavedChanges(), "tracking low power mode changes");
@@ -525,13 +569,13 @@ internal sealed class SettingsForm : Form
         _defaultLayoutComboBox.SelectedIndexChanged += (_, _) => RunSafely(() => MarkUnsavedChanges(), "tracking layout changes");
         _themeComboBox.SelectedIndexChanged += (_, _) => RunSafely(() => MarkUnsavedChanges(), "tracking theme changes");
         _panelNameTextBox.TextChanged += (_, _) => RunSafely(
-            () => ApplySelectedPanelEditorChanges(showValidation: false),
+            () => { MarkUnsavedChanges(); ApplySelectedPanelEditorChanges(showValidation: false); },
             "tracking panel name changes");
         _panelUrlTextBox.TextChanged += (_, _) => RunSafely(
-            () => ApplySelectedPanelEditorChanges(showValidation: false),
+            () => { MarkUnsavedChanges(); ApplySelectedPanelEditorChanges(showValidation: false); },
             "tracking panel URL changes");
         _panelRefreshInput.ValueChanged += (_, _) => RunSafely(
-            () => ApplySelectedPanelEditorChanges(showValidation: false),
+            () => { MarkUnsavedChanges(); ApplySelectedPanelEditorChanges(showValidation: false); },
             "tracking panel refresh changes");
     }
 
@@ -552,6 +596,9 @@ internal sealed class SettingsForm : Form
         _rotationSecondsInput.Value = Math.Clamp(_configuration.RotationSeconds, 1, 3600);
         _autoRestartHoursInput.Value = Math.Clamp(_configuration.AutoRestartHours, 1, 24);
         _memoryWarningInput.Value = Math.Clamp(_configuration.MemoryWarningMegabytes, 256, 65536);
+        _memoryProtectionCheckBox.Checked = _configuration.MemoryProtectionEnabled;
+        _memorySustainedInput.Value = Math.Clamp(_configuration.MemoryProtectionSustainedMinutes, 1, 60);
+        _memoryCooldownInput.Value = Math.Clamp(_configuration.MemoryProtectionCooldownMinutes, 5, 1440);
         _defaultLayoutComboBox.SelectedItem = SupportedLayouts.Contains(_configuration.DefaultLayout)
             ? _configuration.DefaultLayout
             : 4;
@@ -864,6 +911,9 @@ internal sealed class SettingsForm : Form
         _configuration.ConfirmExit = _confirmExitCheckBox.Checked;
         _configuration.MemoryMonitorEnabled = _memoryMonitorCheckBox.Checked;
         _configuration.MemoryWarningMegabytes = (int)_memoryWarningInput.Value;
+        _configuration.MemoryProtectionEnabled = _memoryProtectionCheckBox.Checked;
+        _configuration.MemoryProtectionSustainedMinutes = (int)_memorySustainedInput.Value;
+        _configuration.MemoryProtectionCooldownMinutes = (int)_memoryCooldownInput.Value;
         _configuration.AutoHideTopBarEnabled = _autoHideTopBarCheckBox.Checked;
         _configuration.Theme = GetThemeNameFromDisplay(_themeComboBox.SelectedItem?.ToString());
         return true;
@@ -934,7 +984,23 @@ internal sealed class SettingsForm : Form
     /// <param name="message">Optional status text.</param>
     private void MarkUnsavedChanges(string message = "Unsaved changes")
     {
+        if (_isLoadingSelection) return;
+        _hasUnsavedChanges = true;
         SetStatus(message);
+    }
+
+    private void RequestProfileSwitch()
+    {
+        if (_profileComboBox.SelectedItem is not ProfileChoice choice || choice.Name == WallboardConfigReader.ActiveEnvironmentName) return;
+        if (_hasUnsavedChanges && !_confirmDiscardProfile()) return;
+        RequestedProfileName = choice.Name;
+        DialogResult = DialogResult.Ignore;
+        Close();
+    }
+
+    private sealed record ProfileChoice(string Name)
+    {
+        public string DisplayName => Name.Length == 0 ? "default (wallboard.json)" : Name;
     }
 
     /// <summary>
@@ -1015,6 +1081,9 @@ internal sealed class SettingsForm : Form
             ConfirmExit = configuration.ConfirmExit,
             MemoryMonitorEnabled = configuration.MemoryMonitorEnabled,
             MemoryWarningMegabytes = configuration.MemoryWarningMegabytes,
+            MemoryProtectionEnabled = configuration.MemoryProtectionEnabled,
+            MemoryProtectionSustainedMinutes = configuration.MemoryProtectionSustainedMinutes,
+            MemoryProtectionCooldownMinutes = configuration.MemoryProtectionCooldownMinutes,
             AutoHideTopBarEnabled = configuration.AutoHideTopBarEnabled,
             Theme = configuration.Theme,
             Panels = configuration.Panels
@@ -1046,6 +1115,9 @@ internal sealed class SettingsForm : Form
         _configuration.ConfirmExit = configuration.ConfirmExit;
         _configuration.MemoryMonitorEnabled = configuration.MemoryMonitorEnabled;
         _configuration.MemoryWarningMegabytes = configuration.MemoryWarningMegabytes;
+        _configuration.MemoryProtectionEnabled = configuration.MemoryProtectionEnabled;
+        _configuration.MemoryProtectionSustainedMinutes = configuration.MemoryProtectionSustainedMinutes;
+        _configuration.MemoryProtectionCooldownMinutes = configuration.MemoryProtectionCooldownMinutes;
         _configuration.AutoHideTopBarEnabled = configuration.AutoHideTopBarEnabled;
         _configuration.Theme = configuration.Theme;
         _configuration.Panels = configuration.Panels;
@@ -1087,6 +1159,9 @@ internal sealed class SettingsForm : Form
             ConfirmExit = configuration.ConfirmExit,
             MemoryMonitorEnabled = configuration.MemoryMonitorEnabled,
             MemoryWarningMegabytes = Math.Clamp(configuration.MemoryWarningMegabytes, 256, 65536),
+            MemoryProtectionEnabled = configuration.MemoryProtectionEnabled,
+            MemoryProtectionSustainedMinutes = Math.Clamp(configuration.MemoryProtectionSustainedMinutes, 1, 60),
+            MemoryProtectionCooldownMinutes = Math.Clamp(configuration.MemoryProtectionCooldownMinutes, 5, 1440),
             AutoHideTopBarEnabled = configuration.AutoHideTopBarEnabled,
             Theme = ThemePalette.NormalizeName(configuration.Theme),
             Panels = panels.Count == 0

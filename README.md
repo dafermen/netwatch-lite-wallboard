@@ -21,6 +21,9 @@ The application is intentionally simple:
 - Reduce memory use while minimized with low-power mode.
 - Show estimated host plus WebView2 memory, peak use, and a restart recommendation.
 - Recover failed panels automatically with bounded retries.
+- Optionally recover visible panels after sustained high memory, with cooldown and a two-attempt session limit.
+- Switch existing configuration profiles from Settings without changing files or browser sessions.
+- Export an allowlisted support report without operator names, URLs, paths, cookies, or raw logs.
 - Start in fullscreen kiosk mode and confirm before closing.
 - Auto-hide the top bar for TV displays.
 - Use dark, light, or high-contrast native shell themes.
@@ -88,7 +91,7 @@ dotnet build
 
 ## Publish Portable
 
-The current build is **v0.4.0-rc.4**, an evaluation candidate with portable startup integrity checks. Long-running production validation remains pending. See [candidate validation](docs/releases/v0.4.0-rc.4.md) for completed checks, limitations, and requirements.
+The current build is **v0.4.0-rc.5**, an evaluation candidate adding bounded logs, safe support reports, optional memory protection, profile selection, and a manual prerelease workflow. Long-running production validation remains pending. See [candidate validation](docs/releases/v0.4.0-rc.5.md). The maintainer authorized only a draft for rc.5, not public publication or stable promotion.
 
 Download the tested ZIP and its SHA-256 sidecar from the [v0.4.0-rc.4 prerelease](https://github.com/dafermen/netwatch-lite-wallboard/releases/tag/v0.4.0-rc.4). The release tag identifies the existing binary's source commit (`9f30c6b`); newer documentation on `main` does not rebuild or replace that archive. This is an evaluation prerelease, not a stable release.
 
@@ -150,6 +153,9 @@ Example:
   "confirmExit": false,
   "memoryMonitorEnabled": true,
   "memoryWarningMegabytes": 1500,
+  "memoryProtectionEnabled": false,
+  "memoryProtectionSustainedMinutes": 5,
+  "memoryProtectionCooldownMinutes": 30,
   "autoHideTopBarEnabled": false,
   "theme": "dark",
   "panels": [

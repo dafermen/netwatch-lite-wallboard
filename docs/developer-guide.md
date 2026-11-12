@@ -76,6 +76,9 @@ Microsoft Edge WebView2
 | `SettingsForm.cs` | Visual editor for the JSON configuration. |
 | `DiagnosticsForm.cs` | Read-only troubleshooting window. |
 | `AppErrorLog.cs` | Writes unexpected errors to a local log file. |
+| `RollingFileLog.cs` | Caps entries/files and rotates only the named application log and its three backups. |
+| `MemoryProtectionPolicy.cs` | Pure sustained-memory/cooldown/session-budget decisions; no process or filesystem actions. |
+| `SupportReport.cs` | Serializes an allowlist of numeric/runtime data, bounded memory/events, and writes a new report only. |
 | `AppIcon.cs` | Applies an independent clone of the embedded ICO to each native window and disposes it with that window. |
 | `Data/wallboard.json` | Default development configuration. |
 | `scripts/publish-portable.ps1` | Creates a portable publish folder and ZIP. |
@@ -102,6 +105,9 @@ WallboardConfiguration
   confirmExit
   memoryMonitorEnabled
   memoryWarningMegabytes
+  memoryProtectionEnabled
+  memoryProtectionSustainedMinutes
+  memoryProtectionCooldownMinutes
   autoHideTopBarEnabled
   theme
   panels[]
@@ -271,7 +277,11 @@ The confirmation is intentionally in `FormClosing` so it catches the window clos
 
 `memoryMonitorEnabled` starts a timer that checks the host and associated WebView2 working sets about once per minute. `MemoryMonitor` deduplicates process IDs from `CoreWebView2Environment.GetProcessInfos()`, records a lifetime peak, and retains at most 1,440 samples. Exited or inaccessible processes result in a clearly marked partial sample. Shared pages can be counted in multiple working sets, so this is an estimate rather than exact private RAM.
 
-If memory is above `memoryWarningMegabytes`, the top bar label recommends restart. This is intentionally advisory; it does not restart automatically.
+If memory is above `memoryWarningMegabytes`, the top bar recommends restart. The separate opt-in `MemoryProtectionPolicy` can reserve at most two sustained-high-memory attempts per session, respecting cooldown and complete continuous samples. It never performs the restart itself: the main form checks UI/lifecycle eligibility and reuses its serialized render path. Reloads reset only tracking, not the safety budget. See [Configuration](CONFIGURATION.md) for exact rules.
+
+The Settings profile combo does not mutate the global reader. It returns a requested profile only after unsaved-edit confirmation. The main form validates the exact selected JSON before changing `ActiveEnvironmentName`, then reloads; no file or machine environment variable is written. Startup command-line precedence remains unchanged. Clone/import/read/save code must preserve all optional memory fields.
+
+Support export deliberately does not sanitize a raw text dump with regular expressions. It constructs a new schema from allowed values, excluding all operator strings and logs. `RuntimeEventHistory` accepts only enum kinds and UTC times and retains 100 entries. Test privacy with synthetic secrets in titles/names/URLs and assert they never occur in JSON.
 
 ## Auto-Hide Top Bar
 

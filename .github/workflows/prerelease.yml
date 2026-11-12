@@ -1,0 +1,121 @@
+name: Prepare Portable Prerelease
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Exact project tag (vX.Y.Z-rc.N)
+        required: true
+        type: string
+      mode:
+        description: Publication mode
+        type: choice
+        default: artifact-only
+        options:
+          - artifact-only
+          - draft
+          - publish
+
+permissions:
+  contents: read
+
+concurrency:
+  group: portable-prerelease-publication
+  cancel-in-progress: false
+
+env:
+  DOTNET_CLI_TELEMETRY_OPTOUT: '1'
+  DOTNET_NOLOGO: '1'
+
+jobs:
+  validate:
+    runs-on: windows-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.sha }}
+      - uses: actions/setup-dotnet@0f4a354dd5547a28c70b7853dbd95d5b67886e73 # v6.1.0
+        with:
+          dotnet-version: 10.0.x
+      - name: Validate manual main-branch prerelease request
+        shell: powershell
+        env:
+          RELEASE_TAG: ${{ inputs.tag }}
+          SOURCE_COMMIT: ${{ github.sha }}
+          SOURCE_REF: ${{ github.ref }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          if ($env:SOURCE_REF -ne 'refs/heads/main') { throw 'Dispatch from main only.' }
+          . .\scripts\release-package.ps1
+          [xml]$project = Get-Content .\src\NetWatchLite.Wallboard.WebView2\NetWatchLite.Wallboard.WebView2.csproj
+          Assert-PrereleaseIdentity -Tag $env:RELEASE_TAG -Version $project.Project.PropertyGroup.Version -SourceCommit $env:SOURCE_COMMIT
+      - name: Validate documentation
+        shell: powershell
+        run: .\scripts\validate-docs.ps1
+      - name: Restore and build
+        shell: powershell
+        run: |
+          dotnet restore .\netwatch-lite-wallboard.slnx
+          if ($LASTEXITCODE -ne 0) { throw 'Restore failed.' }
+          dotnet build .\netwatch-lite-wallboard.slnx -c Release --no-restore
+          if ($LASTEXITCODE -ne 0) { throw 'Build failed.' }
+      - name: Run regression and release guard tests
+        shell: powershell
+        run: |
+          dotnet test .\netwatch-lite-wallboard.slnx -c Release --no-build --no-restore --logger trx --results-directory TestResults
+          if ($LASTEXITCODE -ne 0) { throw 'Regression tests failed.' }
+          .\scripts\test-release-package.ps1
+      - name: Audit dependencies
+        shell: powershell
+        run: |
+          $audit = dotnet list .\netwatch-lite-wallboard.slnx package --vulnerable --include-transitive 2>&1 | Out-String
+          Write-Host $audit
+          if ($LASTEXITCODE -ne 0 -or $audit -match 'has the following vulnerable packages|NU1900') { throw 'Dependency audit failed or was incomplete.' }
+      - name: Build and test exact ZIP
+        shell: powershell
+        run: .\scripts\publish-portable.ps1
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: verified-prerelease-package
+          path: artifacts/packages/*
+          if-no-files-found: error
+          retention-days: 7
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: always()
+        with:
+          name: prerelease-test-evidence
+          path: |
+            TestResults/*.trx
+            artifacts/verification/**/*.json
+            artifacts/verification/*/integrity-*.txt
+          retention-days: 7
+
+  publication:
+    if: inputs.mode != 'artifact-only'
+    needs: validate
+    runs-on: windows-latest
+    timeout-minutes: 20
+    environment: prerelease
+    permissions:
+      contents: write
+      actions: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.sha }}
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: verified-prerelease-package
+          path: artifacts/release-input
+          digest-mismatch: error
+      - name: Verify, upload draft, download-compare, and optionally publish
+        shell: powershell
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ inputs.tag }}
+          RELEASE_MODE: ${{ inputs.mode }}
+          SOURCE_COMMIT: ${{ github.sha }}
+        run: |
+          $mode = if ($env:RELEASE_MODE -eq 'publish') { 'Publish' } else { 'Draft' }
+          .\scripts\publish-prerelease.ps1 -Tag $env:RELEASE_TAG -SourceCommit $env:SOURCE_COMMIT -PackageDirectory .\artifacts\release-input -Repository $env:GITHUB_REPOSITORY -Mode $mode

@@ -35,6 +35,10 @@ internal sealed class WallboardForm : Form
     private readonly Dictionary<WebViewPanelControl, ActivePanelSlot> _activePanelSlots = [];
     private readonly SemaphoreSlim _renderLock = new(1, 1);
     private readonly MemoryMonitor _memoryMonitor = new();
+    private readonly MemoryProtectionPolicy _memoryProtection = new();
+    private readonly RuntimeEventHistory _runtimeEvents = new();
+    private bool _settingsOpen;
+    private bool _memoryRecoveryInProgress;
     private readonly Dictionary<string, PanelRecoveryPolicy> _recoveryPolicies = [];
     private readonly CancellationTokenSource _lifetimeCancellation = new();
     private readonly Func<CancellationToken, Task<WallboardConfiguration>> _configurationLoader;
@@ -84,7 +88,8 @@ internal sealed class WallboardForm : Form
         Controls.Add(_topBar);
 
         _rotationTimer.Tick += (_, _) => RunSafely(() => RotatePage(), "rotating wallboard pages");
-        _autoRestartTimer.Tick += (_, _) => _ = RunSafelyAsync(RestartVisiblePanelsAsync, "scheduled panel restart");
+        _autoRestartTimer.Tick += (_, _) => _ = RunSafelyAsync(
+            () => RestartVisiblePanelsCoreAsync(RuntimeEventKind.ScheduledRestart), "scheduled panel restart");
         _memoryTimer.Tick += (_, _) => RunSafely(UpdateMemoryStatus, "updating memory monitor");
         _topBarAutoHideTimer.Tick += (_, _) => RunSafely(HideTopBarIfIdle, "auto-hiding top bar");
         Load += (_, _) => _ = RunSafelyAsync(InitializeAsync, "initializing the wallboard");
@@ -235,6 +240,7 @@ internal sealed class WallboardForm : Form
     /// </summary>
     private async Task ReloadConfigurationAsync()
     {
+        _memoryProtection.SuspendTracking();
         _rotationTimer.Stop();
         _configuration = await _configurationLoader(_lifetimeCancellation.Token);
         if (_closing)
@@ -273,17 +279,26 @@ internal sealed class WallboardForm : Form
         ExitFullscreen();
 
         ShowTopBar();
-        using var settingsForm = new SettingsForm(_configuration, OpenDiagnostics);
-        settingsForm.Shown += (_, _) =>
+        _settingsOpen = true;
+        _memoryProtection.SuspendTracking();
+        try
         {
-            settingsForm.BringToFront();
-            settingsForm.Activate();
-        };
-        var result = settingsForm.ShowDialog(this);
-
-        if (result is DialogResult.OK or DialogResult.Retry)
+            using var settingsForm = new SettingsForm(_configuration, OpenDiagnostics);
+            settingsForm.Shown += (_, _) => { settingsForm.BringToFront(); settingsForm.Activate(); };
+            var result = settingsForm.ShowDialog(this);
+            if (result == DialogResult.Ignore && settingsForm.RequestedProfileName is { } profile)
+            {
+                await WallboardConfigReader.SelectProfileAsync(profile, _lifetimeCancellation.Token);
+                _runtimeEvents.Record(RuntimeEventKind.ProfileChanged);
+                await ReloadConfigurationAsync();
+            }
+            else if (result is DialogResult.OK or DialogResult.Retry)
+                await ReloadConfigurationAsync();
+        }
+        finally
         {
-            await ReloadConfigurationAsync();
+            _settingsOpen = false;
+            _memoryProtection.SuspendTracking();
         }
     }
 
@@ -299,7 +314,9 @@ internal sealed class WallboardForm : Form
             GetPageCount(),
             _activePanels.Count,
             _webViewUserDataFolder,
-            GetMemoryDiagnostics);
+            GetMemoryDiagnostics,
+            () => SupportReport.Create(_configuration, _activePanels.Count, _memoryMonitor.History,
+                _runtimeEvents.Snapshot(), _memoryProtection.Attempts));
         diagnosticsForm.ShowDialog(owner);
     }
 
@@ -457,7 +474,7 @@ internal sealed class WallboardForm : Form
         _memoryTimer.Stop();
         _memoryLabel.Visible = _configuration.MemoryMonitorEnabled;
 
-        if (_closing || !_configuration.MemoryMonitorEnabled)
+        if (_closing || !(_configuration.MemoryMonitorEnabled || _configuration.MemoryProtectionEnabled))
         {
             return;
         }
@@ -525,6 +542,7 @@ internal sealed class WallboardForm : Form
                 {
                     return;
                 }
+                _runtimeEvents.Record(RuntimeEventKind.AutomaticRecovery);
             }
             else
             {
@@ -588,12 +606,17 @@ internal sealed class WallboardForm : Form
     /// <summary>
     /// Recreates all visible WebView2 controls on the active page.
     /// </summary>
-    private async Task RestartVisiblePanelsAsync()
+    private Task RestartVisiblePanelsAsync() => RestartVisiblePanelsCoreAsync(RuntimeEventKind.ManualRestart);
+
+    private async Task RestartVisiblePanelsCoreAsync(RuntimeEventKind reason)
     {
         if (_closing || _lowPowerSuspended)
         {
             return;
         }
+
+        _memoryProtection.SuspendTracking();
+        _runtimeEvents.Record(reason);
 
         foreach (var slot in _activePanelSlots.Values)
         {
@@ -731,16 +754,23 @@ internal sealed class WallboardForm : Form
     /// </summary>
     private void UpdateMemoryStatus()
     {
-        if (!_configuration.MemoryMonitorEnabled)
+        if (!(_configuration.MemoryMonitorEnabled || _configuration.MemoryProtectionEnabled))
         {
             _memoryLabel.Visible = false;
             return;
         }
 
         var sample = CollectMemorySample();
+        if (_memoryProtection.Observe(sample, _configuration,
+            !_closing && !_lowPowerSuspended && !_settingsOpen && !_memoryRecoveryInProgress &&
+            WindowState != FormWindowState.Minimized && _renderLock.CurrentCount > 0 && _activePanels.Count > 0))
+        {
+            _memoryRecoveryInProgress = true;
+            _ = RunSafelyAsync(RecoverHighMemoryAsync, "recovering sustained high memory");
+        }
         var memoryMegabytes = sample.TotalBytes / 1024 / 1024;
         var threshold = Math.Clamp(_configuration.MemoryWarningMegabytes, 256, 65536);
-        _memoryLabel.Visible = true;
+        _memoryLabel.Visible = _configuration.MemoryMonitorEnabled;
         _memoryLabel.ForeColor = memoryMegabytes >= threshold
             ? _theme.WarningTextColor
             : _theme.SecondaryTextColor;
@@ -748,7 +778,25 @@ internal sealed class WallboardForm : Form
             ? $"RAM {memoryMegabytes:N0} MB !"
             : $"RAM {memoryMegabytes:N0} MB{(sample.IsPartial ? " *" : "")}";
         _topBarToolTip.SetToolTip(_memoryLabel, _memoryMonitor.Describe() +
-            (memoryMegabytes >= threshold ? "Restart All is recommended. Memory alone never triggers an automatic restart." : ""));
+            (memoryMegabytes >= threshold ? "Restart All is recommended. " : "") +
+            (_configuration.MemoryProtectionEnabled
+                ? $"Memory protection: {_memoryProtection.Attempts}/{MemoryProtectionPolicy.MaximumAttempts} attempts this session."
+                : "Memory protection is off; memory never triggers an automatic restart."));
+    }
+
+    private async Task RecoverHighMemoryAsync()
+    {
+        try
+        {
+            if (!_closing && !_lowPowerSuspended && !_settingsOpen && WindowState != FormWindowState.Minimized)
+                await RestartVisiblePanelsCoreAsync(RuntimeEventKind.MemoryRecovery);
+        }
+        catch
+        {
+            _runtimeEvents.Record(RuntimeEventKind.RecoveryFailed);
+            throw;
+        }
+        finally { _memoryRecoveryInProgress = false; }
     }
 
     private MemorySnapshot CollectMemorySample()
@@ -773,7 +821,7 @@ internal sealed class WallboardForm : Form
 
     private string GetMemoryDiagnostics()
     {
-        if (!_configuration.MemoryMonitorEnabled)
+        if (!(_configuration.MemoryMonitorEnabled || _configuration.MemoryProtectionEnabled))
         {
             return "Memory monitor disabled in Settings.";
         }
@@ -1220,6 +1268,7 @@ internal sealed class WallboardForm : Form
             }
             _rotationTimer.Stop();
             AppErrorLog.ShowUnexpectedError(this, context, ex);
+            _runtimeEvents.Record(RuntimeEventKind.UnexpectedError);
         }
     }
 
@@ -1238,6 +1287,7 @@ internal sealed class WallboardForm : Form
         {
             _rotationTimer.Stop();
             AppErrorLog.ShowUnexpectedError(this, context, ex);
+            _runtimeEvents.Record(RuntimeEventKind.UnexpectedError);
         }
     }
 

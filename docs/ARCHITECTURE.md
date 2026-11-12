@@ -38,6 +38,9 @@ The application does not expose a network API, host a server, scrape page conten
 | Portable launcher | Uses Windows .NET Framework to forward arguments to the self-contained .NET 10 payload in `app/`. |
 | `PackageIntegrity` | Validates the embedded manifest, external copy, protected file sizes/hashes, paths, and unexpected payload files before loading the portable runtime. |
 | `MemoryMonitor` | Counts distinct host/browser process IDs, tolerates exited processes, and retains bounded history and peak measurements. |
+| `MemoryProtectionPolicy` | Opt-in sustained threshold/cooldown decision with two attempts per session; independent of UI/actions. |
+| `RollingFileLog` | Bounded, synchronized rotation of the application error log, independent of operator data. |
+| `SupportReport` | Allowlisted, new-file-only support JSON with bounded numeric samples and typed events, never raw logs/configuration. |
 | `PanelRecoveryPolicy` | Keeps a bounded retry budget across WebView2 replacements and requires a stable minute before resetting it. |
 
 ## Startup Flow
@@ -103,11 +106,13 @@ Generated output and machine-specific backups are excluded from source control.
 
 ## Extension Rules
 
-The application and test suite target .NET 10 LTS. `global.json` selects a stable 10.0 SDK; CI restores, builds, and tests the solution on Windows. The WebView2 package remains pinned while migrating the framework to reduce simultaneous dependency changes.
+The application and test suite target .NET 10 LTS. `global.json` selects a stable 10.0 SDK; CI restores, builds, and tests the solution on Windows. After the framework migration, WebView2 was explicitly reviewed and updated to stable `1.0.4314.35`. SDK updates do not bundle or reset the separately installed browser Runtime.
 
 Panel recovery timers belong to `WebViewPanelControl`; retry state belongs to the main form's dictionary keyed by panel runtime identity. This prevents a new control from resetting the retry budget. The main form serializes replacements with the existing render semaphore. When a shared browser process exits, its controls are disposed before recreating the environment and reconnecting the visible group. Closing cancels initialization and pending retries; low-power disposal also uses the render lock.
 
 Memory enumeration uses `CoreWebView2Environment.GetProcessInfos()` on the UI thread. Only those process IDs and the host are sampled. History is bounded to avoid introducing a new long-session memory leak. Both memory accounting and retry decisions are independent of UI controls and covered by deterministic tests.
+
+Memory protection, explicit profile selection, support-report privacy and the manual draft-first publication boundary are recorded in [ADR 0005](adr/0005-operational-safety-and-manual-publication.md). No new scraping, telemetry upload, process killer, updater, or integrity-disable setting is introduced.
 
 - Put panel-specific behavior in `WebViewPanelControl`.
 - Put whole-window behavior in `WallboardForm`.

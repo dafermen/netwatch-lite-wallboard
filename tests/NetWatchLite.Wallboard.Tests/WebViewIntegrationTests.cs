@@ -42,6 +42,15 @@ public sealed class WebViewIntegrationTests(ITestOutputHelper output)
         Assert.True(recovery.Checked);
         Assert.True(recovery.Visible);
         Assert.True(recovery.Parent!.ClientRectangle.Contains(recovery.Bounds));
+        var protection = Assert.Single(Descendants(settings).OfType<CheckBox>(), checkBox => checkBox.Name == "MemoryProtection");
+        Assert.False(protection.Checked);
+        Assert.True(protection.Visible);
+        Assert.True(protection.Parent!.ClientRectangle.Contains(protection.Bounds));
+        var selector = Assert.Single(Descendants(settings).OfType<ComboBox>(), control => control.Name == "ProfileSelector");
+        Assert.True(selector.Visible);
+        Assert.True(selector.Parent!.ClientRectangle.Contains(selector.Bounds));
+        var switchProfile = Assert.Single(Descendants(settings).OfType<Button>(), control => control.Name == "SwitchProfile");
+        Assert.InRange(switchProfile.Height, 32, 40);
         var delete = Assert.Single(Descendants(settings).OfType<Button>(), button => button.Text == "Delete");
         var editor = Assert.IsType<TableLayoutPanel>(delete.Parent!.Parent);
         Assert.True(editor.AutoScroll);
@@ -53,6 +62,33 @@ public sealed class WebViewIntegrationTests(ITestOutputHelper output)
             Assert.True(ancestor.RectangleToScreen(ancestor.ClientRectangle).Contains(deleteBounds),
                 $"Delete must be reachable. Ancestor {ancestor.GetType().Name}: {ancestor.RectangleToScreen(ancestor.ClientRectangle)}; Delete: {deleteBounds}; Scroll: {editor.AutoScrollPosition}.");
         }
+    }, TimeSpan.FromSeconds(15));
+
+    [WebViewFact]
+    public Task ProfileSwitchRequiresExplicitDiscardEvenForInvalidPanelEdits() => RunOnUiThreadAsync(async _ =>
+    {
+        var allow = false;
+        var confirmations = 0;
+        var original = new WallboardConfiguration { Panels = [new() { Name = "Original", Url = "https://example.com/" }] };
+        using var settings = new SettingsForm(original, _ => { }, () => { confirmations++; return allow; });
+        settings.Show();
+        await Task.Delay(100);
+        var combo = (ComboBox)settings.Controls.Find("ProfileSelector", true).Single();
+        Assert.True(combo.Items.Count >= 2);
+        var targetIndex = combo.SelectedIndex == 0 ? 1 : 0;
+        combo.SelectedIndex = targetIndex;
+        var url = (TextBox)typeof(SettingsForm).GetField("_panelUrlTextBox", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!.GetValue(settings)!;
+        url.Text = "javascript:invalid";
+        var button = (Button)settings.Controls.Find("SwitchProfile", true).Single();
+        button.PerformClick();
+        Assert.Null(settings.RequestedProfileName);
+        Assert.False(settings.IsDisposed);
+        Assert.Equal(1, confirmations);
+        allow = true;
+        button.PerformClick();
+        Assert.NotNull(settings.RequestedProfileName);
+        Assert.Equal(2, confirmations);
+        Assert.Equal("https://example.com/", Assert.Single(original.Panels).Url);
     }, TimeSpan.FromSeconds(15));
 
     [WebViewFact]

@@ -24,6 +24,8 @@ The application targets .NET 8, whose support ends on November 10, 2026. Its mem
 
 ## Consequences
 
+The original migration kept memory warnings advisory. [ADR 0005](0005-operational-safety-and-manual-publication.md) later adds separate explicit opt-in sustained-memory protection with a session budget; warning-only remains the default.
+
 New builds require .NET 10 Desktop Runtime (bundled in organized portables from rc.2; see [ADR 0003](0003-organized-self-contained-portables.md)). Existing JSON profiles remain readable. Memory totals will generally be larger because browser processes are now included; shared physical pages mean the value is approximate. A crash in the shared browser process requires reconnecting all visible panels. The monitor remains advisory and never restarts panels solely because memory is high.
 
 Resource tests produce repeatable CSV/TRX evidence, but short runs cannot establish 24-hour production stability. The existing MSB3277 WebView2/WPF warning remains tracked separately.

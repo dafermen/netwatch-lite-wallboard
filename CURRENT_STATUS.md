@@ -1,6 +1,6 @@
 # Current Status
 
-Last updated: 2026-11-07
+Last updated: 2026-11-11
 
 ## Repository State
 
@@ -9,7 +9,7 @@ Last updated: 2026-11-07
 - Main branch: `main`
 - Stage-2 source base / previously synchronized main: `44ec4c5` (icon and organized portable stage). The preceding push CI passed.
 - Stage-2 implementation delivered and synchronized at `9f30c6b`; [push CI passed](https://github.com/dafermen/netwatch-lite-wallboard/actions/runs/42384610906). The [rc.4 evaluation prerelease](https://github.com/dafermen/netwatch-lite-wallboard/releases/tag/v0.4.0-rc.4) now publishes that exact binary and checksum; documentation-only updates continue on `main`.
-- Current project version: `0.4.0-rc.4`; assembly/file version `0.4.0.0`.
+- Current project version: `0.4.0-rc.5`; assembly/file version `0.4.0.0`. Implementation base for this stage: `fa18501`.
 - Implementation base reviewed for the current stability work: `6628569`.
 - The .NET 10 portable is an evaluation candidate. The old v0.3.0 portable is preserved.
 
@@ -89,6 +89,17 @@ Documentation navigation validation on 2026-08-01:
 
 ## Current Open Work
 
+### Operational Improvements 2 Through 7
+
+- Implemented bounded general-log rotation (1 MiB plus three backups, 32 KiB entries), structured local support export without operator strings/raw logs, and bounded numeric/event history.
+- Added optional memory protection (default off): sustained complete high samples, cooldown, UI/lifecycle exclusions and two reserved attempts per application session. Existing controls are recreated without process killing or profile deletion; working-set estimates are not a leak-fix guarantee.
+- Settings now offers session-only profile switching, explicit unsaved-discard confirmation and strict existing-file parsing before changing selection. Startup aliases, precedence, fallback, save and backup paths remain intact. Examples add only optional protection defaults, never modify deployed profiles.
+- Reviewed official stable WebView2 SDK `1.0.4314.35` and updated only that NuGet dependency. Reviewed/pinned checkout `v7.0.1`, setup-dotnet `v6.1.0`, upload-artifact `v7.0.2`, download-artifact `v8.0.2` for hosted Windows/Node 24.
+- Added a main-only manual prerelease workflow with artifact-only default, draft-first upload/download verification, ProductVersion/full-SHA binding, existing-version refusal and a separate scoped-write publication job. Environment reviewers require GitHub configuration; YAML alone does not enable them.
+- Both complete desktop/browser runs passed 88 tests with zero failures/skips, including the final button-size/typed-event regression (`TestResults/dafer_DESKTOP-1DUT53N_2026-11-11_23_24_30_net10.0.trx`). Release-package fixtures and mock GitHub passed 15 checks, including wrong draft identity, download failure and tampering. Actionlint 1.7.12 passed both workflows; NuGet audit found no vulnerable packages. Documentation passed for 34 Markdown files, 288 local links and three images; PowerShell syntax/whitespace checks passed. Known MSB3277 remains.
+- The preliminary exact ZIP passed 132 assertions (`artifacts/verification/b53b86f309b847aebf26817562c73383/`). Isolated UI smoke switched demo to a synthetic profile without changing any JSON, displayed the new options, exported valid schema-1 JSON omitting synthetic operator strings/URLs/paths, and closed cleanly. Browser data used a separate folder. A visual oversized profile button was corrected and its height is now asserted. Generated reports remain outside source control.
+- User explicitly approved pushing changes and preparing **only a draft** of rc.5 to test the workflow. Required before delivery: final suite, isolated UI smoke, audited dependencies, exact ZIP/guard tests, source synchronization and CI, real draft run and downloaded-asset hash comparison. Do not publish the draft, alter rc.4, or change stable Latest. The 24-hour production test (recommendation 1) was deliberately excluded by the user and remains pending.
+
 ### Portable Integrity Stage 2
 
 - Implemented pre-runtime validation in the Windows Framework root launcher. The external XML must match its embedded reference; every `app/` file plus `portable-layout.json` is checked for expected length/SHA-256. Extra files, unreadable/redirected paths, unsafe metadata, and XML DTDs fail closed.
@@ -160,7 +171,7 @@ Current test automation:
 
 Implementation details:
 
-- `global.json`, app, tests, and CI select .NET 10. WebView2 stays pinned at `1.0.3351.48` during framework migration.
+- `global.json`, app, tests, and CI select .NET 10. WebView2 stayed at `1.0.3351.48` during migration and was explicitly reviewed/upgraded to `1.0.4314.35` in the operational-safety stage.
 - `automaticRecoveryEnabled` defaults to true when absent from old JSON and is exposed in Settings/import/export/diagnostics and all example profiles.
 - Recovery delays are 5/15/30 seconds, with three attempts retained across control recreation. A successful page followed by a healthy minute or operator intervention restores the budget.
 - Memory sampling uses only the host and distinct process IDs from the active WebView2 environment. Diagnostics shows partial samples, process counts, peak, and recent history; history is capped at 1,440 samples.

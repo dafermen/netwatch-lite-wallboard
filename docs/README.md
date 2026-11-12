@@ -29,6 +29,7 @@ This is the documentation home for NetWatch Lite Wallboard. The project is a nat
 6. [v0.4.0-rc.2 organized portable validation](releases/v0.4.0-rc.2.md)
 7. [v0.4.0-rc.3 application icon validation](releases/v0.4.0-rc.3.md)
 8. [v0.4.0-rc.4 startup integrity validation](releases/v0.4.0-rc.4.md)
+9. [v0.4.0-rc.5 operational safety validation](releases/v0.4.0-rc.5.md)
 
 ## Engineering
 

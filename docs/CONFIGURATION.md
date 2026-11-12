@@ -34,6 +34,8 @@ dotnet run --project .\src\NetWatchLite.Wallboard.WebView2\NetWatchLite.Wallboar
 
 The `NETWATCH_WALLBOARD_ENV` environment variable is also supported. A command-line value takes precedence.
 
+Settings also lists the default, existing custom profiles, and the currently selected profile. Choose a profile and click **Switch Profile**. Switching is session-only: it does not change launch arguments, environment variables, JSON, or browser data. Unsaved edits require explicit discard confirmation (default No); save first to retain them. Explicit UI selection requires an existing readable JSON object and never falls back to another profile on a missing/malformed file. Startup CLI aliases, normalization, fallback and save/backup paths are unchanged. Backup files are not offered as profiles.
+
 Organized portables keep all `wallboard*.json` files at the root, beside the launcher, not inside `app/`. Both loading and saving use that root regardless of the working directory. Old flat packages keep their original paths; development still uses `Data/`. A missing selected profile loads the default file if available but saves to its own `wallboard.{environment}.json`, never silently into the default profile. Backups stay beside the active JSON.
 
 Updating a portable does not migrate or overwrite existing files automatically. Extract into a new folder and copy the profiles/local pages you want to retain, as described in [Deployment](DEPLOYMENT.md). Browser cookies and authentication remain in their existing LocalAppData location.
@@ -56,6 +58,9 @@ Startup integrity validation deliberately does not read, hash, normalize, or wri
 | `confirmExit` | boolean | `false` | `true` or `false` |
 | `memoryMonitorEnabled` | boolean | `false` | `true` or `false` |
 | `memoryWarningMegabytes` | integer | `1500` | `256` to `65536` |
+| `memoryProtectionEnabled` | boolean | `false` | Explicit opt-in; old JSON remains advisory |
+| `memoryProtectionSustainedMinutes` | integer | `5` | `1` to `60` continuous minutes above the warning threshold |
+| `memoryProtectionCooldownMinutes` | integer | `30` | `5` to `1440` minutes before tracking another recovery |
 | `autoHideTopBarEnabled` | boolean | `false` | `true` or `false` |
 | `theme` | string | `dark` | `dark`, `light`, or `high-contrast` |
 | `panels` | array | empty | List of panel objects |
@@ -94,7 +99,7 @@ Positive rotation and refresh intervals are capped at `2147483` seconds to preve
 
 Recovery uses three attempts after 5, 15, and 30 seconds. The budget survives automatic control replacements and is restored after a healthy minute or a manual Refresh/Restart. Old JSON files without `automaticRecoveryEnabled` load with recovery enabled. Set it to `false` to retain manual-only recovery.
 
-The memory warning threshold now applies to the estimated combined host and associated WebView2 working sets. It remains advisory and never triggers an automatic restart by itself.
+The memory warning threshold applies to estimated combined host/WebView2 working sets. It remains advisory unless `memoryProtectionEnabled` is explicitly enabled. Protection samples even when the visual monitor is hidden, ignores partial samples, resets tracking after gaps over 90 seconds/backward clock changes, and does not recover while minimized, editing Settings, rendering, closing, or in low-power mode. Complete high samples must span the sustained interval; cooldown must expire before a new interval begins. At most two recovery attempts are reserved per application session, including failed attempts; disabling/reloading/switching profiles does not reset that budget. A new application session restores it. Recovery recreates visible controls through the existing serialized render path; it never kills browser processes or deletes cookies/profiles and cannot guarantee all browser memory is freed. See [Operations](OPERATIONS.md).
 
 For manual JSON edits:
 

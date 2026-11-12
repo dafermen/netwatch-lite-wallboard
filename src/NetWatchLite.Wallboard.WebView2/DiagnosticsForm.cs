@@ -18,6 +18,7 @@ internal sealed class DiagnosticsForm : Form
     private readonly string _webViewUserDataFolder;
     private readonly TextBox _diagnosticsTextBox = new();
     private readonly Func<string> _memoryDiagnostics;
+    private readonly Func<string>? _supportReport;
 
     /// <summary>
     /// Builds the diagnostics window.
@@ -35,7 +36,8 @@ internal sealed class DiagnosticsForm : Form
         int pageCount,
         int activePanelCount,
         string webViewUserDataFolder,
-        Func<string> memoryDiagnostics)
+        Func<string> memoryDiagnostics,
+        Func<string>? supportReport = null)
     {
         _configuration = configuration;
         _layout = layout;
@@ -44,6 +46,7 @@ internal sealed class DiagnosticsForm : Form
         _activePanelCount = activePanelCount;
         _webViewUserDataFolder = webViewUserDataFolder;
         _memoryDiagnostics = memoryDiagnostics;
+        _supportReport = supportReport;
 
         Text = "Diagnostics";
         AppIcon.ApplyTo(this);
@@ -97,6 +100,10 @@ internal sealed class DiagnosticsForm : Form
         footer.Controls.Add(CreateButton("Close", (_, _) => Close()));
         footer.Controls.Add(CreateButton("Copy", (_, _) => Clipboard.SetText(_diagnosticsTextBox.Text)));
         footer.Controls.Add(CreateButton("Refresh", (_, _) => RefreshDiagnosticsText()));
+        var export = CreateButton("Export Report", async (_, _) => await ExportReportAsync());
+        export.Name = "ExportSupportReport";
+        export.Enabled = _supportReport is not null;
+        footer.Controls.Add(export);
 
         root.Controls.Add(_diagnosticsTextBox, 0, 0);
         root.Controls.Add(footer, 0, 1);
@@ -114,7 +121,7 @@ internal sealed class DiagnosticsForm : Form
 
         builder.AppendLine("NetWatch Lite Wallboard Diagnostics");
         builder.AppendLine($"Generated: {DateTime.Now:yyyy-MM-dd HH:mm:ss}");
-        builder.AppendLine($"Version: {assembly.Version}");
+        builder.AppendLine($"Version: {Assembly.GetExecutingAssembly().GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion ?? assembly.Version?.ToString()}");
         builder.AppendLine($"Process: {process.ProcessName} ({process.Id})");
         builder.AppendLine($"Working set: {process.WorkingSet64 / 1024 / 1024:N0} MB");
         builder.AppendLine(_memoryDiagnostics());
@@ -141,6 +148,7 @@ internal sealed class DiagnosticsForm : Form
         builder.AppendLine($"Confirm exit: {_configuration.ConfirmExit}");
         builder.AppendLine($"Memory monitor: {_configuration.MemoryMonitorEnabled}");
         builder.AppendLine($"Memory warning MB: {_configuration.MemoryWarningMegabytes}");
+        builder.AppendLine($"Memory protection: {_configuration.MemoryProtectionEnabled}; sustained: {_configuration.MemoryProtectionSustainedMinutes} min; cooldown: {_configuration.MemoryProtectionCooldownMinutes} min");
         builder.AppendLine($"Auto-hide top bar: {_configuration.AutoHideTopBarEnabled}");
         builder.AppendLine($"Theme: {_configuration.Theme}");
         builder.AppendLine($"Rotation enabled: {_configuration.RotationEnabled}");
@@ -167,6 +175,22 @@ internal sealed class DiagnosticsForm : Form
         return string.IsNullOrWhiteSpace(WallboardConfigReader.ActiveEnvironmentName)
             ? "default"
             : WallboardConfigReader.ActiveEnvironmentName;
+    }
+
+    private async Task ExportReportAsync()
+    {
+        if (_supportReport is null) return;
+        using var dialog = new SaveFileDialog
+        {
+            Title = "Export Support Report",
+            Filter = "JSON report (*.json)|*.json",
+            FileName = $"netwatch-support-{DateTime.Now:yyyyMMdd-HHmmss}.json",
+            DefaultExt = "json",
+            AddExtension = true
+        };
+        if (dialog.ShowDialog(this) != DialogResult.OK) return;
+        try { await SupportReport.WriteNewAsync(dialog.FileName, _supportReport()); }
+        catch (Exception ex) { AppErrorLog.ShowUnexpectedError(this, "exporting support report (choose a new file)", ex); }
     }
 
     /// <summary>

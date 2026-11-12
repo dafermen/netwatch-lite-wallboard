@@ -41,6 +41,7 @@ Each record should contain:
 - [0002 - .NET 10, process memory, and bounded panel recovery](0002-dotnet10-memory-and-panel-recovery.md)
 - [0003 - Organized self-contained portables](0003-organized-self-contained-portables.md)
 - [0004 - Portable startup integrity](0004-portable-startup-integrity.md)
+- [0005 - Bounded operations and manual publication](0005-operational-safety-and-manual-publication.md)
 
 ---
 [Previous: Security](../SECURITY.md) | [Documentation home](../README.md) | [Next: ADR 0001](0001-focused-wallboard-without-scraping.md)

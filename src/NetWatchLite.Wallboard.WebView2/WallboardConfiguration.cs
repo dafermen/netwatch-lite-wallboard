@@ -67,6 +67,11 @@ internal sealed class WallboardConfiguration
     /// </summary>
     public int MemoryWarningMegabytes { get; set; } = 1500;
 
+    /// <summary>Opt-in recovery after sustained high memory; never enabled by old JSON.</summary>
+    public bool MemoryProtectionEnabled { get; set; } = false;
+    public int MemoryProtectionSustainedMinutes { get; set; } = 5;
+    public int MemoryProtectionCooldownMinutes { get; set; } = 30;
+
     /// <summary>
     /// Hides the top bar after the mouse is idle, leaving more room for TV wallboards.
     /// </summary>

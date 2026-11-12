@@ -11,6 +11,9 @@
   "confirmExit": false,
   "memoryMonitorEnabled": true,
   "memoryWarningMegabytes": 1500,
+  "memoryProtectionEnabled": false,
+  "memoryProtectionSustainedMinutes": 5,
+  "memoryProtectionCooldownMinutes": 30,
   "autoHideTopBarEnabled": false,
   "theme": "dark",
   "panels": [

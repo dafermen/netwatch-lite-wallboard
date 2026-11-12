@@ -1,5 +1,7 @@
 # Tests
 
+Operational safety tests cover rolling-log bounds/concurrency/locked files, support-report allowlisting and overwrite refusal, strict profile discovery/selection, optional memory-field round trips and sustained/cooldown/session-budget policies. Desktop tests also cover profile-discard confirmation for invalid panel edits and new controls at the minimum Settings size. `scripts/test-release-package.ps1` uses isolated fixtures and a mock GitHub command; real workflow/draft verification is separate from these local guard tests.
+
 `NetWatchLite.Wallboard.Tests` is the automated xUnit project for .NET 10 on Windows.
 
 Current layout:

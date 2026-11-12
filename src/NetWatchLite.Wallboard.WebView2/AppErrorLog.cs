@@ -9,8 +9,6 @@ namespace NetWatchLite.Wallboard.WebView2;
 /// </summary>
 internal static class AppErrorLog
 {
-    private static readonly object SyncRoot = new();
-
     /// <summary>
     /// Directory used for persistent diagnostic logs. The location is per-user and does not require
     /// administrator permissions.
@@ -35,11 +33,14 @@ internal static class AppErrorLog
         var builder = new StringBuilder()
             .AppendLine("============================================================")
             .AppendLine($"Time: {DateTimeOffset.Now:O}")
-            .AppendLine($"Context: {context}")
+            .AppendLine($"Context: {Limit(context, 1024)}")
             .AppendLine($"Exception: {exception.GetType().FullName}")
-            .AppendLine($"Message: {exception.Message}")
+            .AppendLine($"Message: {Limit(exception.Message, 4096)}")
             .AppendLine("Stack:")
-            .AppendLine(exception.ToString());
+            .AppendLine(Limit(exception.StackTrace ?? string.Empty, 16384));
+        var inner = exception.InnerException;
+        for (var depth = 0; inner is not null && depth < 3; inner = inner.InnerException, depth++)
+            builder.AppendLine($"Inner {inner.GetType().Name}: {Limit(inner.Message, 1024)}");
 
         Write(builder.ToString());
     }
@@ -54,8 +55,8 @@ internal static class AppErrorLog
         var builder = new StringBuilder()
             .AppendLine("============================================================")
             .AppendLine($"Time: {DateTimeOffset.Now:O}")
-            .AppendLine($"Context: {context}")
-            .AppendLine($"Message: {message}");
+            .AppendLine($"Context: {Limit(context, 1024)}")
+            .AppendLine($"Message: {Limit(message, 16384)}");
 
         Write(builder.ToString());
     }
@@ -91,15 +92,13 @@ internal static class AppErrorLog
     {
         try
         {
-            lock (SyncRoot)
-            {
-                Directory.CreateDirectory(LogDirectory);
-                File.AppendAllText(LogFilePath, text, Encoding.UTF8);
-            }
+            RollingFileLog.Append(LogFilePath, text);
         }
         catch
         {
             // Logging must never become the reason the app crashes.
         }
     }
+
+    private static string Limit(string text, int length) => text.Length <= length ? text : text[..length] + " [truncated]";
 }

@@ -28,6 +28,10 @@ The memory value sums the host working set and distinct process IDs returned by 
 
 For failed panels, automatic recovery retries after 5, 15, and 30 seconds. After the limit, use Restart manually and investigate the underlying site, network, or runtime issue. Recovery never scrapes page content or dismisses authentication prompts. Browser-process failures can affect the shared group of visible panels.
 
+### Optional Memory Protection
+
+The default remains warning-only. Enable **Memory protection** in Settings only after choosing a threshold appropriate to the machine and pages. **High for (min)** defaults to five minutes; **Cooldown (min)** defaults to thirty. Complete samples are taken once per minute, and short spikes/incomplete/discontinuous samples do not qualify. Settings/minimization/low-power/rendering pauses tracking. After a qualifying interval, the existing panel restart path is used, with at most two attempts per application session and no budget reset on a profile reload. Failed attempts count. Cookies and browser profiles are never deleted and no processes are force-killed. Shared-browser memory may remain allocated; this is mitigation, not proof that a leak is fixed or a guarantee against Windows resource exhaustion.
+
 ## Recovery Actions
 
 | Symptom | First action | Next action |
@@ -55,6 +59,8 @@ Collect:
 
 Do not share credentials, session cookies, or private URL query parameters in public tickets.
 
+Use **Diagnostics > Export Report** for the safer support format. It writes a new JSON file, never overwrites an existing one, and refuses the protected portable `app/` directory. The schema allowlists build/runtime/OS versions, numeric panel counts, memory options, up to 120 recent memory samples and 100 typed runtime events. It does not export configuration files, titles, panel names/URLs, profile names, personal paths, cookies, credentials, or raw logs. Review even this report before sharing. Existing on-screen diagnostics and **Copy** remain raw, local details and can include private URLs/paths; they are not the sanitized report.
+
 ## Logs
 
 Unexpected errors are written to:
@@ -62,6 +68,8 @@ Unexpected errors are written to:
 ```text
 %LOCALAPPDATA%\NetWatchLite\WallboardLogs\wallboard-errors.log
 ```
+
+The general log is limited to 1 MiB with three numbered backups (`.1` through `.3`), and entries are capped at 32 KiB. Large inputs are truncated before encoding. The first rotation of a legacy oversized log retains only its last 1 MiB; old history beyond the retention limit is discarded. Do not rely on this local log as an audit archive. Logging is best effort if files are locked or access is denied, and refuses redirected managed log paths. The launcher's separate `portable-startup.log` retains its own pre-existing bounds and is not included in support reports. No profile, cookie database, or local page is rotated.
 
 WebView2 browser data is stored under:
 

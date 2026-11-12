@@ -8,6 +8,8 @@ NetWatch Lite Wallboard is distributed as a portable Windows folder and ZIP. It 
 
 At the user's explicit request, `0.4.0-rc.4` is provided as an [evaluation prerelease with ZIP and checksum](https://github.com/dafermen/netwatch-lite-wallboard/releases/tag/v0.4.0-rc.4) while long-session and full acceptance checks remain pending. Its [validation record](releases/v0.4.0-rc.4.md) is not stable-release approval. All previous packages are retained and are not moved or overwritten. Stable publication still requires the prerequisites below.
 
+The current source candidate is `0.4.0-rc.5`; see its [validation record](releases/v0.4.0-rc.5.md). The user authorized upload and a real workflow **draft only**, not public publication. Preserve rc.4 and the stable Latest release. The final local delivery can use the exact downloaded workflow/draft ZIP so local and remote checksums match even if a hosted build bundles a newer serviced .NET runtime than the development machine.
+
 ## Release Prerequisites
 
 Before publishing:
@@ -119,6 +121,22 @@ To roll back:
 4. Start it and verify the active version and configuration in Diagnostics.
 
 ## GitHub Publication
+
+### Manual Prerelease Workflow
+
+Run **Actions > Prepare Portable Prerelease > Run workflow** from `main`, entering the exact project tag (currently `v0.4.0-rc.5`). The workflow never runs publication on an ordinary push or pull request.
+
+| Mode | Result |
+|---|---|
+| `artifact-only` (default) | Build, tests, audit, exact-ZIP checks and seven-day validation artifacts; no release/tag creation. |
+| `draft` | Separate limited-write job verifies the same-run artifact and ProductVersion/source SHA, refuses existing tags/releases, repeats package checks, uploads a draft and downloads/compares both assets. Stays private to authorized repository users. |
+| `publish` | Same checks, plus explicit public prerelease publication after verification. Never stable or Latest. Requires separate maintainer authorization. |
+
+The publication job uses the `prerelease` environment. Configure required reviewers in GitHub settings for an additional approval gate; the YAML does not configure reviewers or claim they exist. There is no stored personal token: only the job's scoped `GITHUB_TOKEN`. Global concurrency serializes these manual runs without canceling an active publication. Hosted CI skips opt-in desktop tests; independent local UI/browser evidence is still required and is not inferred from CI.
+
+Official actions are pinned to reviewed commits: checkout `v7.0.1`, setup-dotnet `v6.1.0`, upload-artifact `v7.0.2`, and download-artifact `v8.0.2`. They use Node 24 on `windows-latest`; older self-hosted runners require a separate compatibility review. Download digest mismatches fail closed. See the [official action releases](https://github.com/actions/download-artifact/releases/tag/v8.0.2) and [WebView2 SDK release notes](https://learn.microsoft.com/en-us/microsoft-edge/webview2/release-notes/sdk/1-0-4314-35).
+
+Local maintainers can use `scripts/publish-prerelease.ps1` with `-Tag`, `-SourceCommit` (full 40-character SHA), `-PackageDirectory` and `-Mode Draft`. It validates but does not build the supplied package. The ZIP's actual ProductVersion must match the tag/version and source; merely renaming an archive is refused. `scripts/test-release-package.ps1` tests guards with isolated fixtures and mock GitHub, not a live release. Existing releases/tags/assets are never overwritten or moved. On upload/download/verification failure inspect the remaining draft before retrying; do not bypass checks or use `--clobber`.
 
 CI may create a validation artifact, but a successful workflow alone is not release approval. Stable releases require the approved release checklist and a tested extracted ZIP. An evaluation prerelease may be published only with explicit maintainer authorization, clear pending-test/usage limits, `prerelease=true`, and without marking it as Latest. This does not waive stable-release gates.
 

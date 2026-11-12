@@ -4,6 +4,18 @@ All notable changes to NetWatch Lite Wallboard are documented here.
 
 ## Unreleased
 
+## v0.4.0-rc.5 - 2026-11-11
+
+Evaluation candidate; only a workflow draft is authorized, not public/stable promotion. Long production acceptance remains pending.
+
+- Bounded the general error log to 1 MiB plus three backups with capped entries and oversized legacy-tail retention.
+- Added allowlisted support JSON export with bounded memory/events and no operator names/URLs/paths, cookies, configuration or raw logs; existing files are never overwritten.
+- Added opt-in sustained-memory protection, cooldown and a two-attempt session budget, preserving sessions and using existing serialized control recreation.
+- Added session-only profile switching in Settings with unsaved-discard confirmation and strict selection; startup/save/fallback contracts remain compatible.
+- Updated WebView2 to stable `1.0.4314.35` and reviewed/pinned official GitHub actions for hosted Windows/Node 24.
+- Added manual artifact-only/draft/publish workflow, exact source/ZIP/checksum binding, refusal to replace existing releases, scoped write permissions and download verification before public publication.
+- Added deterministic operational-safety, desktop layout/profile-discard and simulated-publisher regression tests; retained portable startup-integrity gates and versioned ZIP history.
+
 ## v0.4.0-rc.4 - 2026-11-07
 
 Evaluation candidate for portable integrity stage 2; stable acceptance and long production runs remain pending.

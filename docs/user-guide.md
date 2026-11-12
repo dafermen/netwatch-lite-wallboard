@@ -97,6 +97,8 @@ In settings you can change:
 - Fullscreen startup.
 - Close confirmation.
 - Memory monitor and warning threshold.
+- Optional sustained-memory protection, delay and cooldown (off by default).
+- Active profile through **Profile > Switch Profile**.
 - Top-bar auto-hide.
 - Visual theme.
 - Panel list.
@@ -105,6 +107,10 @@ In settings you can change:
 - Panel refresh intervals.
 
 ## Edit Panels
+
+To switch configuration, choose an existing profile in Settings and click **Switch Profile**. Save first to retain edits; otherwise confirm their discard. A missing or malformed selected file produces an error and leaves the current selection unchanged. Selection lasts only for this running session; the next launch again follows its command-line/environment choice. Browser sign-ins are not reset.
+
+For support, open **Diagnostics > Export Report** and choose a new JSON filename outside `app/`. The report excludes URLs, operator names, paths and raw logs; the separate **Copy** command still copies full local diagnostics. See [Operations](OPERATIONS.md) for retention and privacy details.
 
 To add a panel:
 

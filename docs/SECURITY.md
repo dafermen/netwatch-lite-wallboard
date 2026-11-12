@@ -74,6 +74,10 @@ Hashes detect changed/missing/unreadable/stale program files; they are not publi
 
 ## Data Retention
 
+Support export uses an allowlist rather than copying/redacting raw diagnostics. It omits operator strings, URLs, user paths, profile names, configuration files and logs; memory/events are bounded. The raw Diagnostics **Copy** command is not sanitized. Export never sends data anywhere and never overwrites files. General error logs may still contain private local details and must not be attached publicly without review; rotation limits retention, not sensitivity.
+
+Prerelease automation is manual and main-only, defaults to artifact-only, uses pinned official actions, and gives write permission only to the separate publication job. It refuses existing tags/releases, binds ProductVersion to the full source SHA, verifies the ZIP checksum and actual package, uploads to a draft, downloads/compares original hashes, then publishes only in explicit publish mode. Configure required reviewers on the `prerelease` environment for an additional approval barrier; an environment name alone does not configure reviewers. No personal token is stored in the repo; GitHub Actions uses its scoped token. See [Deployment](DEPLOYMENT.md).
+
 Browser profile data persists under `%LOCALAPPDATA%\NetWatchLite\WallboardWebView2`. Anyone with access to the Windows account may be able to use existing site sessions.
 
 When decommissioning a display computer:
