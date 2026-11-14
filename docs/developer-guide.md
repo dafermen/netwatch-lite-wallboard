@@ -241,6 +241,14 @@ If rotation is enabled and there is more than one page, a timer advances `_curre
 
 `RenderCurrentPageAsync` is guarded so rotation, reload, and layout changes do not overlap while panels are being created or destroyed.
 
+## Inicio And Wallboard
+
+`WallboardViewOptions` supplies availability/startup decisions to reader normalization. The three JSON fields are optional. Settings carries them through clone/import/export/save; existing Data profiles are not migrated. See the [neutral fixture](../tests/fixtures/wallboard-home.json).
+
+`SetViewModeAsync` stops wallboard timers, invalidates initialization with a view-scoped cancellation token/generation and renders under the existing semaphore. Queued renders/recovery recheck generation after taking that lock. `_activePanels` contains only wallboard controls; `_homePanel` owns Inicio. Never implement stop by hiding browsers. Both modes reuse the same environment/profile.
+
+`WebViewPanelControl.isHomePage` hides chrome and disables refresh/recovery timers. A native error/Retry surface works even if initialization/browser processes fail; retry never starts wallboard. Old constructor callers keep their behavior. Mode-only transitions retain page/layout and memory/retry budgets. Startup preference applies only at launch or explicit profile switch; same-profile reload preserves a valid current mode. Low-power releases/restores either mode. Home is excluded from memory-triggered recovery but can still be sampled. Its URL remains raw/local diagnostics, not safe support export.
+
 ## Low-Power Mode
 
 Low-power mode is controlled by `lowPowerModeEnabled`.
@@ -291,6 +299,10 @@ The top bar is shown before opening Settings so the operator does not lose acces
 
 ## Themes
 
+`NativeTheme.Apply` reuses `ThemePalette` for Settings and Diagnostics, including inputs, grids and accent foreground contrast. A button tagged `primary` uses the accent colors; `danger` retains warning-colored text. It is not applied recursively to browser controls. Settings previews the selected palette on its cloned editor only; importing updates the preview too. Native Windows-owned dialogs remain OS-managed.
+
+The editing profile/save path are captured when Settings is created. Changing the profile combo never changes the reader or save destination: it marks a pending selection and disables Save. Explicit Switch retains the existing discard/strict-load path. The folder opener receives a path through `ProcessStartInfo.ArgumentList`; tests inject an action instead of opening Explorer. Do not interpolate a path into a shell command.
+
 Themes are centralized in `ThemePalette`.
 
 Supported JSON values are:
@@ -324,6 +336,8 @@ Relative paths are resolved at the portable content root first, outside `app/`. 
 Root-relative local paths are resolved under `wwwroot`.
 
 ## Diagnostics
+
+`WallboardForm.GetBrowserRuntimeSnapshot` reads `UserDataFolder` and `BrowserVersionString` from the actual shared environment on the UI thread, not from the installed-browser lookup. It keeps the requested path separate for troubleshooting overrides and returns explicit unavailable values if the environment is not ready. Diagnostics invokes this provider and the current recovery summary on Refresh. `BrowserRuntimeSnapshot` is local/raw only and must not enter `SupportReport`.
 
 `DiagnosticsForm` gives support a read-only runtime snapshot:
 
@@ -359,6 +373,8 @@ Panel navigation failures render a friendly local error page inside the affected
 WebView2 browser process failures are logged and shown inside the panel instead of leaving a silent blank area.
 
 ## Development Commands
+
+`Directory.Build.targets` removes only `Microsoft.Web.WebView2.Wpf` before `ResolveAssemblyReferences`, and only for WinForms projects without `UseWPF`. The SDK package imports both UI adapters; this project does not use WPF. Removing the unused reference resolves the WindowsBase conflict without suppressing MSB3277 or removing Core/WinForms/native loader assets. Keep the same rule in app/test builds and portable publication; a future WPF project must retain its adapter.
 
 Restore and build:
 

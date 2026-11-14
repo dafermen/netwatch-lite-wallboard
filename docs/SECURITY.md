@@ -74,6 +74,10 @@ Hashes detect changed/missing/unreadable/stale program files; they are not publi
 
 ## Data Retention
 
+Effective browser-folder/version diagnostics remain local/raw; the support-report allowlist is unchanged. Opening the profile directory uses an argument list rather than a shell-interpolated command and does not write files. Profile selections do not persist across restarts.
+
+Existing-draft promotion defaults to verify-only. It requires the previously approved hash/source, rejects stable/public versions and changed identities, and never uploads, rebuilds or overwrites assets. Publication additionally requires a tag-specific approval phrase and a separate write job. Environment reviewers still require owner configuration. Identity rechecks are not an atomic remote lock; avoid concurrent administrator edits. See [Deployment](DEPLOYMENT.md).
+
 Support export uses an allowlist rather than copying/redacting raw diagnostics. It omits operator strings, URLs, user paths, profile names, configuration files and logs; memory/events are bounded. The raw Diagnostics **Copy** command is not sanitized. Export never sends data anywhere and never overwrites files. General error logs may still contain private local details and must not be attached publicly without review; rotation limits retention, not sensitivity.
 
 Prerelease automation is manual and main-only, defaults to artifact-only, uses pinned official actions, and gives write permission only to the separate publication job. It refuses existing tags/releases, binds ProductVersion to the full source SHA, verifies the ZIP checksum and actual package, uploads to a draft, downloads/compares original hashes, then publishes only in explicit publish mode. Configure required reviewers on the `prerelease` environment for an additional approval barrier; an environment name alone does not configure reviewers. No personal token is stored in the repo; GitHub Actions uses its scoped token. See [Deployment](DEPLOYMENT.md).

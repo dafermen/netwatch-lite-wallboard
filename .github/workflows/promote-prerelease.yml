@@ -1,0 +1,85 @@
+name: Verify Or Promote Existing Prerelease
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing draft tag (vX.Y.Z-rc.N)
+        type: string
+        required: true
+      source_commit:
+        description: Full lowercase source SHA embedded in the existing ZIP
+        type: string
+        required: true
+      zip_sha256:
+        description: Previously verified lowercase ZIP SHA-256
+        type: string
+        required: true
+      publish:
+        description: Publish the verified existing draft (never Latest)
+        type: boolean
+        default: false
+      approval:
+        description: Required for publication, exactly PUBLISH followed by a space and the tag
+        type: string
+        default: ''
+
+permissions:
+  contents: read
+
+concurrency:
+  group: portable-prerelease-publication
+  cancel-in-progress: false
+
+jobs:
+  verify:
+    runs-on: windows-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.sha }}
+      - name: Verify existing assets without building or changing GitHub
+        shell: powershell
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SOURCE_REF: ${{ github.ref }}
+          RELEASE_TAG: ${{ inputs.tag }}
+          RELEASE_SOURCE: ${{ inputs.source_commit }}
+          ZIP_HASH: ${{ inputs.zip_sha256 }}
+        run: |
+          if ($env:SOURCE_REF -ne 'refs/heads/main') { throw 'Dispatch from main only.' }
+          .\scripts\promote-prerelease.ps1 -Tag $env:RELEASE_TAG -SourceCommit $env:RELEASE_SOURCE -ExpectedZipSha256 $env:ZIP_HASH -Repository $env:GITHUB_REPOSITORY
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: always()
+        with:
+          name: existing-draft-verification
+          path: |
+            artifacts/verification/**/promotion-verification.json
+            artifacts/verification/**/package-check*.json
+          if-no-files-found: warn
+
+  promote:
+    if: inputs.publish
+    needs: verify
+    runs-on: windows-latest
+    timeout-minutes: 20
+    environment: prerelease
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.sha }}
+      - name: Reverify and explicitly promote the same assets
+        shell: powershell
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SOURCE_REF: ${{ github.ref }}
+          RELEASE_TAG: ${{ inputs.tag }}
+          RELEASE_SOURCE: ${{ inputs.source_commit }}
+          ZIP_HASH: ${{ inputs.zip_sha256 }}
+          APPROVAL: ${{ inputs.approval }}
+        run: |
+          if ($env:SOURCE_REF -ne 'refs/heads/main') { throw 'Dispatch from main only.' }
+          .\scripts\promote-prerelease.ps1 -Tag $env:RELEASE_TAG -SourceCommit $env:RELEASE_SOURCE -ExpectedZipSha256 $env:ZIP_HASH -Repository $env:GITHUB_REPOSITORY -Publish -Approval $env:APPROVAL

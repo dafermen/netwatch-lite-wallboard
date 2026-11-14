@@ -8,7 +8,7 @@ NetWatch Lite Wallboard is distributed as a portable Windows folder and ZIP. It 
 
 At the user's explicit request, `0.4.0-rc.4` is provided as an [evaluation prerelease with ZIP and checksum](https://github.com/dafermen/netwatch-lite-wallboard/releases/tag/v0.4.0-rc.4) while long-session and full acceptance checks remain pending. Its [validation record](releases/v0.4.0-rc.4.md) is not stable-release approval. All previous packages are retained and are not moved or overwritten. Stable publication still requires the prerequisites below.
 
-The current source candidate is `0.4.0-rc.5`; see its [validation record](releases/v0.4.0-rc.5.md). The user authorized upload and a real workflow **draft only**, not public publication. Preserve rc.4 and the stable Latest release. The final local delivery can use the exact downloaded workflow/draft ZIP so local and remote checksums match even if a hosted build bundles a newer serviced .NET runtime than the development machine.
+The current source candidate is `0.4.0-rc.6`; see its [validation record](releases/v0.4.0-rc.6.md). The user authorized a new portable/ZIP/checksum, source synchronization and a **draft only**, not public publication. Preserve the rc.5 draft, rc.4 and stable Latest. The same tested local ZIP can be uploaded using the guarded local publisher in Draft mode; download/hash verification must then prove local/remote identity. If a hosted workflow instead builds the deliverable, retain its exact downloaded bytes locally rather than replacing its assets with a different local rebuild.
 
 ## Release Prerequisites
 
@@ -122,9 +122,27 @@ To roll back:
 
 ## GitHub Publication
 
+### Verify Or Promote An Existing Draft
+
+Use **Actions > Verify Or Promote Existing Prerelease** from `main` for an already uploaded rc draft. Supply its exact tag, full binary-source SHA and the ZIP SHA-256 recorded during the original verified delivery, not a newly calculated hash of untrusted bytes. `publish` defaults to false. Verification downloads the two existing assets, validates checksum/ProductVersion/source, runs the exact-ZIP package tests and records a receipt. It never builds, creates a release, uploads/replaces assets or moves an existing tag.
+
+Publication requires separate maintainer authorization, `publish=true` and approval text exactly `PUBLISH vX.Y.Z-rc.N` for that tag. The separate `prerelease` environment/write job repeats the full download/package checks after the approval wait, rechecks release/asset identities and source immediately before editing only draft/prerelease/Latest flags, and confirms the resulting identity. Required environment reviewers must be configured in GitHub settings; this task does not change them. Concurrency is shared with fresh-package publication.
+
+Local verification (no publication):
+
+```powershell
+.\scripts\promote-prerelease.ps1 -Tag v0.4.0-rc.5 `
+  -SourceCommit 62a50977f2402e3d2eced4866d0fb07493bea4c6 `
+  -ExpectedZipSha256 2488c0690c61cbb4a6af4832ec330add612247467c82c581ca436479f7b03322
+```
+
+Only an explicitly authorized maintainer adds `-Publish -Approval 'PUBLISH <exact-tag>'`. The command rejects public/stable releases, changed identities, extra/incomplete assets, source/tag/hash mismatches and read failures. GitHub tokens must use normal CLI/job authentication, never arguments or committed files. Receipts and disposable downloads remain under ignored `artifacts/verification/promotion-*/`.
+
+The previously approved ZIP hash is the trust anchor, not a signature. GitHub does not provide an atomic lock spanning verification and publication: repository writers must avoid editing drafts/assets during the operation. Our workflow serializes publication runs and rechecks identity but cannot prevent concurrent administrator edits. Errors after editing require inspecting actual remote state; never blindly retry or replace assets. This is for authorized evaluation prereleases only, not stable approval or completion of long-session acceptance. See [ADR 0006](adr/0006-dialog-consistency-and-existing-draft-promotion.md) and the [GitHub CLI edit reference](https://cli.github.com/manual/gh_release_edit).
+
 ### Manual Prerelease Workflow
 
-Run **Actions > Prepare Portable Prerelease > Run workflow** from `main`, entering the exact project tag (currently `v0.4.0-rc.5`). The workflow never runs publication on an ordinary push or pull request.
+Run **Actions > Prepare Portable Prerelease > Run workflow** from `main`, entering the exact project tag (currently `v0.4.0-rc.6`). The workflow never runs publication on an ordinary push or pull request. Do not dispatch creation for a version that already has a draft or assets.
 
 | Mode | Result |
 |---|---|

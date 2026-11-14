@@ -62,6 +62,8 @@ Preserve unrelated local changes.
 
 ## Coding Rules
 
+The solution removes the SDK's unused WebView2 WPF reference in `Directory.Build.targets` for WinForms-only builds. A clean app/solution build should now have no WindowsBase MSB3277 warning. CI/prerelease builds use `-warnaserror:MSB3277` to catch regression. Do not hide it with `NoWarn`; see the developer guide.
+
 - Keep nullable reference types enabled.
 - Prefer existing WinForms patterns and framework APIs.
 - Keep async UI handlers guarded by the existing error-handling helpers.
@@ -83,7 +85,7 @@ For a top-level setting, update:
 - `WallboardConfigReader.cs`
 - `SettingsForm.cs`
 - `DiagnosticsForm.cs` when operationally relevant
-- `Data/wallboard*.json`
+- Configuration examples (for Inicio/Wallboard, preserve existing `Data/wallboard*.json` bytes and use `tests/fixtures/wallboard-home.json`, as required by ADR 0007)
 - `docs/CONFIGURATION.md`
 - End-user documentation
 - Tests for defaults, bounds, and backward compatibility
@@ -91,6 +93,8 @@ For a top-level setting, update:
 For a panel setting, also update `WallboardPanel.cs` and `WebViewPanelControl.cs`.
 
 ## Documentation Rules
+
+Run `scripts/test-release-promotion.ps1` with the existing release guards after a Release build. It simulates GitHub and does not publish. Run `scripts/test-mutation.ps1` to restore the pinned local Stryker tool and measure the two recovery policies; reports go to ignored `TestResults/`. See [Testing](TESTING.md) for scope, score and desktop evidence limitations.
 
 - `README.md` is the concise GitHub entry point.
 - `docs/user-guide.md` is for operators.

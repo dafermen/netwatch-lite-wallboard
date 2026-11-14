@@ -38,14 +38,16 @@ jobs:
         run: dotnet restore .\netwatch-lite-wallboard.slnx
 
       - name: Build release
-        run: dotnet build .\netwatch-lite-wallboard.slnx -c Release --no-restore
+        run: dotnet build .\netwatch-lite-wallboard.slnx -c Release --no-restore -warnaserror:MSB3277
 
       - name: Run test projects
         run: dotnet test .\netwatch-lite-wallboard.slnx -c Release --no-build --no-restore --logger trx --results-directory TestResults
 
       - name: Test prerelease package guards
         shell: powershell
-        run: .\scripts\test-release-package.ps1
+        run: |
+          .\scripts\test-release-package.ps1
+          .\scripts\test-release-promotion.ps1
 
       - name: Test read-only GitHub CLI boundary
         shell: powershell

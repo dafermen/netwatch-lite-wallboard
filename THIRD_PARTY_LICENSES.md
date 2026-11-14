@@ -23,6 +23,8 @@ The rc.5 update pins SDK `1.0.4314.35`, the stable package reviewed on 2026-11-1
 
 Development tests use xUnit.net (Apache-2.0), xunit.runner.visualstudio (Apache-2.0), and Microsoft.NET.Test.Sdk (MIT). These test-only dependencies are not part of the portable app. Review exact package license metadata when upgrading them.
 
+Unreleased tooling adds FsCheck/FsCheck.Xunit 3.6.0 (BSD-3-Clause), transitive FSharp.Core (MIT), and the pinned local dotnet-stryker 5.1.0 tool (Apache-2.0). These are development/test-only, not referenced or bundled by the application. See [FsCheck](https://github.com/fscheck/FsCheck) and [Stryker.NET](https://github.com/stryker-mutator/stryker-net); installed NuGet metadata is the exact license reference.
+
 Before every release:
 
 1. Review direct and transitive dependencies.

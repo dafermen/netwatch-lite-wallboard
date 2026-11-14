@@ -58,7 +58,7 @@ jobs:
         run: |
           dotnet restore .\netwatch-lite-wallboard.slnx
           if ($LASTEXITCODE -ne 0) { throw 'Restore failed.' }
-          dotnet build .\netwatch-lite-wallboard.slnx -c Release --no-restore
+          dotnet build .\netwatch-lite-wallboard.slnx -c Release --no-restore -warnaserror:MSB3277
           if ($LASTEXITCODE -ne 0) { throw 'Build failed.' }
       - name: Run regression and release guard tests
         shell: powershell
@@ -66,6 +66,7 @@ jobs:
           dotnet test .\netwatch-lite-wallboard.slnx -c Release --no-build --no-restore --logger trx --results-directory TestResults
           if ($LASTEXITCODE -ne 0) { throw 'Regression tests failed.' }
           .\scripts\test-release-package.ps1
+          .\scripts\test-release-promotion.ps1
       - name: Audit dependencies
         shell: powershell
         run: |

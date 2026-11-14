@@ -80,6 +80,10 @@ Important files:
 
 ## Development Rules
 
+Delivery authorization (2026-11-14) supersedes the historical no-delivery statements below: the user now requests a fresh rc.6 portable/ZIP/SHA-256, source push and **GitHub draft only**. Preserve rc.5/rc.4/stable assets and operator configurations. Build from a clean identified commit; upload the exact tested bytes with the guarded Draft publisher and compare both downloaded assets. No public promotion or stable approval is authorized. Record final source/CI/draft/hash evidence in CURRENT_STATUS and the rc.6 validation record; do not rebuild an existing version to update embedded documentation.
+
+Inicio/Wallboard work (2026-11-14): optional fields default to disabled/Wallboard, with no migration or rewrite of existing Data/deployed JSON. See ADR 0007. `_activePanels` is wallboard-only; `_homePanel` is the single chrome-free Home browser. Dispose inactive controls and disable their timers, do not hide browsers. Preserve shared environment/cookies, layout/page and memory/retry limits. Mode changes cancel view work and invalidate queued generations under the render lock; timer/recovery/minimize paths must never wake an inactive mode. Startup selection applies only at launch/explicit profile switch, not normal save. Keep Home URLs out of safe reports. For this user request, existing Data examples remain byte-identical; the new-field example is in `tests/fixtures/wallboard-home.json` instead. Test view transitions with isolated profiles, not operator data. No release/push is authorized by this feature request.
+
 - Prefer small, safe changes that match existing WinForms patterns.
 - Keep JSON backward-compatible when adding configuration fields.
 - Normalize every user-editable JSON value in `WallboardConfigReader`.
@@ -107,8 +111,13 @@ git diff --check
 
 Expected current build note:
 
-- Build succeeds.
-- Warning `MSB3277` about `WindowsBase` and WebView2 may appear. This warning is known and was present in v0.3.0.
+- Build succeeds without the previous WindowsBase MSB3277 warning. `Directory.Build.targets` removes only the unused WebView2 WPF adapter for WinForms-only projects; do not suppress the warning or edit the NuGet cache. Retain Core/WinForms/loader assets and real-browser tests.
+
+Unreleased 2026-11-12 work: use `NativeTheme`/`ThemeButton` for Settings/Diagnostics, keep preview isolated from the live theme, and preserve the explicit editing-profile/pending-switch/save distinction. The folder command opens the writable profile directory with an argument list. `BrowserRuntimeSnapshot` reads effective path/version from the actual environment and is local/raw only, never a support-export input. No new JSON fields, remembered-profile file or browser-data changes.
+
+`scripts/test-mutation.ps1` uses pinned local Stryker.NET 5.1.0 and an 80% gate for two recovery policies. FsCheck and bounded JSON fuzz regressions run in normal xUnit; real/scaled dialogs are opt-in desktop tests. Do not claim whole-app mutation, coverage-guided fuzzing, real monitor-DPI or 24-hour acceptance from this scope. Run `scripts/test-release-promotion.ps1` with the existing release guards under Windows PowerShell 5.1.
+
+`scripts/promote-prerelease.ps1` and `promote-prerelease.yml` verify an EXISTING draft, defaulting to no publication. Require its originally approved hash/source, exact ZIP/PE checks and unchanged asset/release identity. Never rebuild, replace/upload/delete assets or move tags. Public promotion still needs separate authorization plus tag-specific approval text; this implementation request does not authorize publishing rc.5, pushing source or creating another portable. Environment reviewers need owner configuration. See ADR 0006 and Deployment. Existing rc.5 assets retain their original version/source/docs.
 
 Keep `global.json`, CI, app, and test projects on .NET 10. Preserve retry state across automatic panel replacements. Never count unrelated `msedgewebview2` processes. Real-browser tests require an interactive Windows session and `NETWATCH_WEBVIEW2_TESTS=1`; the long resource test is run explicitly through `scripts/test-soak.ps1`. A short run does not establish 24-hour stability.
 

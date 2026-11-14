@@ -4,6 +4,24 @@ All notable changes to NetWatch Lite Wallboard are documented here.
 
 ## Unreleased
 
+No pending source changes beyond the rc.6 evaluation candidate.
+
+## v0.4.0-rc.6 - 2026-11-14
+
+Evaluation candidate; the user authorized source synchronization and a new portable/ZIP/checksum in a GitHub draft only. Production/24-hour and other-device acceptance remain pending. Preserve rc.5, rc.4 and stable Latest.
+
+- Added opt-in Inicio/Wallboard modes with a configurable home URL/startup view, contextual toolbar and full-area home page. Old profiles remain Wallboard-only by default and are not migrated on startup.
+- Released inactive browsers, stopped wallboard timers in Inicio, canceled stale view/recovery work, and preserved layout/page, shared cookies and memory-protection limits. Low-power restoration keeps the chosen mode; failed Home loads offer native retry without waking panels.
+- Added legacy/normalization/save/privacy/property, Settings, repeated-switch/cookie/resource, queued-restart, rapid-mode/minimize/reload and close-during-transition regressions. Updated operator/developer references and ADR 0007; existing Data files and portable history remain intact.
+
+- Applied native dark/light/high-contrast palettes to Settings and Diagnostics, including readable selected-row/primary-button text and isolated Settings theme previews.
+- Reorganized the Wallboard settings fields and exposed the editing profile, pending switch and save destination; blocked ambiguous saves while another profile is selected and added a configuration-folder shortcut.
+- Reported effective WebView2 user-data folder, actual browser version and current recovery state without adding sensitive fields to support JSON.
+- Removed the unused WebView2 WPF reference before assembly resolution in WinForms-only projects, resolving the WindowsBase MSB3277 conflict without suppressing warnings.
+- Added FsCheck properties, 1,000 bounded seeded malformed-JSON byte mutations, scaled-dialog/keyboard/profile/browser-override regressions and a pinned Stryker.NET recovery-policy baseline with an 80% gate.
+- Added a default-verify-only existing-draft promotion command/workflow: approved hash/source binding, exact-ZIP checks, asset identity rechecks and explicit publication approval, without rebuilding, uploading, replacing assets or changing Latest.
+- Existing rc.5/rc.4 packages and operator profiles remain unchanged. Package delivery, source synchronization and draft verification are recorded separately in the rc.6 validation record.
+
 ## v0.4.0-rc.5 - 2026-11-11
 
 Evaluation candidate; only a workflow draft is authorized, not public/stable promotion. Long production acceptance remains pending.

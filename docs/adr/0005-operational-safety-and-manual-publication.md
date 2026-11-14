@@ -32,4 +32,4 @@ Memory figures remain approximate and panel recreation may not release all share
 - Publish automatically on every push or overwrite release assets: rejected; use explicit manual modes and immutable version identity.
 
 ---
-[Previous: ADR 0004](0004-portable-startup-integrity.md) | [Documentation home](../README.md) | [Next: Documentation standard](../DOCUMENTATION_STANDARD.md)
+[Previous: ADR 0004](0004-portable-startup-integrity.md) | [Documentation home](../README.md) | [Next: ADR 0006](0006-dialog-consistency-and-existing-draft-promotion.md)

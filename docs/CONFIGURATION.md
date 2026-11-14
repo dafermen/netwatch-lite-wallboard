@@ -8,6 +8,8 @@ NetWatch Lite Wallboard uses JSON files instead of `.env` files. This document i
 
 ## File Selection
 
+Unreleased Settings clarifies the existing contract: **Editing profile** identifies the save target; selecting another profile produces a pending switch and disables Save until switching or reselecting the editing profile. **Save to** is the writable profile path, which can differ from the loaded fallback file. Its folder command opens the directory only. No remembered-profile file, new JSON field, migration or precedence change is introduced.
+
 The default file is:
 
 ```text
@@ -47,6 +49,9 @@ Startup integrity validation deliberately does not read, hash, normalize, or wri
 | JSON field | Type | Default | Normalized range or values |
 |---|---:|---:|---|
 | `appTitle` | string | `NetWatch Lite Wallboard` | Non-empty text |
+| `homePageEnabled` | boolean | `false` | Opt-in Inicio/Wallboard switching; requires a valid URL |
+| `homePageUrl` | string | empty | Existing trusted web/file/local-page URL forms; trimmed, invalid becomes empty |
+| `startupView` | string | `wallboard` | `wallboard` or `home`, case-insensitive; Home requires feature and URL |
 | `rotationEnabled` | boolean | `false` | `true` or `false` |
 | `rotationSeconds` | integer | `20` | Positive integer; visual editor range `1` to `3600` |
 | `defaultLayout` | integer | `4` | `1`, `2`, `3`, `4`, `6`, or `8` |
@@ -64,6 +69,26 @@ Startup integrity validation deliberately does not read, hash, normalize, or wri
 | `autoHideTopBarEnabled` | boolean | `false` | `true` or `false` |
 | `theme` | string | `dark` | `dark`, `light`, or `high-contrast` |
 | `panels` | array | empty | List of panel objects |
+
+## View Selection
+
+Optional field excerpt, not a replacement for your profile:
+
+```json
+{
+  "homePageEnabled": true,
+  "homePageUrl": "https://example.org/",
+  "startupView": "home"
+}
+```
+
+Keep your existing title, panels and settings. See the complete [home-view fixture](../tests/fixtures/wallboard-home.json). Existing `Data/` profiles are deliberately unchanged to preserve bytes/behavior. Startup never migrates or saves them.
+
+Invalid/missing URLs disable Inicio and normalize startup to `wallboard`, without substituting a sample URL. Valid URLs can be retained while disabled. Settings refuses enabling with an invalid URL. URL handling follows the existing panel contract, not a new general URL sanitizer.
+
+The runtime selection is session-only. Startup applies at launch or explicit profile switch; saving/reloading the same profile preserves Inicio if still valid. Disabling Inicio returns to Wallboard. Mode-only switches do not save, clear browser data, reset recovery budgets or alter the last wallboard layout/page. Configuration reload keeps its existing layout/page reset.
+
+Inicio disables wallboard rotation/restart/refresh/recovery and automatic memory recovery. Bounded memory sampling can continue. Home has manual refresh/retry only. Low-power minimize releases the selected view; restore recreates that same mode. Returning to Wallboard starts fresh rotation/restart intervals, not catch-up ticks. Fullscreen, close confirmation and auto-hide are independent.
 
 ## Panel Fields
 

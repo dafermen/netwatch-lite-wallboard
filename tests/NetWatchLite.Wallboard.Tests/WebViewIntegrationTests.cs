@@ -23,8 +23,122 @@ public sealed class WebViewFactAttribute : FactAttribute
 public sealed class WebViewCollection;
 
 [Collection("WebView2")]
-public sealed class WebViewIntegrationTests(ITestOutputHelper output)
+public sealed partial class WebViewIntegrationTests(ITestOutputHelper output)
 {
+    [WebViewFact]
+    [Trait("Category", "Desktop")]
+    public Task DialogThemesProfileStateAndScaledCommandsStayUsable() => RunOnUiThreadAsync(async _ =>
+    {
+        foreach (var themeName in new[] { "dark", "light", "high-contrast" })
+        foreach (var scale in new[] { 1F, 1.5F, 2F })
+        {
+            var configuration = new WallboardConfiguration { Theme = themeName };
+            string? openedFolder = null;
+            using var settings = new SettingsForm(configuration, _ => { }, openFolder: path => openedFolder = path);
+            settings.StartPosition = FormStartPosition.Manual;
+            settings.Location = new Point(-4000, 0);
+            settings.Size = settings.MinimumSize;
+            settings.Show();
+            settings.Font = new Font(settings.Font.FontFamily, 9F * scale);
+            settings.Scale(new SizeF(scale, scale));
+            await Task.Delay(30);
+            var palette = ThemePalette.FromName(themeName);
+            Assert.Equal(palette.WindowBackColor, settings.BackColor);
+            var title = (TextBox)settings.Controls.Find("WallboardTitle", true).Single();
+            Assert.Equal(palette.PanelTitleBackColor, title.BackColor);
+            var save = (Button)settings.Controls.Find("SaveConfiguration", true).Single();
+            Assert.Equal(palette.AccentTextColor, save.ForeColor);
+            var active = (Label)settings.Controls.Find("ActiveProfile", true).Single();
+            var editingText = active.Text;
+            Assert.Contains("Editing profile:", editingText);
+            var selector = (ComboBox)settings.Controls.Find("ProfileSelector", true).Single();
+            Assert.Equal(FlatStyle.Flat, selector.FlatStyle);
+            var pending = (Label)settings.Controls.Find("PendingProfile", true).Single();
+            var switchButton = (Button)settings.Controls.Find("SwitchProfile", true).Single();
+            var folder = (Button)settings.Controls.Find("OpenConfigurationFolder", true).Single();
+            var originalIndex = selector.SelectedIndex;
+            selector.SelectedIndex = originalIndex == 0 ? 1 : 0;
+            Assert.False(save.Enabled);
+            Assert.True(switchButton.Enabled);
+            Assert.Contains("Pending switch:", pending.Text);
+            Assert.Equal(editingText, active.Text);
+            selector.SelectedIndex = originalIndex;
+            Assert.True(save.Enabled);
+            Assert.False(switchButton.Enabled);
+            Assert.Equal(palette.SecondaryTextColor, Assert.IsType<ThemeButton>(switchButton).DisabledTextColor);
+            Assert.Empty(pending.Text);
+            folder.PerformClick();
+            Assert.Equal(Path.GetDirectoryName(WallboardConfigReader.ResolveWritableWallboardFilePath(
+                AppContext.BaseDirectory, WallboardConfigReader.ActiveEnvironmentName)), openedFolder);
+            Assert.True(title.Focus());
+            Assert.True(settings.SelectNextControl(title, true, true, true, false));
+            Assert.False(title.Focused);
+            foreach (var command in new Control[] { save, selector, switchButton, folder, active, pending })
+            {
+                var bounds = command.RectangleToScreen(command.ClientRectangle);
+                for (Control? ancestor = command.Parent; ancestor is not null; ancestor = ancestor.Parent)
+                    Assert.True(ancestor.RectangleToScreen(ancestor.ClientRectangle).Contains(bounds),
+                        $"{themeName}, scale {scale}: clipped {command.Name} {bounds} in {ancestor.GetType().Name} {ancestor.RectangleToScreen(ancestor.ClientRectangle)}");
+            }
+            if (Environment.GetEnvironmentVariable("NETWATCH_UI_SCREENSHOTS") is { Length: > 0 } reportDirectory)
+            {
+                Directory.CreateDirectory(reportDirectory);
+                using var bitmap = new Bitmap(settings.Width, settings.Height);
+                settings.DrawToBitmap(bitmap, new Rectangle(Point.Empty, settings.Size));
+                bitmap.Save(Path.Combine(reportDirectory, $"settings-{themeName}-{scale * 100:0}.png"));
+            }
+            var themeSelector = (ComboBox)settings.Controls.Find("ThemeSelector", true).Single();
+            themeSelector.SelectedItem = themeName == "light" ? "Dark" : "Light";
+            var preview = ThemePalette.FromName(themeSelector.Text);
+            Assert.Equal(preview.WindowBackColor, settings.BackColor);
+            Assert.Equal(themeName, configuration.Theme);
+            using var diagnostics = new DiagnosticsForm(configuration, 4, 1, 1, 0, "requested", () => "memory",
+                browserRuntime: () => new("requested", "effective", "123.4.5"), recoveryDiagnostics: () => "Pending retries: 1");
+            diagnostics.Show();
+            diagnostics.Font = new Font(diagnostics.Font.FontFamily, 9F * scale);
+            diagnostics.Scale(new SizeF(scale, scale));
+            Assert.Equal(palette.WindowBackColor, diagnostics.BackColor);
+            var text = (TextBox)diagnostics.Controls.Find("DiagnosticsText", true).Single();
+            Assert.Equal(palette.PrimaryTextColor, text.ForeColor);
+            Assert.Contains("WebView2 effective data: effective", text.Text);
+            Assert.Contains("WebView2 Runtime: 123.4.5", text.Text);
+            Assert.Contains("Pending retries: 1", text.Text);
+            diagnostics.Close();
+            settings.Close();
+        }
+        output.WriteLine("Three themes, minimum-size dialogs, synthetic 100/150/200% scaling, profile/save distinction, folder target and keyboard traversal passed.");
+    }, TimeSpan.FromSeconds(45));
+
+    [WebViewFact]
+    [Trait("Category", "WebView2")]
+    public async Task DiagnosticsUsesTheEffectiveEnvironmentOverrideAndBrowserVersion()
+    {
+        var root = CreateTestDirectory();
+        var requested = Path.Combine(root, "requested");
+        var effective = Path.Combine(root, "effective");
+        var previous = Environment.GetEnvironmentVariable("WEBVIEW2_USER_DATA_FOLDER");
+        Environment.SetEnvironmentVariable("WEBVIEW2_USER_DATA_FOLDER", effective);
+        try
+        {
+            await RunOnUiThreadAsync(async form =>
+            {
+                var wallboard = (WallboardForm)form;
+                await WaitUntilAsync(() => wallboard.GetBrowserRuntimeSnapshot().Version is not null);
+                var snapshot = wallboard.GetBrowserRuntimeSnapshot();
+                Assert.Contains(Environment.NewLine + "Pending retries:", wallboard.GetRecoveryDiagnostics());
+                Assert.Equal(requested, snapshot.RequestedFolder);
+                Assert.Equal(effective, snapshot.EffectiveFolder);
+                Assert.False(string.IsNullOrWhiteSpace(snapshot.Version));
+                await WaitUntilAsync(() => Directory.Exists(Path.Combine(effective, "EBWebView")));
+                Assert.False(Directory.Exists(requested));
+            }, TimeSpan.FromSeconds(45), () => new WallboardForm(requested, _ => Task.FromResult(new WallboardConfiguration
+            {
+                Panels = [new() { Url = new Uri(Path.Combine(root, "page.html")).AbsoluteUri, RefreshSeconds = 3600 }]
+            })));
+        }
+        finally { Environment.SetEnvironmentVariable("WEBVIEW2_USER_DATA_FOLDER", previous); }
+    }
+
     [WebViewFact]
     [Trait("Category", "WebView2")]
     public Task RecoverySettingFitsAtTheMinimumWindowSize() => RunOnUiThreadAsync(async _ =>

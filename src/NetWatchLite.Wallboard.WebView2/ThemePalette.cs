@@ -58,6 +58,8 @@ internal sealed class ThemePalette
 
     public Color WebViewBackColor { get; }
 
+    public Color AccentTextColor => Name == "high-contrast" ? Color.Black : Color.White;
+
     public static ThemePalette FromName(string? themeName)
     {
         return NormalizeName(themeName) switch

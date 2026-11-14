@@ -12,6 +12,11 @@ internal sealed class WallboardConfiguration
     /// </summary>
     public string AppTitle { get; set; } = "NetWatch Lite Wallboard";
 
+    /// <summary>Opt-in alternative to the divided wallboard. Old profiles remain unchanged.</summary>
+    public bool HomePageEnabled { get; set; }
+    public string HomePageUrl { get; set; } = string.Empty;
+    public string StartupView { get; set; } = "wallboard";
+
     /// <summary>
     /// Enables automatic rotation between pages when panel count exceeds the active layout.
     /// Rotation has no effect when all configured panels fit on the current page.

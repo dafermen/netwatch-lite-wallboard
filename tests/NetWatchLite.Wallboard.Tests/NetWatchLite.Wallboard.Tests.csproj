@@ -10,6 +10,7 @@
   <ItemGroup>
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="18.11.0" />
     <PackageReference Include="xunit" Version="2.9.3" />
+    <PackageReference Include="FsCheck.Xunit" Version="3.6.0" PrivateAssets="all" />
     <PackageReference Include="xunit.runner.visualstudio" Version="4.0.1" PrivateAssets="all" />
     <ProjectReference Include="../../src/NetWatchLite.Wallboard.WebView2/NetWatchLite.Wallboard.WebView2.csproj" />
     <Content Include="../fixtures/*.json" Link="fixtures/%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />

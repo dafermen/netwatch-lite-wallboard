@@ -1,4 +1,5 @@
 using System.Text.Json;
+using System.Diagnostics;
 
 namespace NetWatchLite.Wallboard.WebView2;
 
@@ -20,7 +21,7 @@ internal sealed class SettingsForm : Form
     private static readonly Color AccentColor = Color.FromArgb(8, 145, 178);
     private static readonly Color SelectionColor = Color.FromArgb(14, 116, 144);
 
-    private readonly TextBox _titleTextBox = new();
+    private readonly TextBox _titleTextBox = new() { Name = "WallboardTitle", AccessibleName = "Wallboard title" };
     private readonly CheckBox _rotationCheckBox = new();
     private readonly CheckBox _lowPowerModeCheckBox = new();
     private readonly CheckBox _autoRestartCheckBox = new();
@@ -36,11 +37,22 @@ internal sealed class SettingsForm : Form
     private readonly NumericUpDown _memorySustainedInput = new();
     private readonly NumericUpDown _memoryCooldownInput = new();
     private readonly ComboBox _profileComboBox = new() { Name = "ProfileSelector" };
+    private readonly Label _activeProfileLabel = new() { Name = "ActiveProfile", AutoEllipsis = true, Dock = DockStyle.Fill };
+    private readonly Label _pendingProfileLabel = new() { Name = "PendingProfile", AutoEllipsis = true, Dock = DockStyle.Fill };
+    private readonly Button _switchProfileButton = new ThemeButton { Name = "SwitchProfile" };
+    private Button _saveButton = null!;
+    private readonly ToolTip _toolTip = new();
+    private readonly string _editingProfile = WallboardConfigReader.ActiveEnvironmentName;
+    private readonly string _savePath = WallboardConfigReader.ResolveWritableWallboardFilePath(AppContext.BaseDirectory, WallboardConfigReader.ActiveEnvironmentName);
+    private readonly Action<string> _openFolder;
     private bool _hasUnsavedChanges;
     private readonly Func<bool> _confirmDiscardProfile;
     internal string? RequestedProfileName { get; private set; }
     private readonly ComboBox _defaultLayoutComboBox = new();
-    private readonly ComboBox _themeComboBox = new();
+    private readonly ComboBox _themeComboBox = new() { Name = "ThemeSelector", AccessibleName = "Native window theme" };
+    private readonly CheckBox _homePageCheckBox = new() { Name = "HomePageEnabled" };
+    private readonly TextBox _homeUrlTextBox = new() { Name = "HomePageUrl", AccessibleName = "Home page URL" };
+    private readonly ComboBox _startupViewComboBox = new() { Name = "StartupView", AccessibleName = "Startup view" };
     private readonly DataGridView _panelGrid = new();
     private readonly TextBox _panelNameTextBox = new();
     private readonly TextBox _panelUrlTextBox = new();
@@ -65,10 +77,17 @@ internal sealed class SettingsForm : Form
     /// </summary>
     /// <param name="configuration">Current runtime configuration.</param>
     public SettingsForm(WallboardConfiguration configuration, Action<IWin32Window> showDiagnostics,
-        Func<bool>? confirmDiscardProfile = null)
+        Func<bool>? confirmDiscardProfile = null, Action<string>? openFolder = null)
     {
         _configuration = CloneConfiguration(configuration);
         _showDiagnostics = showDiagnostics;
+        _openFolder = openFolder ?? (path =>
+        {
+            var start = new ProcessStartInfo(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Windows), "explorer.exe"))
+            { UseShellExecute = true };
+            start.ArgumentList.Add(path);
+            Process.Start(start)?.Dispose();
+        });
         _confirmDiscardProfile = confirmDiscardProfile ?? (() => MessageBox.Show(this,
             "Discard unsaved edits and switch profile? Choose No to stay and save your changes first.",
             "Switch Profile", MessageBoxButtons.YesNo, MessageBoxIcon.Warning, MessageBoxDefaultButton.Button2) == DialogResult.Yes);
@@ -85,11 +104,16 @@ internal sealed class SettingsForm : Form
         MinimumSize = new Size(1120, 780);
         Size = new Size(1280, 820);
         StartPosition = FormStartPosition.CenterParent;
+        AutoScaleMode = AutoScaleMode.Dpi;
+        AutoScaleDimensions = new SizeF(96, 96);
 
         BuildLayout();
         LoadConfigurationIntoControls();
         RefreshPanelGrid();
         WireChangeHandlers();
+        NativeTheme.Apply(this, ThemePalette.FromName(_configuration.Theme));
+        UpdateProfileSelection();
+        Disposed += (_, _) => _toolTip.Dispose();
         SetStatus("Ready");
     }
 
@@ -104,11 +128,12 @@ internal sealed class SettingsForm : Form
         {
             Dock = DockStyle.Fill,
             ColumnCount = 1,
-            RowCount = 4,
+            RowCount = 5,
             Padding = new Padding(14),
             BackColor = WindowBackColor
         };
         root.RowStyles.Add(new RowStyle(SizeType.Absolute, 280));
+        root.RowStyles.Add(new RowStyle(SizeType.Absolute, 96));
         root.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
         root.RowStyles.Add(new RowStyle(SizeType.Absolute, 28));
         root.RowStyles.Add(new RowStyle(SizeType.Absolute, 64));
@@ -124,9 +149,10 @@ internal sealed class SettingsForm : Form
         var footer = BuildFooter();
 
         root.Controls.Add(settingsGroup, 0, 0);
-        root.Controls.Add(body, 0, 1);
-        root.Controls.Add(BuildStatusRow(), 0, 2);
-        root.Controls.Add(footer, 0, 3);
+        root.Controls.Add(BuildHomePageGroup(), 0, 1);
+        root.Controls.Add(body, 0, 2);
+        root.Controls.Add(BuildStatusRow(), 0, 3);
+        root.Controls.Add(footer, 0, 4);
 
         Controls.Add(root);
     }
@@ -150,6 +176,32 @@ internal sealed class SettingsForm : Form
         return top;
     }
 
+    private GroupBox BuildHomePageGroup()
+    {
+        var group = CreateGroupBox("Home page");
+        var fields = new TableLayoutPanel
+        {
+            Dock = DockStyle.Fill, ColumnCount = 3, RowCount = 2, Padding = new Padding(10, 0, 10, 4)
+        };
+        fields.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 190));
+        fields.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+        fields.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 180));
+        fields.RowStyles.Add(new RowStyle(SizeType.Absolute, 22));
+        fields.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
+        ConfigureRuntimeCheckBox(_homePageCheckBox, "Enable Inicio view");
+        ConfigureTextInput(_homeUrlTextBox);
+        _homeUrlTextBox.Dock = DockStyle.Fill;
+        ConfigureComboBox(_startupViewComboBox, ["Wallboard", "Inicio"]);
+        fields.Controls.Add(CreateInlineLabel("Mode"), 0, 0);
+        fields.Controls.Add(CreateInlineLabel("URL"), 1, 0);
+        fields.Controls.Add(CreateInlineLabel("Startup view"), 2, 0);
+        fields.Controls.Add(_homePageCheckBox, 0, 1);
+        fields.Controls.Add(_homeUrlTextBox, 1, 1);
+        fields.Controls.Add(_startupViewComboBox, 2, 1);
+        group.Controls.Add(fields);
+        return group;
+    }
+
     /// <summary>
     /// Builds the status row with the JSON path and unsaved-change feedback.
     /// </summary>
@@ -159,19 +211,31 @@ internal sealed class SettingsForm : Form
         var statusRow = new TableLayoutPanel
         {
             Dock = DockStyle.Fill,
-            ColumnCount = 2,
+            ColumnCount = 3,
             RowCount = 1
         };
         statusRow.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 72));
         statusRow.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 28));
+        statusRow.ColumnStyles.Insert(0, new ColumnStyle(SizeType.Absolute, 34));
+        statusRow.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
 
         _statusLabel.AutoEllipsis = true;
         _statusLabel.Dock = DockStyle.Fill;
         _statusLabel.ForeColor = SecondaryTextColor;
         _statusLabel.TextAlign = ContentAlignment.MiddleRight;
 
-        statusRow.Controls.Add(_filePathLabel, 0, 0);
-        statusRow.Controls.Add(_statusLabel, 1, 0);
+        var folder = CreateCommandButton("\uE8B7", (_, _) => RunSafely(
+            () => _openFolder(Path.GetDirectoryName(_savePath)!), "opening configuration folder"));
+        folder.Name = "OpenConfigurationFolder";
+        folder.AccessibleName = "Open configuration folder";
+        folder.Font = new Font("Segoe MDL2 Assets", 10F);
+        folder.Dock = DockStyle.Fill;
+        folder.Margin = Padding.Empty;
+        _toolTip.SetToolTip(folder, "Open configuration folder");
+        _toolTip.SetToolTip(_filePathLabel, _savePath);
+        statusRow.Controls.Add(folder, 0, 0);
+        statusRow.Controls.Add(_filePathLabel, 1, 0);
+        statusRow.Controls.Add(_statusLabel, 2, 0);
         return statusRow;
     }
 
@@ -186,20 +250,14 @@ internal sealed class SettingsForm : Form
         var panel = new TableLayoutPanel
         {
             Dock = DockStyle.Fill,
-            ColumnCount = 6,
-            RowCount = 4,
+            ColumnCount = 4,
+            RowCount = 7,
             Padding = new Padding(10, 14, 10, 12)
         };
-        panel.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 36));
-        panel.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 12));
-        panel.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 12));
-        panel.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 16));
-        panel.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 12));
-        panel.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 12));
-        panel.RowStyles.Add(new RowStyle(SizeType.Absolute, 26));
-        panel.RowStyles.Add(new RowStyle(SizeType.Absolute, 34));
-        panel.RowStyles.Add(new RowStyle(SizeType.Absolute, 30));
-        panel.RowStyles.Add(new RowStyle(SizeType.Absolute, 36));
+        foreach (var width in new[] { 28F, 26F, 22F, 24F })
+            panel.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, width));
+        foreach (var height in new[] { 22F, 30F, 22F, 30F, 26F, 42F, 28F })
+            panel.RowStyles.Add(new RowStyle(SizeType.Absolute, height));
 
         _titleTextBox.Width = 420;
         _titleTextBox.BackColor = InputColor;
@@ -230,33 +288,38 @@ internal sealed class SettingsForm : Form
         }
 
         panel.Controls.Add(CreateInlineLabel("Title"), 0, 0);
-        panel.Controls.Add(CreateInlineLabel("Auto"), 1, 0);
-        panel.Controls.Add(CreateInlineLabel("Rotation"), 2, 0);
-        panel.Controls.Add(CreateInlineLabel("Default layout"), 3, 0);
-        panel.Controls.Add(CreateInlineLabel("Power"), 4, 0);
-        panel.Controls.Add(CreateInlineLabel(string.Empty), 5, 0);
+        panel.SetColumnSpan(panel.GetControlFromPosition(0, 0)!, 4);
         panel.Controls.Add(_titleTextBox, 0, 1);
-        panel.Controls.Add(_rotationCheckBox, 1, 1);
-        panel.Controls.Add(_rotationSecondsInput, 2, 1);
-        panel.Controls.Add(_defaultLayoutComboBox, 3, 1);
-        panel.Controls.Add(_lowPowerModeCheckBox, 4, 1);
-        panel.SetColumnSpan(_lowPowerModeCheckBox, 2);
-
-        panel.Controls.Add(CreateInlineLabel("Profile"), 0, 2);
+        panel.SetColumnSpan(_titleTextBox, 4);
+        panel.Controls.Add(CreateInlineLabel("Rotation"), 0, 2);
+        panel.Controls.Add(CreateInlineLabel("Power"), 1, 2);
+        panel.Controls.Add(CreateInlineLabel("Seconds"), 2, 2);
+        panel.Controls.Add(CreateInlineLabel("Layout"), 3, 2);
+        panel.Controls.Add(_rotationCheckBox, 0, 3);
+        panel.Controls.Add(_lowPowerModeCheckBox, 1, 3);
+        panel.Controls.Add(_rotationSecondsInput, 2, 3);
+        panel.Controls.Add(_defaultLayoutComboBox, 3, 3);
+        _activeProfileLabel.Text = $"Editing profile: {ProfileDisplayName(_editingProfile)}";
+        panel.Controls.Add(_activeProfileLabel, 0, 4);
+        panel.SetColumnSpan(_activeProfileLabel, 4);
         ConfigureComboBox(_profileComboBox, []);
+        _profileComboBox.AccessibleName = "Profile to switch to";
         _profileComboBox.DisplayMember = nameof(ProfileChoice.DisplayName);
         foreach (var name in WallboardConfigReader.GetAvailableProfiles())
             _profileComboBox.Items.Add(new ProfileChoice(name));
         _profileComboBox.SelectedItem = _profileComboBox.Items.Cast<ProfileChoice>()
             .FirstOrDefault(choice => choice.Name == WallboardConfigReader.ActiveEnvironmentName);
-        panel.Controls.Add(_profileComboBox, 0, 3);
-        panel.SetColumnSpan(_profileComboBox, 4);
-        var switchButton = CreateCommandButton("Switch Profile", (_, _) => RequestProfileSwitch());
-        switchButton.Name = "SwitchProfile";
-        switchButton.Dock = DockStyle.Top;
-        switchButton.Height = 36;
-        panel.Controls.Add(switchButton, 4, 3);
-        panel.SetColumnSpan(switchButton, 2);
+        panel.Controls.Add(_profileComboBox, 0, 5);
+        panel.SetColumnSpan(_profileComboBox, 2);
+        _switchProfileButton.Text = "Switch Profile";
+        _switchProfileButton.FlatStyle = FlatStyle.Flat;
+        _switchProfileButton.Dock = DockStyle.Top;
+        _switchProfileButton.Height = 36;
+        _switchProfileButton.Click += (_, _) => RequestProfileSwitch();
+        panel.Controls.Add(_switchProfileButton, 2, 5);
+        panel.SetColumnSpan(_switchProfileButton, 2);
+        panel.Controls.Add(_pendingProfileLabel, 0, 6);
+        panel.SetColumnSpan(_pendingProfileLabel, 4);
 
         group.Controls.Add(panel);
         return group;
@@ -413,7 +476,7 @@ internal sealed class SettingsForm : Form
         {
             Dock = DockStyle.Fill,
             AutoScroll = true,
-            AutoScrollMinSize = new Size(0, 432),
+            AutoScrollMinSize = new Size(0, 408),
             ColumnCount = 1,
             RowCount = 4,
             Padding = new Padding(12, 16, 12, 12)
@@ -422,7 +485,7 @@ internal sealed class SettingsForm : Form
         editor.RowStyles.Add(new RowStyle(SizeType.Absolute, 68));
         editor.RowStyles.Add(new RowStyle(SizeType.Absolute, 68));
         editor.RowStyles.Add(new RowStyle(SizeType.Absolute, 68));
-        editor.RowStyles.Add(new RowStyle(SizeType.Absolute, 200));
+        editor.RowStyles.Add(new RowStyle(SizeType.Absolute, 176));
 
         ConfigureTextInput(_panelNameTextBox);
         ConfigureTextInput(_panelUrlTextBox);
@@ -433,17 +496,17 @@ internal sealed class SettingsForm : Form
         var commandGrid = new TableLayoutPanel
         {
             Dock = DockStyle.Top,
-            Height = 200,
+            Height = 176,
             ColumnCount = 2,
             RowCount = 4,
             Padding = new Padding(0, 8, 0, 0)
         };
         commandGrid.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50));
         commandGrid.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50));
-        commandGrid.RowStyles.Add(new RowStyle(SizeType.Absolute, 46));
-        commandGrid.RowStyles.Add(new RowStyle(SizeType.Absolute, 46));
-        commandGrid.RowStyles.Add(new RowStyle(SizeType.Absolute, 46));
-        commandGrid.RowStyles.Add(new RowStyle(SizeType.Absolute, 46));
+        commandGrid.RowStyles.Add(new RowStyle(SizeType.Absolute, 40));
+        commandGrid.RowStyles.Add(new RowStyle(SizeType.Absolute, 40));
+        commandGrid.RowStyles.Add(new RowStyle(SizeType.Absolute, 40));
+        commandGrid.RowStyles.Add(new RowStyle(SizeType.Absolute, 40));
 
         commandGrid.Controls.Add(CreateGridCommandButton("New Panel", (_, _) => ClearPanelEditor()), 0, 0);
         commandGrid.Controls.Add(CreateGridCommandButton("Add Panel", (_, _) => AddPanel()), 1, 0);
@@ -454,6 +517,7 @@ internal sealed class SettingsForm : Form
 
         var deleteButton = CreateGridCommandButton("Delete", (_, _) => DeleteSelectedPanel());
         deleteButton.BackColor = Color.FromArgb(92, 38, 38);
+        deleteButton.Tag = "danger";
         commandGrid.Controls.Add(deleteButton, 0, 3);
         commandGrid.SetColumnSpan(deleteButton, 2);
 
@@ -501,8 +565,12 @@ internal sealed class SettingsForm : Form
             (_, _) => _ = RunSafelyAsync(SaveConfigurationAsync, "saving wallboard settings"));
         saveButton.Width = 140;
         saveButton.BackColor = AccentColor;
+        saveButton.Name = "SaveConfiguration";
+        saveButton.Tag = "primary";
+        _saveButton = saveButton;
 
         var cancelButton = CreateCommandButton("Cancel", (_, _) => Close());
+        CancelButton = cancelButton;
         cancelButton.Width = 110;
         var exportButton = CreateCommandButton("Export JSON", (_, _) => ExportConfiguration());
         exportButton.Width = 120;
@@ -551,6 +619,9 @@ internal sealed class SettingsForm : Form
     /// </summary>
     private void WireChangeHandlers()
     {
+        _homePageCheckBox.CheckedChanged += (_, _) => { UpdateHomePageFields(); MarkUnsavedChanges(); };
+        _homeUrlTextBox.TextChanged += (_, _) => MarkUnsavedChanges();
+        _startupViewComboBox.SelectedIndexChanged += (_, _) => MarkUnsavedChanges();
         _memoryProtectionCheckBox.CheckedChanged += (_, _) => MarkUnsavedChanges();
         _memorySustainedInput.ValueChanged += (_, _) => MarkUnsavedChanges();
         _memoryCooldownInput.ValueChanged += (_, _) => MarkUnsavedChanges();
@@ -567,7 +638,12 @@ internal sealed class SettingsForm : Form
         _autoRestartHoursInput.ValueChanged += (_, _) => RunSafely(() => MarkUnsavedChanges(), "tracking auto restart interval changes");
         _memoryWarningInput.ValueChanged += (_, _) => RunSafely(() => MarkUnsavedChanges(), "tracking memory threshold changes");
         _defaultLayoutComboBox.SelectedIndexChanged += (_, _) => RunSafely(() => MarkUnsavedChanges(), "tracking layout changes");
-        _themeComboBox.SelectedIndexChanged += (_, _) => RunSafely(() => MarkUnsavedChanges(), "tracking theme changes");
+        _themeComboBox.SelectedIndexChanged += (_, _) => RunSafely(() =>
+        {
+            MarkUnsavedChanges();
+            NativeTheme.Apply(this, ThemePalette.FromName(GetThemeNameFromDisplay(_themeComboBox.Text)));
+        }, "previewing theme changes");
+        _profileComboBox.SelectedIndexChanged += (_, _) => UpdateProfileSelection();
         _panelNameTextBox.TextChanged += (_, _) => RunSafely(
             () => { MarkUnsavedChanges(); ApplySelectedPanelEditorChanges(showValidation: false); },
             "tracking panel name changes");
@@ -584,6 +660,10 @@ internal sealed class SettingsForm : Form
     /// </summary>
     private void LoadConfigurationIntoControls()
     {
+        _homePageCheckBox.Checked = _configuration.HomePageEnabled;
+        _homeUrlTextBox.Text = _configuration.HomePageUrl;
+        _startupViewComboBox.SelectedItem = WallboardViewOptions.StartupMode(_configuration) == WallboardViewMode.Home ? "Inicio" : "Wallboard";
+        UpdateHomePageFields();
         _titleTextBox.Text = _configuration.AppTitle;
         _rotationCheckBox.Checked = _configuration.RotationEnabled;
         _lowPowerModeCheckBox.Checked = _configuration.LowPowerModeEnabled;
@@ -603,7 +683,7 @@ internal sealed class SettingsForm : Form
             ? _configuration.DefaultLayout
             : 4;
         _themeComboBox.SelectedItem = GetThemeDisplayName(_configuration.Theme);
-        _filePathLabel.Text = $"JSON file: {WallboardConfigReader.GetConfigurationFilePath()}";
+        _filePathLabel.Text = $"Save to: {_savePath}";
     }
 
     /// <summary>
@@ -899,6 +979,15 @@ internal sealed class SettingsForm : Form
             return false;
         }
 
+        if (_homePageCheckBox.Checked && !WallboardConfigReader.IsValidHomePageUrl(_homeUrlTextBox.Text))
+        {
+            ShowValidationMessage("Enter a valid home page URL or trusted local page path before enabling Inicio.");
+            _homeUrlTextBox.Focus();
+            return false;
+        }
+        _configuration.HomePageEnabled = _homePageCheckBox.Checked;
+        _configuration.HomePageUrl = _homeUrlTextBox.Text.Trim();
+        _configuration.StartupView = _startupViewComboBox.SelectedItem as string == "Inicio" ? "home" : "wallboard";
         _configuration.AppTitle = title;
         _configuration.RotationEnabled = _rotationCheckBox.Checked;
         _configuration.RotationSeconds = (int)_rotationSecondsInput.Value;
@@ -917,6 +1006,12 @@ internal sealed class SettingsForm : Form
         _configuration.AutoHideTopBarEnabled = _autoHideTopBarCheckBox.Checked;
         _configuration.Theme = GetThemeNameFromDisplay(_themeComboBox.SelectedItem?.ToString());
         return true;
+    }
+
+    private void UpdateHomePageFields()
+    {
+        _homeUrlTextBox.Enabled = _homePageCheckBox.Checked;
+        _startupViewComboBox.Enabled = _homePageCheckBox.Checked;
     }
 
     /// <summary>
@@ -998,6 +1093,17 @@ internal sealed class SettingsForm : Form
         Close();
     }
 
+    private static string ProfileDisplayName(string name) => name.Length == 0 ? "default" : name;
+
+    private void UpdateProfileSelection()
+    {
+        var pending = _profileComboBox.SelectedItem is ProfileChoice choice && choice.Name != _editingProfile;
+        _switchProfileButton.Enabled = pending;
+        _saveButton.Enabled = !pending;
+        _pendingProfileLabel.Text = pending ? $"Pending switch: {_profileComboBox.Text}" : string.Empty;
+        _toolTip.SetToolTip(_saveButton, pending ? "Switch profile or reselect the editing profile before saving." : $"Save profile: {ProfileDisplayName(_editingProfile)}");
+    }
+
     private sealed record ProfileChoice(string Name)
     {
         public string DisplayName => Name.Length == 0 ? "default (wallboard.json)" : Name;
@@ -1070,6 +1176,9 @@ internal sealed class SettingsForm : Form
         return new WallboardConfiguration
         {
             AppTitle = configuration.AppTitle,
+            HomePageEnabled = configuration.HomePageEnabled,
+            HomePageUrl = configuration.HomePageUrl,
+            StartupView = configuration.StartupView,
             RotationEnabled = configuration.RotationEnabled,
             RotationSeconds = configuration.RotationSeconds,
             DefaultLayout = configuration.DefaultLayout,
@@ -1103,6 +1212,9 @@ internal sealed class SettingsForm : Form
     /// <param name="configuration">Configuration to copy into the editor.</param>
     private void ReplaceEditableConfiguration(WallboardConfiguration configuration)
     {
+        _configuration.HomePageEnabled = configuration.HomePageEnabled;
+        _configuration.HomePageUrl = configuration.HomePageUrl;
+        _configuration.StartupView = configuration.StartupView;
         _configuration.AppTitle = configuration.AppTitle;
         _configuration.RotationEnabled = configuration.RotationEnabled;
         _configuration.RotationSeconds = configuration.RotationSeconds;
@@ -1143,6 +1255,9 @@ internal sealed class SettingsForm : Form
 
         return new WallboardConfiguration
         {
+            HomePageEnabled = WallboardViewOptions.CanShowHome(configuration),
+            HomePageUrl = WallboardConfigReader.IsValidHomePageUrl(configuration.HomePageUrl) ? configuration.HomePageUrl.Trim() : string.Empty,
+            StartupView = WallboardViewOptions.StartupMode(configuration) == WallboardViewMode.Home ? "home" : "wallboard",
             AppTitle = string.IsNullOrWhiteSpace(configuration.AppTitle)
                 ? "NetWatch Lite Wallboard"
                 : configuration.AppTitle.Trim(),
@@ -1502,7 +1617,7 @@ internal sealed class SettingsForm : Form
     /// <returns>Configured button.</returns>
     private static Button CreateCommandButton(string text, EventHandler handler)
     {
-        var button = new Button
+        var button = new ThemeButton
         {
             Text = text,
             FlatStyle = FlatStyle.Flat,

@@ -30,6 +30,7 @@ This is the documentation home for NetWatch Lite Wallboard. The project is a nat
 7. [v0.4.0-rc.3 application icon validation](releases/v0.4.0-rc.3.md)
 8. [v0.4.0-rc.4 startup integrity validation](releases/v0.4.0-rc.4.md)
 9. [v0.4.0-rc.5 operational safety validation](releases/v0.4.0-rc.5.md)
+10. [v0.4.0-rc.6 Inicio/Wallboard and dialog validation](releases/v0.4.0-rc.6.md)
 
 ## Engineering
 
@@ -48,6 +49,8 @@ This is the documentation home for NetWatch Lite Wallboard. The project is a nat
 5. [Architecture decisions](adr/README.md)
 6. [Documentation standard](DOCUMENTATION_STANDARD.md)
 7. [Codex handoff instructions](../AGENTS.md)
+8. [ADR 0006: Native dialog consistency and existing-draft promotion](adr/0006-dialog-consistency-and-existing-draft-promotion.md)
+9. [ADR 0007: Exclusive Inicio and Wallboard views](adr/0007-exclusive-home-and-wallboard-views.md)
 
 ## Recommended Reading Paths
 

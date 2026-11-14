@@ -1,6 +1,6 @@
 # Current Status
 
-Last updated: 2026-11-11
+Last updated: 2026-11-14
 
 ## Repository State
 
@@ -9,7 +9,7 @@ Last updated: 2026-11-11
 - Main branch: `main`
 - Stage-2 source base / previously synchronized main: `44ec4c5` (icon and organized portable stage). The preceding push CI passed.
 - Stage-2 implementation delivered and synchronized at `9f30c6b`; [push CI passed](https://github.com/dafermen/netwatch-lite-wallboard/actions/runs/42384610906). The [rc.4 evaluation prerelease](https://github.com/dafermen/netwatch-lite-wallboard/releases/tag/v0.4.0-rc.4) now publishes that exact binary and checksum; documentation-only updates continue on `main`.
-- Current project version: `0.4.0-rc.5`; assembly/file version `0.4.0.0`. Implementation base for this stage: `fa18501`.
+- Current project version: `0.4.0-rc.6`; assembly/file version `0.4.0.0`. The previous rc.5 draft retains its original version/source/bytes.
 - Operational implementation plus native-CLI fix is delivered at `62a50977f2402e3d2eced4866d0fb07493bea4c6`; [CI passed](https://github.com/dafermen/netwatch-lite-wallboard/actions/runs/43155737818) and the [real manual draft workflow passed](https://github.com/dafermen/netwatch-lite-wallboard/actions/runs/43155741648). The rc.5 draft targets that exact binary source; subsequent handoff documentation does not rebuild or replace its assets.
 - Implementation base reviewed for the current stability work: `6628569`.
 - The .NET 10 portable is an evaluation candidate. The old v0.3.0 portable is preserved.
@@ -89,6 +89,41 @@ Documentation navigation validation on 2026-08-01:
 - Browser, responsive, theme, and `/docs/` route checks are not applicable because this repository uses GitHub-rendered Markdown and has no hosted documentation website.
 
 ## Current Open Work
+
+### rc.6 Draft Delivery (2026-11-14)
+
+- The user explicitly authorized a fresh portable with ZIP/checksum, source synchronization and **only a GitHub draft** for `v0.4.0-rc.6`. This supersedes the earlier no-delivery scope for the local work below. No public release, rc.5 replacement, stable promotion or Latest change is authorized.
+- Includes the Inicio/Wallboard feature and the prior unreleased dialog/profile/diagnostics/testing/draft-promotion improvements. Existing Data JSON and older ZIP/checksum hashes were captured before packaging and must remain unchanged.
+- Preparing delivery through a clean source commit, full desktop suite, guarded build/audit, exact-ZIP package tests, isolated packaged-UI smoke, source push/CI and guarded Draft upload/download comparison. Final delivery evidence will be appended after these steps actually complete. See [rc.6 validation](docs/releases/v0.4.0-rc.6.md).
+- Pre-package rc.6 validation passed: full suite 126/126, zero skips (`TestResults/dafer_DESKTOP-1DUT53N_2026-11-14_12_25_58_net10.0.trx`), guarded solution build zero warnings/errors, audit with no vulnerable app/test packages, 15 publisher and 25 promotion mocks under PowerShell 5.1, script parsing and documentation/whitespace checks. Final ZIP/UI/CI/remote-asset evidence is still required before reporting delivery complete.
+- Production/24-hour testing, real monitor-DPI/other-device acceptance and broader lifecycle mutation/E2E coverage remain pending. A private evaluation draft does not satisfy stable/public release gates.
+
+### Inicio And Wallboard Views (2026-11-14)
+
+- Implemented an opt-in Inicio/Wallboard selector and Settings fields `homePageEnabled`, `homePageUrl`, and `startupView`. Legacy configurations retain the existing Wallboard startup and toolbar. Existing `Data/*.json` files remain byte-identical; the neutral new-field example is `tests/fixtures/wallboard-home.json`. See [ADR 0007](docs/adr/0007-exclusive-home-and-wallboard-views.md).
+- Inicio displays one chrome-free browser. Switching views disposes inactive controls, cancels in-flight work and rejects queued work from older view generations under the render lock. Wallboard rotation, refresh, scheduled restart and automatic recovery cannot wake inactive panels. Home navigation failures offer a native Retry action without silently returning to Wallboard.
+- The shared WebView2 environment, cookies, profile/save paths, layout/page selection and session memory-protection budget are preserved. Low-power suspension/restoration and closing handle both views. Ordinary Settings saves preserve the active valid view; startup selection applies at launch or explicit profile switching. Home URLs stay out of the unchanged safe support-report allowlist.
+- Added 20 configuration/property/browser test cases, including legacy defaults, invalid URLs, backup preservation, safe-report privacy, repeated transitions, stale queued restart cancellation, cookies, page/layout retention, minimize/restore, close during transition and local-page retry. The existing minimum-size Settings regression exposed clipped editor commands after the new group was added; command spacing was compacted and the original reachability test now passes.
+- Final complete suite passed **126 tests, zero failures/skips**, with real desktop/WebView2 tests enabled. TRX: `TestResults/dafer_DESKTOP-1DUT53N_2026-11-14_04_09_27_net10.0.trx`. The focused 22-case mode/theme/layout run also passed (`04_02_08` TRX). Final guarded Release build passed with zero warnings/errors. This is short isolated-fixture evidence, not a 24-hour production or whole-app mutation result.
+- Manual UI smoke in ignored `TestResults/mode-smoke-20261114/` verified full-page Inicio, two-panel Wallboard, Settings URL/startup controls, save preserving the active Wallboard view and loading the changed URL in Inicio. Its browser data and configuration were isolated; all test windows were closed. SHA-256 checks confirmed all four existing Data JSON files, including the backup, were unchanged.
+- Windows PowerShell 5.1 publisher guards passed 15 cases and draft-promotion guards passed 25 cases using fixtures/mocks only. Fresh NuGet audit found no vulnerable application/test packages. Documentation validation passed for 36 Markdown files, 314 local links and three images; Git whitespace checks passed.
+- README, user/configuration/developer guides, architecture, operations, testing, changelog, documentation navigation and agent handoff instructions describe the new lifecycle and compatibility boundaries. Earlier unreleased work below is preserved. Current local HEAD is `a7445f6`; these changes remain uncommitted and no new portable, ZIP, push, hosted workflow or publication was performed. The existing rc.5 draft and package retain their original source/version/bytes.
+- Pending: a long run with the actual company URL and real deployment layout, real monitor-DPI/other-device acceptance, and a separately authorized fresh-version portable/ZIP/checksum and GitHub delivery. Broader fuzz/mutation/E2E coverage remains a future improvement; the earlier scoped mutation score does not cover the new view lifecycle.
+
+### Unreleased Improvements 2 Through 7 (2026-11-12)
+
+- User approved dialog themes/accessibility, editing-profile clarity/folder command, effective browser diagnostics, WindowsBase warning resolution, deeper tests and promotion of existing verified drafts. This is local unreleased source work, not a request to push, create a portable or publish rc.5. Project/old binary version remains rc.5; the existing draft/ZIP must not be rebuilt or replaced under that identity.
+- Implemented shared native themes with isolated Settings preview, readable accent/disabled text and DPI-aware dialogs. Reorganized Wallboard fields; display captured editing profile/save path, separate pending selection and block ambiguous Save. Folder opening is non-writing and argument-list based. No configuration fields, persisted profile selection, CLI precedence or browser lifecycle changes.
+- Diagnostics refresh reads actual environment folder/Runtime version and live recovery counts/state; requested/effective/unavailable values remain distinct. Raw values never enter the unchanged safe support-report allowlist.
+- Resolved MSB3277 by removing only the SDK-imported unused WPF adapter before assembly resolution in WinForms-only projects. Release build passed with zero warnings/errors; no suppression or cache edits.
+- Added three FsCheck properties (1,300 generated cases/run), 1,000 seeded bounded JSON mutations with unchanged-file/sentinel assertions, dialog theme/scaling/profile/keyboard tests and a real environment-folder override test. Added precise policy boundaries/generation assertions after the first mutation run revealed coverage gaps.
+- Scoped Stryker.NET 5.1.0 baseline passed at 96.92% (63/65 executable mutants detected) on retry/memory policies, above the 80% gate. Final evidence: `TestResults/mutation-448dfaf1c5434c49a215275c54c1ab8a/`. Two survivors and compilation/filter exclusions remain visible for future review; this is not a whole-app score. Manual Deep Logic Tests workflow added; no hosted run is implied.
+- Existing-draft promotion defaults to verify-only and requires the previously approved hash/source. It downloads and tests exact existing bytes, rechecks release/assets/tag/source and uses explicit tag-specific approval before limited publication flags. No rebuild/upload/overwrite/delete. 25 simulated guard cases passed under Windows PowerShell 5.1.
+- Real verify-only execution downloaded rc.5 and passed 132 package assertions, leaving `published=false`. Package evidence: `artifacts/verification/e205b4e0ca2c4d42afc2dfb4d91e37c8/`. The original hash `2488c0690c61cbb4a6af4832ec330add612247467c82c581ca436479f7b03322` and source `62a50977f2402e3d2eced4866d0fb07493bea4c6` were retained.
+- Final complete suite passed **106 tests, zero failures/skips**, including all seven desktop/browser cases and the short neutral resource fixture. TRX: `TestResults/dafer_DESKTOP-1DUT53N_2026-11-12_06_56_47_net10.0.trx`. Four final dialog/profile/runtime regressions also passed separately (`06_56_07` TRX). The final guarded Release build (`-warnaserror:MSB3277`) passed with zero warnings/errors.
+- Visual source-build smoke opened demo with isolated browser data, checked dark dropdown/disabled-command contrast, effective profile/version and multiline recovery diagnostics, opened the correct Data folder, and closed all test windows without saving. Nine three-theme/synthetic-scaling bitmaps are under ignored `TestResults/ui-final-20261112/`. Real monitor-DPI/other-device acceptance is still pending.
+- Documentation validation passed: 35 Markdown files, 300 local links and three images. All PowerShell scripts parsed; Actionlint 1.7.12 accepted all four workflows. Fresh solution NuGet audit found no vulnerable application/test packages. The original 15 publisher guards and 25 promotion guards passed under Windows PowerShell 5.1. Data has no tracked changes; prior portable history was not overwritten. Final remote read confirmed rc.5 remains draft/prerelease with source `62a5097`.
+- Work remains local and uncommitted; no new portable, ZIP, source push, hosted workflow execution or public promotion was performed. Future delivery must use a fresh version and the usual ZIP/checksum gates. The 24-hour production run, real device/DPI acceptance, broader fuzz/mutation/E2E coverage and optional environment-reviewer configuration remain pending.
 
 ### Operational Improvements 2 Through 7
 
@@ -210,13 +245,14 @@ Recommended next validation:
 
 High-value next steps:
 
-1. Add an optional UI command to open the active JSON file location.
-2. Add a small profile selector in Settings so users can switch between `default`, `demo`, and `production` without command-line arguments.
-3. Add an in-app "About" dialog showing version, build, config path, and portable folder.
-4. Expand automated coverage to broader layout, malformed profile names, and URL resolution.
-5. Establish property tests and a Stryker.NET mutation baseline after unit coverage is meaningful.
-6. Automate selected integration and portable end-to-end checks.
-7. Investigate the known `MSB3277` `WindowsBase` warning and decide whether it is worth suppressing or resolving.
+1. Complete the neutral-fixture and separate real-production-layout 24-hour resource runs; record memory/process/recovery trends before stable approval.
+2. Validate Windows 10/11 devices, real 125/150/200% monitor DPI changes, keyboard/screen-reader acceptance and TV fullscreen behavior.
+3. Expand scoped mutation to normalization/save/report boundaries and add coverage-guided/longer fuzzing plus broader packaged UI end-to-end tests.
+4. Prepare a fresh versioned portable/ZIP/checksum and synchronize source only on a separate user request; do not replace rc.5.
+5. Configure GitHub environment reviewers if the maintainer authorizes it; only later promote an existing draft with explicit approval. Hosted tests of new workflows require source synchronization.
+6. Consider a panel-health overview or compact About dialog; do not reintroduce page-content scraping/alarms.
+
+Profile switching/folder access, scoped properties/fuzz/mutation and WindowsBase warning resolution are now implemented; do not recommend them again as absent. Remembering a profile across restarts remains intentionally deferred because it adds a persistence contract.
 
 ## Handoff Notes For Future Codex Sessions
 

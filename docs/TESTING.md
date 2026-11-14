@@ -18,7 +18,7 @@ For each area, record one result:
 
 The .NET 10 solution includes `tests/NetWatchLite.Wallboard.Tests`, an xUnit project. CI builds both projects and executes the deterministic configuration, file integration, contract, memory-accounting, and recovery-policy tests. Property-style checks exercise numeric bounds with fixed-seed inputs.
 
-Four optional desktop tests require an interactive Windows session: isolated renderer-crash recovery, shared-browser recovery in the main form with a deliberately failed environment factory, Settings layout at its minimum size, and repeated real-WebView2 panel creation/disposal with resource measurements. They are skipped unless `NETWATCH_WEBVIEW2_TESTS=1`. CI does not claim that skipped desktop tests passed. Mutation testing and broader fuzzing remain pending; automated tests do not replace operator acceptance or the full release checklist.
+Optional desktop tests require an interactive Windows session: isolated renderer-crash recovery, shared-browser recovery with a failed environment factory, Settings minimum-size/profile-discard behavior, repeated real-WebView2 disposal, three-theme/scaled-dialog/keyboard behavior, and effective browser-folder overrides. They are skipped unless `NETWATCH_WEBVIEW2_TESTS=1`. CI does not claim that skipped desktop tests passed. Deeper tests now include FsCheck, bounded seeded configuration fuzzing and a scoped Stryker baseline; automated tests still do not replace operator acceptance or the full release checklist.
 
 Portable layout tests cover legacy/development path compatibility, root profile save/read/backup, missing-profile fallback, local pages, and report overwrite refusal. `scripts/test-portable.ps1` separately exercises the actual root launcher and self-contained payload from an extracted ZIP, without opening the browser. Publishing and CI run these package tests automatically. See [Deployment](DEPLOYMENT.md) for the pipeline and limits.
 
@@ -63,6 +63,8 @@ Current coverage includes defaults, legacy configuration, invalid inputs, timer-
 
 ## 3. Property And Invariant Testing
 
+`ConfigurationPropertyTests` uses FsCheck.Xunit 3.6.0 for generated inputs and shrinking: 500 normalization/idempotence/timer cases, 500 profile-directory invariants and 300 explicit feature-switch cases per run. Failures include replay seeds; preserve the minimized counterexample as a regression. FsCheck is test-only and is not bundled in the portable.
+
 Verify rules that must hold over many inputs:
 
 - Normalized layouts are always one of `1, 2, 3, 4, 6, 8`.
@@ -72,22 +74,26 @@ Verify rules that must hold over many inputs:
 - Rebuilding panels leaves no old refresh timers running.
 - Configuration save/read preserves normalized values.
 
-Property-based automation is preferred for pure normalization logic. Until available, use boundary-value tables.
+Use generated properties together with explicit boundary-value examples; neither replaces the other.
 
 ## 4. Mutation Testing
 
 Mutation testing checks whether tests detect intentional logic defects.
 
-Use Stryker.NET after a meaningful unit test suite exists. Focus on:
+The pinned local Stryker.NET 5.1.0 tool measures `PanelRecoveryPolicy.cs` and `MemoryProtectionPolicy.cs`. Run `scripts/test-mutation.ps1` or the manual **Deep Logic Tests** workflow. The configured break threshold is 80%; inspect surviving/equivalent mutants and compilation exclusions instead of lowering it to make a run pass. Reports are local HTML/JSON under ignored `TestResults/mutation-*/`; no dashboard upload is configured. The 2026-11-12 baseline detected 63 of 65 executable mutants (96.92%); two survivors and excluded/compile-error mutants remain in the report. This is a two-policy baseline, not a whole-application score. Initial-test failures stop the run, and desktop/browser tests are disabled during mutation.
+
+Future expansion should focus on:
 
 - Bounds and fallback values.
 - Boolean feature switches.
 - Layout and page calculations.
 - Save verification and error paths.
 
-Release rule: required for changes to well-covered shared logic once the mutation baseline is established. Before that milestone, mark `Not applicable` with the reason `automated test baseline not yet established`, never `Passed`.
+Release rule: rerun this baseline for changes to the two policies and their tests. Expanding mutation to normalization, saving, reporting and UI logic remains separate work; never label those areas mutation-tested from this narrow run.
 
 ## 5. Fuzzing
+
+`ConfigurationFuzzTests` runs 1,000 bounded byte mutations from a malformed/valid JSON corpus with seed `824107`, using only disposable profiles. It tests truncation, substituted/appended bytes, invalid UTF-8, null/wrong types, numeric overflow, escaped text, unknown fields and excessive nesting. Every input must either normalize successfully or reject with `JsonException`; cancellation/unexpected exceptions fail the test. Original bytes, a neighboring sentinel and file counts must remain unchanged. Inputs are below 1 KiB with a ten-second cancellation budget per read, allowing for loaded Windows/antivirus scheduling. This bounded regression harness is not continuous coverage-guided fuzzing or proof against arbitrarily large files.
 
 Exercise malformed and unexpected inputs:
 
@@ -101,6 +107,8 @@ Exercise malformed and unexpected inputs:
 The application must fail with a useful message or normalize safely. It must not hang, overwrite an unrelated file, or expose sensitive data.
 
 ## 6. Integration Testing
+
+Home-view tests cover legacy defaults, URL/startup normalization, save/read/exact backup and untouched neighboring profiles, an FsCheck idempotence/availability invariant, and support-report omission of Home URLs. Isolated local-browser checks cover Settings clone/layout, six mode round trips, disposed inactive controls/stopped timers, persistent test cookies, a bounded neutral resource budget, canceled queued restarts, rapid switches, startup/minimize/restore, same-profile reload versus explicit profile startup, disabled-feature fallback and failed-page retry without starting panels. Short regressions do not establish 24-hour production stability.
 
 Validate boundaries between components:
 
@@ -140,6 +148,8 @@ Test the packaged application as an operator would use it:
 At least one end-to-end pass must use the exact package intended for distribution.
 
 ## 9. Regression Testing
+
+The dialog regression checks all three themes, minimum Settings size, synthetic 100/150/200% control scaling, pending-profile/save state, folder target and forward keyboard traversal. Set `NETWATCH_UI_SCREENSHOTS` to a new local evidence directory to capture Settings bitmaps. These scaling checks do not emulate a real monitor DPI change; separate Windows device/DPI acceptance remains required. A real WebView2 test confirms an environment-overridden profile folder and actual Runtime version are reported correctly, with no operator profile used.
 
 Retest previously fragile behavior:
 
@@ -208,6 +218,15 @@ Validate:
 - Local backup files, logs, `bin/`, and `obj/` are absent.
 
 ## Automated Commands
+
+Additional local quality gates:
+
+```powershell
+.\scripts\test-release-promotion.ps1
+.\scripts\test-mutation.ps1
+```
+
+The promotion fixtures reject incorrect approvals, stable/published versions, source/hash mismatches, incomplete/duplicate/extra assets, changed draft identities, failed reads, moved tags and modified local files. Verify-only cannot edit the release. A simulated successful publish is distinct from live read-only verification and actual authorized public publication.
 
 Run from the repository root:
 

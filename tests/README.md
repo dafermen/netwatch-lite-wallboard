@@ -18,6 +18,8 @@ Do not create empty test projects to make the repository look covered. Each proj
 
 ## Automated Coverage
 
+Inicio/Wallboard adds optional-field compatibility/properties/save/backup/privacy tests and isolated Home startup, stop/disposal/timer/cookie/resource, rapid switching, stale queued restart, minimize/restore, reload/profile-startup, failure/retry and close-during-transition cases. Existing Data profiles are untouched; tests use disposable files/profiles and a neutral fixture.
+
 1. Configuration defaults, numeric invariants, invalid panels, missing and unknown fields.
 2. Configuration save/read/backup integration using temporary files.
 3. Backward compatibility with the v0.3.0 fixture.
@@ -28,7 +30,11 @@ Do not create empty test projects to make the repository look covered. Each proj
 8. Embedded icon frame dimensions, transparency/nonempty content, and independent main/Settings/Diagnostics icon lifetimes. Package probes verify the icon resource is present without loose image files.
 9. Shared Framework-compatible startup-integrity logic: hashes/lengths, required files, canonical/unique paths, malformed metadata/XML, DTD/size bounds, stale files, and unchanged editable profiles/content.
 
-Run `dotnet test .\netwatch-lite-wallboard.slnx -c Release`. Real-browser tests are skipped unless `NETWATCH_WEBVIEW2_TESTS=1`. Run `scripts/test-soak.ps1 -Minutes 1440` for the 24-hour neutral-fixture resource test. Test output belongs under the ignored `TestResults/` directory. Broader layout/URL tests, mutation testing, and broader fuzzing remain future work.
+Run `dotnet test .\netwatch-lite-wallboard.slnx -c Release`. Desktop/browser tests are skipped unless `NETWATCH_WEBVIEW2_TESTS=1`. Run `scripts/test-soak.ps1 -Minutes 1440` for the 24-hour neutral-fixture resource test. Test output belongs under ignored `TestResults/`. FsCheck properties and 1,000 seeded malformed-JSON mutations now run in the regular suite. Broader layout/URL properties, coverage-guided fuzzing and long production acceptance remain future work.
+
+`scripts/test-mutation.ps1` restores pinned Stryker.NET 5.1.0 and measures only memory/recovery policies with an 80% break threshold, no browser tests and local HTML/JSON reports. The manual **Deep Logic Tests** workflow runs it separately from ordinary CI. `scripts/test-release-promotion.ps1` adds existing-draft fixtures, default-no-publication/explicit approval guards and changed-source/asset rejection; ordinary CI runs these along with existing release guards.
+
+Desktop regressions cover three themes, synthetic font/dimension scaling, profile/save ambiguity, folder targets, keyboard traversal and effective WebView2 environment overrides. `NETWATCH_UI_SCREENSHOTS` captures local Settings bitmaps; real multi-monitor DPI acceptance remains manual.
 
 `scripts/test-portable.ps1 -ZipPath <archive>` performs real-process package checks from a disposable extraction under `artifacts/verification/`. It verifies bundled-runtime use, launcher argument forwarding, configuration profiles, root paths, unchanged JSON, and missing-file detection. Publishing invokes it before promoting a ZIP. It never opens WebView2 or edits the original package; see [Deployment](../docs/DEPLOYMENT.md).
 

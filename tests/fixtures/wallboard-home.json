@@ -1,0 +1,11 @@
+{
+  "appTitle": "Home view example",
+  "homePageEnabled": true,
+  "homePageUrl": "https://example.org/",
+  "startupView": "home",
+  "defaultLayout": 2,
+  "panels": [
+    { "name": "First", "url": "https://example.com/", "refreshSeconds": 60 },
+    { "name": "Second", "url": "https://example.net/", "refreshSeconds": 90 }
+  ]
+}

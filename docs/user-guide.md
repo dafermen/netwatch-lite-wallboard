@@ -156,6 +156,21 @@ Panel URLs can be:
 
 Most users should use normal `https://` URLs.
 
+## Inicio And Wallboard Modes
+
+1. In **Settings > Home page**, check **Enable Inicio view**.
+2. Enter the company URL (preferably HTTPS) or a trusted local page path.
+3. Choose **Startup view**: **Wallboard** or **Inicio**.
+4. Save. Use the **Inicio | Wallboard** selector in the top bar.
+
+**Inicio** fills the content area without panel headers/divisions. It does not change website zoom or enable fullscreen automatically. Layout commands and **Restart All** are hidden; **Refresh page** affects only Home. Failure stays in Inicio with **Retry**, never starting dashboards unexpectedly.
+
+**Wallboard** disposes Home and restores the previous layout and wallboard page. Pages reload, so scroll positions, unsaved forms and page-local state may be lost. Cookies/authentication data are not deleted, although sites can expire sessions independently. Mode switching never saves JSON.
+
+Inactive browsers are disposed, not hidden. Wallboard refresh/recovery/rotation/restart timers are stopped in Inicio. Automatic memory protection does not restart Home; the memory indicator can still measure it. Low-power minimize/restore keeps the selected mode. Fullscreen, close confirmation and auto-hide work independently.
+
+Startup preference applies on the next launch or explicit profile switch. Saving the same profile preserves the current mode unless Inicio is disabled. Existing profiles keep Wallboard-only behavior until configured. Browser caches/shared processes mean disposal does not guarantee an immediate memory drop or 24-hour stability.
+
 ## Layouts
 
 | Layout | Best use |
@@ -220,7 +235,7 @@ The memory monitor shows estimated combined memory for the application and its a
 
 Hover over the indicator or open Diagnostics to see application memory, browser memory, process count, peak use, and recent measurements. An asterisk (`*`) means the sample is incomplete, for example because a process exited while it was being measured. Shared physical memory can be counted in more than one working set, so this remains an estimate.
 
-Measurements are taken about once per minute while the monitor is enabled. Up to 1,440 samples are kept in memory; the latest ten appear in Diagnostics. Disabling the monitor stops collection. History is cleared when the application exits.
+Measurements are taken about once per minute while the monitor or optional memory protection is enabled. Up to 1,440 samples are kept in memory; the latest ten appear in Diagnostics. Disabling both options stops collection. History is cleared when the application exits.
 
 When memory crosses the configured threshold, the label recommends restart. It does not restart automatically; the operator can use **Restart All**.
 
@@ -231,6 +246,8 @@ Auto-hide hides the top bar after a short idle delay. Move the mouse to the top 
 This is useful for TV displays where the browser panels should use almost the full screen.
 
 ## Themes
+
+The selected theme now also styles Settings and Diagnostics. Changing the theme previews it inside Settings; **Save Changes** applies it to the live wallboard. Closing or canceling does not apply the preview. Windows-owned dialogs and website content retain their own appearance.
 
 The native shell supports:
 
@@ -250,6 +267,8 @@ Imported settings are not written to the active file until you click **Save Chan
 
 ## Environment Profiles
 
+Settings shows **Editing profile** and the full destination under **Save to** (hover for the complete path). The folder icon opens its directory without writing configuration. Selecting another profile shows **Pending switch** and disables Save, preventing accidental writes to the wrong profile. Click **Switch Profile**, or reselect the editing profile before saving its edits. Unsaved-discard confirmation still applies. The selection is not remembered after restarting; existing command-line/environment startup rules continue to apply.
+
 Profiles let you keep separate configurations.
 
 Examples:
@@ -264,6 +283,10 @@ Run a profile:
 ```
 
 ## Diagnostics
+
+Browser diagnostics distinguishes the **requested** data folder from the **effective** folder reported by the running browser environment, including environment-variable overrides. It also shows the actual WebView2 Runtime version, pending/exhausted retry counts, reconnect status and memory-protection session attempts. Unavailable environment values are identified, not guessed from installed versions or the requested path. **Refresh** takes a new browser/recovery snapshot.
+
+Raw diagnostics and **Copy** may include private paths and panel URLs. **Export Report** retains its separate allowlist and does not include browser folders or browser-provided strings.
 
 Open diagnostics when something looks wrong.
 

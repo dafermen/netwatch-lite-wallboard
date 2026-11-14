@@ -17,6 +17,8 @@ internal sealed class WebViewPanelControl : UserControl
     private readonly System.Windows.Forms.Timer _recoveryTimer = new();
     private readonly PanelRecoveryPolicy _recovery;
     private readonly bool _automaticRecoveryEnabled;
+    private readonly bool _isHomePage;
+    private readonly Control? _homeErrorSurface;
     private WallboardPanel? _panel;
     private bool _disposed;
     private bool _isActivePanel;
@@ -29,16 +31,18 @@ internal sealed class WebViewPanelControl : UserControl
     /// <summary>
     /// Builds the panel title bar, refresh/restart buttons, hosted WebView2 control, and refresh timer.
     /// </summary>
-    public WebViewPanelControl(ThemePalette theme, PanelRecoveryPolicy recovery, bool automaticRecoveryEnabled)
+    public WebViewPanelControl(ThemePalette theme, PanelRecoveryPolicy recovery, bool automaticRecoveryEnabled, bool isHomePage = false)
     {
         _recovery = recovery;
-        _automaticRecoveryEnabled = automaticRecoveryEnabled;
+        _automaticRecoveryEnabled = automaticRecoveryEnabled && !isHomePage;
+        _isHomePage = isHomePage;
         BackColor = theme.PanelBackColor;
         Dock = DockStyle.Fill;
-        Margin = new Padding(4);
+        Margin = isHomePage ? Padding.Empty : new Padding(4);
 
         var titleBar = new Panel
         {
+            Name = "PanelHeader",
             BackColor = theme.PanelTitleBackColor,
             Dock = DockStyle.Top,
             Height = 34,
@@ -99,6 +103,23 @@ internal sealed class WebViewPanelControl : UserControl
 
         Controls.Add(_webView);
         Controls.Add(titleBar);
+        titleBar.Visible = !isHomePage;
+        if (isHomePage)
+        {
+            var error = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 1, RowCount = 4, Visible = false, Name = "HomeLoadError" };
+            error.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+            error.RowStyles.Add(new RowStyle(SizeType.Percent, 50));
+            error.RowStyles.Add(new RowStyle(SizeType.Absolute, 36));
+            error.RowStyles.Add(new RowStyle(SizeType.Absolute, 44));
+            error.RowStyles.Add(new RowStyle(SizeType.Percent, 50));
+            error.Controls.Add(new Label { Text = "Unable to load home page.", AutoSize = true, Anchor = AnchorStyles.None }, 0, 1);
+            var retry = new ThemeButton { Text = "Retry", Name = "RetryHomePage", Width = 110, Height = 34, Anchor = AnchorStyles.None, FlatStyle = FlatStyle.Flat };
+            retry.Click += (_, _) => RestartRequested?.Invoke(this, EventArgs.Empty);
+            error.Controls.Add(retry, 0, 2);
+            NativeTheme.Apply(error, theme);
+            _homeErrorSurface = error;
+            Controls.Add(error);
+        }
 
         _refreshTimer.Tick += (_, _) => RefreshPanel(resetRecovery: false);
         _recoveryTimer.Tick += (_, _) =>
@@ -206,6 +227,7 @@ internal sealed class WebViewPanelControl : UserControl
 
                 _statusLabel.Text = "Refreshing...";
                 _showingErrorPage = false;
+                HideHomeError();
                 _webView.CoreWebView2.Navigate(BuildRefreshUri(_targetUri).ToString());
             },
             $"refreshing panel '{_panel?.Name ?? "Panel"}'");
@@ -285,7 +307,7 @@ internal sealed class WebViewPanelControl : UserControl
     private void ScheduleRefresh(int refreshSeconds)
     {
         _refreshTimer.Stop();
-        if (_recovery.IsPending || _showingErrorPage)
+        if (_isHomePage || _recovery.IsPending || _showingErrorPage)
         {
             return;
         }
@@ -308,6 +330,7 @@ internal sealed class WebViewPanelControl : UserControl
 
                 _statusLabel.Text = "Loading...";
                 _showingErrorPage = false;
+                HideHomeError();
                 _webView.CoreWebView2.Navigate(BuildRefreshUri(_targetUri).ToString());
             },
             $"navigating panel '{_panel?.Name ?? "Panel"}'");
@@ -380,6 +403,11 @@ internal sealed class WebViewPanelControl : UserControl
     private void ShowErrorHtml(string message)
     {
         _showingErrorPage = true;
+        if (_isHomePage)
+        {
+            ShowHomeError();
+            return;
+        }
         var errorHtml = """
             <!doctype html>
             <html>
@@ -448,6 +476,7 @@ internal sealed class WebViewPanelControl : UserControl
         BrowserProcessFailed |= e.ProcessFailedKind == CoreWebView2ProcessFailedKind.BrowserProcessExited;
         _refreshTimer.Stop();
         _statusLabel.Text = "Browser process failed";
+        if (_isHomePage) ShowHomeError();
         // A dead browser cannot render an error page. Native status and recovery remain available.
         ScheduleRecovery();
     }
@@ -462,6 +491,21 @@ internal sealed class WebViewPanelControl : UserControl
         {
             AppErrorLog.Log("displaying panel error", ex);
         }
+    }
+
+    private void ShowHomeError()
+    {
+        if (_homeErrorSurface is null || _disposed) return;
+        _webView.Visible = false;
+        _homeErrorSurface.Visible = true;
+        _homeErrorSurface.BringToFront();
+    }
+
+    private void HideHomeError()
+    {
+        if (_homeErrorSurface is null) return;
+        _homeErrorSurface.Visible = false;
+        _webView.Visible = true;
     }
 
     private void ScheduleRecovery()
@@ -507,6 +551,7 @@ internal sealed class WebViewPanelControl : UserControl
             {
                 _refreshTimer.Stop();
                 _statusLabel.Text = "Panel error";
+                if (_isHomePage) ShowHomeError();
                 ScheduleRecovery();
             }
             catch

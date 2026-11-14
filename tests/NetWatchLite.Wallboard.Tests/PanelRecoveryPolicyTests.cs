@@ -43,6 +43,20 @@ public sealed class PanelRecoveryPolicyTests
     }
 
     [Fact]
+    public void ANewFailureEndsThePreviousHealthyPeriod()
+    {
+        var policy = new PanelRecoveryPolicy();
+        policy.TrySchedule(Start, out _);
+        policy.TryBeginAttempt(policy.Generation);
+        policy.MarkHealthy(Start);
+        Assert.True(policy.TrySchedule(Start.AddSeconds(59), out _));
+        policy.TryBeginAttempt(policy.Generation);
+        Assert.True(policy.TrySchedule(Start.AddSeconds(61), out var delay));
+        Assert.Equal(TimeSpan.FromSeconds(30), delay);
+        Assert.Equal(3, policy.Attempts);
+    }
+
+    [Fact]
     public void OneHealthyMinuteRestoresTheBudget()
     {
         var policy = new PanelRecoveryPolicy();
@@ -98,5 +112,54 @@ public sealed class PanelRecoveryPolicyTests
         policy.MarkHealthy(Start.AddMinutes(5));
         Assert.True(policy.TrySchedule(Start.AddMinutes(5).AddSeconds(1), out var delay));
         Assert.Equal(TimeSpan.FromSeconds(15), delay);
+    }
+
+    [Fact]
+    public void ExhaustionWaitsUntilTheLastPendingAttemptBegins()
+    {
+        var policy = new PanelRecoveryPolicy();
+        Assert.False(policy.IsExhausted);
+        for (var index = 0; index < 3; index++)
+        {
+            Assert.True(policy.TrySchedule(Start, out _));
+            Assert.False(policy.IsExhausted);
+            Assert.True(policy.TryBeginAttempt(policy.Generation));
+        }
+        Assert.True(policy.IsExhausted);
+    }
+
+    [Fact]
+    public void CancelAndResetAdvanceGenerationAndClearPendingState()
+    {
+        var policy = new PanelRecoveryPolicy();
+        Assert.Equal(0, policy.Generation);
+        policy.TrySchedule(Start, out _);
+        var generation = policy.Generation;
+        policy.MarkHealthy(Start);
+        Assert.Equal(generation + 1, policy.Generation);
+        Assert.False(policy.IsPending);
+        policy.TrySchedule(Start, out _);
+        generation = policy.Generation;
+        policy.MarkInactive();
+        Assert.Equal(generation + 1, policy.Generation);
+        Assert.False(policy.IsPending);
+        Assert.False(policy.TryBeginAttempt(generation));
+        generation = policy.Generation;
+        policy.Reset();
+        Assert.Equal(generation + 1, policy.Generation);
+        Assert.False(policy.IsPending);
+        Assert.Equal(0, policy.Attempts);
+    }
+
+    [Fact]
+    public void ResetDoesNotReuseAnEarlierHealthyPeriod()
+    {
+        var policy = new PanelRecoveryPolicy();
+        policy.MarkHealthy(Start);
+        policy.Reset();
+        policy.MarkHealthy(Start.AddMinutes(5));
+        Assert.True(policy.TrySchedule(Start.AddMinutes(5).AddSeconds(1), out var delay));
+        Assert.Equal(TimeSpan.FromSeconds(5), delay);
+        Assert.Equal(1, policy.Attempts);
     }
 }

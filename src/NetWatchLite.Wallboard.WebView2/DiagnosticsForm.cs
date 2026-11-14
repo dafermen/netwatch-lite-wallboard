@@ -15,10 +15,12 @@ internal sealed class DiagnosticsForm : Form
     private readonly int _currentPage;
     private readonly int _pageCount;
     private readonly int _activePanelCount;
-    private readonly string _webViewUserDataFolder;
     private readonly TextBox _diagnosticsTextBox = new();
     private readonly Func<string> _memoryDiagnostics;
     private readonly Func<string>? _supportReport;
+    private readonly Func<BrowserRuntimeSnapshot> _browserRuntime;
+    private readonly Func<string>? _recoveryDiagnostics;
+    private readonly Func<string>? _viewMode;
 
     /// <summary>
     /// Builds the diagnostics window.
@@ -37,16 +39,21 @@ internal sealed class DiagnosticsForm : Form
         int activePanelCount,
         string webViewUserDataFolder,
         Func<string> memoryDiagnostics,
-        Func<string>? supportReport = null)
+        Func<string>? supportReport = null,
+        Func<BrowserRuntimeSnapshot>? browserRuntime = null,
+        Func<string>? recoveryDiagnostics = null,
+        Func<string>? viewMode = null)
     {
         _configuration = configuration;
         _layout = layout;
         _currentPage = currentPage;
         _pageCount = pageCount;
         _activePanelCount = activePanelCount;
-        _webViewUserDataFolder = webViewUserDataFolder;
         _memoryDiagnostics = memoryDiagnostics;
         _supportReport = supportReport;
+        _browserRuntime = browserRuntime ?? (() => new BrowserRuntimeSnapshot(webViewUserDataFolder, null, null));
+        _recoveryDiagnostics = recoveryDiagnostics;
+        _viewMode = viewMode;
 
         Text = "Diagnostics";
         AppIcon.ApplyTo(this);
@@ -60,8 +67,11 @@ internal sealed class DiagnosticsForm : Form
         Size = new Size(940, 680);
         SizeGripStyle = SizeGripStyle.Show;
         StartPosition = FormStartPosition.CenterParent;
+        AutoScaleMode = AutoScaleMode.Dpi;
+        AutoScaleDimensions = new SizeF(96, 96);
 
         BuildLayout();
+        NativeTheme.Apply(this, ThemePalette.FromName(configuration.Theme));
         RefreshDiagnosticsText();
     }
 
@@ -89,6 +99,8 @@ internal sealed class DiagnosticsForm : Form
         _diagnosticsTextBox.ReadOnly = true;
         _diagnosticsTextBox.ScrollBars = ScrollBars.Both;
         _diagnosticsTextBox.WordWrap = false;
+        _diagnosticsTextBox.Name = "DiagnosticsText";
+        _diagnosticsTextBox.AccessibleName = "Local runtime diagnostics (may contain private paths and URLs)";
 
         var footer = new FlowLayoutPanel
         {
@@ -97,7 +109,9 @@ internal sealed class DiagnosticsForm : Form
             Padding = new Padding(0, 8, 0, 0),
             WrapContents = false
         };
-        footer.Controls.Add(CreateButton("Close", (_, _) => Close()));
+        var close = CreateButton("Close", (_, _) => Close());
+        CancelButton = close;
+        footer.Controls.Add(close);
         footer.Controls.Add(CreateButton("Copy", (_, _) => Clipboard.SetText(_diagnosticsTextBox.Text)));
         footer.Controls.Add(CreateButton("Refresh", (_, _) => RefreshDiagnosticsText()));
         var export = CreateButton("Export Report", async (_, _) => await ExportReportAsync());
@@ -132,9 +146,15 @@ internal sealed class DiagnosticsForm : Form
         builder.AppendLine($"Error log: {AppErrorLog.LogFilePath}");
         builder.AppendLine($"App base: {AppContext.BaseDirectory}");
         builder.AppendLine($"Configuration/content root: {PortablePaths.ContentDirectory}");
-        builder.AppendLine($"WebView2 data: {_webViewUserDataFolder}");
+        builder.AppendLine(_browserRuntime().Describe());
+        builder.AppendLine();
+        builder.AppendLine("Recovery state");
+        builder.AppendLine(_recoveryDiagnostics?.Invoke() ?? "Unavailable in this snapshot.");
         builder.AppendLine();
         builder.AppendLine("Runtime");
+        builder.AppendLine($"View: {_viewMode?.Invoke() ?? "Wallboard"}");
+        builder.AppendLine($"Home page enabled: {_configuration.HomePageEnabled}; startup view: {_configuration.StartupView}");
+        builder.AppendLine($"Home URL: {_configuration.HomePageUrl}");
         builder.AppendLine($"Title: {_configuration.AppTitle}");
         builder.AppendLine($"Layout: {_layout}");
         builder.AppendLine($"Page: {_currentPage} / {_pageCount}");
@@ -201,7 +221,7 @@ internal sealed class DiagnosticsForm : Form
     /// <returns>Button.</returns>
     private static Button CreateButton(string text, EventHandler handler)
     {
-        var button = new Button
+        var button = new ThemeButton
         {
             BackColor = Color.FromArgb(31, 41, 55),
             FlatStyle = FlatStyle.Flat,

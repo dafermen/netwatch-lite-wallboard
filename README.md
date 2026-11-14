@@ -8,6 +8,8 @@ GitHub repository: [https://github.com/dafermen/netwatch-lite-wallboard](https:/
 
 ## Current Scope
 
+The rc.6 candidate adds optional Inicio/Wallboard views, extends themes to Settings/Diagnostics, distinguishes the editing profile from a pending switch, adds a configuration-folder command and effective browser diagnostics, and includes deeper logic tests plus verification/promotion of existing drafts. The user authorized a new rc.6 draft only; these changes do not replace the existing rc.5 ZIP or approve public/stable publication. See [current status](CURRENT_STATUS.md).
+
 This project is now focused on displaying and refreshing web pages. It does not scrape web pages, inspect DOM elements, run selector rules, or trigger alarms from page content.
 
 The application is intentionally simple:
@@ -28,6 +30,7 @@ The application is intentionally simple:
 - Auto-hide the top bar for TV displays.
 - Use dark, light, or high-contrast native shell themes.
 - Edit configuration through a visual settings window.
+- Optionally alternate **Inicio** (one full-area home page) and **Wallboard** (divided dashboards), releasing inactive browsers.
 
 ## Features
 
@@ -42,6 +45,8 @@ The application is intentionally simple:
 - Visual settings editor for `wallboard.json`.
 - Import and export configuration from the settings window.
 - Runtime diagnostics window.
+- Consistent native dialog themes with a Settings-only preview; saving applies the theme to the wallboard.
+- Explicit editing-profile/save destination and a configuration-folder shortcut.
 - Environment profiles such as `wallboard.demo.json` and `wallboard.production.json`.
 - Portable Windows publish script.
 
@@ -91,7 +96,7 @@ dotnet build
 
 ## Publish Portable
 
-The current build is **v0.4.0-rc.5**, an evaluation candidate adding bounded logs, safe support reports, optional memory protection, profile selection, and a manual prerelease workflow. Long-running production validation remains pending. See [candidate validation](docs/releases/v0.4.0-rc.5.md). The maintainer authorized only a draft for rc.5, not public publication or stable promotion.
+The current build is **v0.4.0-rc.6**, an evaluation candidate adding Inicio/Wallboard views and the UI/diagnostics/testing improvements above. Long-running production validation remains pending. See [candidate validation](docs/releases/v0.4.0-rc.6.md). The maintainer authorized only a draft for rc.6, not public publication or stable promotion. Older packages retain their original source and assets.
 
 Download the tested ZIP and its SHA-256 sidecar from the [v0.4.0-rc.4 prerelease](https://github.com/dafermen/netwatch-lite-wallboard/releases/tag/v0.4.0-rc.4). The release tag identifies the existing binary's source commit (`9f30c6b`); newer documentation on `main` does not rebuild or replace that archive. This is an evaluation prerelease, not a stable release.
 
@@ -228,7 +233,19 @@ The settings window lets you:
 - Open diagnostics.
 - Save changes back to the active JSON file.
 
+**Editing profile** is the profile that Save will write. Selecting a different profile shows **Pending switch** and temporarily disables Save; use **Switch Profile**, or reselect the editing profile to save its edits. The folder icon beside **Save to** opens that destination directory. Switching remains session-only; launch arguments and browser sessions are unchanged.
+
+Settings and Diagnostics follow the native theme. Theme changes preview only inside Settings until saved; Cancel leaves the live wallboard unchanged. Diagnostics distinguishes requested/effective browser-data folders and shows the actual running WebView2 Runtime and recovery state. Its raw text/Copy can contain private paths and URLs; use **Export Report** for allowlisted support JSON.
+
 When saving, the app creates a backup of the previous JSON file, writes through a temporary file, verifies the saved content, and reloads the wallboard.
+
+## Inicio And Wallboard
+
+In Settings, enable **Home page > Enable Inicio view**, enter a URL, choose **Startup view** (`Wallboard` or `Inicio`) and save. The top bar then offers **Inicio | Wallboard**. Existing profiles default to disabled/Wallboard and are never rewritten at startup.
+
+Inicio releases wallboard controls and stops their refresh/retry/rotation/scheduled timers; only the home browser remains. **Refresh page** and error-page **Retry** affect only Inicio. Returning disposes Home, restores the last wallboard layout/page and starts fresh rotation/restart intervals. Pages reload, so unsaved page state is lost; cookies/authentication data are not cleared.
+
+Optional fields: `homePageEnabled` (default `false`), `homePageUrl` (default empty), `startupView` (`wallboard` or `home`). An invalid/missing URL cannot activate Inicio. Startup preference applies at launch or explicit profile switch, not every save. Fullscreen/exit confirmation/themes/auto-hide remain independent. See [configuration](docs/CONFIGURATION.md) and the [user guide](docs/user-guide.md).
 
 ## Environment Profiles
 

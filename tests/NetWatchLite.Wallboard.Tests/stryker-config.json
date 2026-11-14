@@ -1,0 +1,11 @@
+{
+  "stryker-config": {
+    "project": "NetWatchLite.Wallboard.WebView2.csproj",
+    "mutate": ["**/PanelRecoveryPolicy.cs", "**/MemoryProtectionPolicy.cs"],
+    "reporters": ["cleartext", "json", "html"],
+    "concurrency": 2,
+    "thresholds": { "high": 90, "low": 80, "break": 80 },
+    "test-case-filter": "Category!=WebView2&Category!=Soak&Category!=Desktop",
+    "additional-timeout": 10000
+  }
+}

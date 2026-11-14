@@ -33,6 +33,8 @@ The application does not expose a network API, host a server, scrape page conten
 | `SettingsForm` | Edits a cloned configuration and saves it through `WallboardConfigReader`. |
 | `DiagnosticsForm` | Produces a read-only runtime snapshot for support. |
 | `ThemePalette` | Centralizes native shell colors. |
+| `NativeTheme` | Applies the same palette to native Settings/Diagnostics, including grid and accent contrast; never restyles websites. |
+| `BrowserRuntimeSnapshot` | Keeps requested/effective runtime paths and the real browser version in local diagnostics only. |
 | `AppErrorLog` | Writes unexpected failures to the local application log. |
 | `PortablePaths` | Keeps editable JSON and local pages at the organized package root while preserving flat/development layouts. |
 | Portable launcher | Uses Windows .NET Framework to forward arguments to the self-contained .NET 10 payload in `app/`. |
@@ -76,6 +78,12 @@ WallboardConfiguration
 
 Settings are edited on a clone. Saving performs normalization, creates a local backup when appropriate, writes the file, reads it again for verification, and then asks the main window to reload.
 
+## View Modes
+
+`WallboardForm` owns the optional mutually exclusive Wallboard/Home (Inicio) selection. Home is a chrome-free `WebViewPanelControl` with no refresh/recovery timers and a native retry surface, not a hidden wallboard layout. Inactive controls are disposed; both views share the existing environment/data folder.
+
+Transitions stop timers, suspend memory tracking without resetting attempts, cancel view-scoped initialization and increment a generation. Render/recovery work checks that generation after acquiring the existing render lock, preventing stale queued work from rebuilding inactive panels. Mode-only switches preserve layout/page. Low-power restores the selected mode; configuration reload/profile switching retain their separate documented semantics. See [ADR 0007](adr/0007-exclusive-home-and-wallboard-views.md).
+
 ## WebView2 Lifecycle
 
 All visible panels share one `CoreWebView2Environment` so cookies, authentication, and browser profile data behave like one browser session.
@@ -105,6 +113,8 @@ Generated output and machine-specific backups are excluded from source control.
 - Configuration and logs must not contain passwords, access tokens, or private keys.
 
 ## Extension Rules
+
+The unreleased UI and existing-draft boundaries are recorded in [ADR 0006](adr/0006-dialog-consistency-and-existing-draft-promotion.md). No configuration or browser-profile persistence changes are introduced. Existing-draft promotion validates already-built bytes; it is distinct from fresh-package publication.
 
 The application and test suite target .NET 10 LTS. `global.json` selects a stable 10.0 SDK; CI restores, builds, and tests the solution on Windows. After the framework migration, WebView2 was explicitly reviewed and updated to stable `1.0.4314.35`. SDK updates do not bundle or reset the separately installed browser Runtime.
 

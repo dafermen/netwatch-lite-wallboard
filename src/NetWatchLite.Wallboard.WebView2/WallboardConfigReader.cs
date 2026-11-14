@@ -315,6 +315,9 @@ internal static class WallboardConfigReader
 
         return new WallboardConfiguration
         {
+            HomePageEnabled = WallboardViewOptions.CanShowHome(configuration),
+            HomePageUrl = IsValidHomePageUrl(configuration.HomePageUrl) ? configuration.HomePageUrl.Trim() : string.Empty,
+            StartupView = WallboardViewOptions.StartupMode(configuration) == WallboardViewMode.Home ? "home" : "wallboard",
             AppTitle = string.IsNullOrWhiteSpace(configuration.AppTitle)
                 ? "NetWatch Lite Wallboard"
                 : configuration.AppTitle.Trim(),
@@ -372,6 +375,9 @@ internal static class WallboardConfigReader
     /// </summary>
     /// <param name="url">Panel URL text.</param>
     /// <returns>True when the value is a safe relative local file path.</returns>
+    internal static bool IsValidHomePageUrl(string? url) =>
+        !string.IsNullOrWhiteSpace(url) && IsValidPanel(new WallboardPanel { Url = url.Trim() });
+
     private static bool IsRelativeLocalUrl(string url)
     {
         return Uri.TryCreate(url, UriKind.Relative, out _)

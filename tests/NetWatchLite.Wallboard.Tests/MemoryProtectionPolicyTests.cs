@@ -69,4 +69,53 @@ public sealed class MemoryProtectionPolicyTests
         Assert.Equal(1, policy.Attempts);
         Assert.False(policy.Observe(High(120), configuration, true));
     }
+
+    [Theory]
+    [InlineData(256, true)]
+    [InlineData(255, false)]
+    [InlineData(1, false)]
+    public void ThresholdUsesMegabytesAndIncludesExactEquality(int megabytes, bool expected)
+    {
+        var policy = new MemoryProtectionPolicy();
+        var configuration = Configuration();
+        MemorySnapshot Sample(int seconds) => High(seconds) with { HostBytes = (long)megabytes * 1024 * 1024 };
+        Assert.False(policy.Observe(Sample(0), configuration, true));
+        Assert.Equal(expected, policy.Observe(Sample(60), configuration, true));
+    }
+
+    [Theory]
+    [InlineData("partial")]
+    [InlineData("low")]
+    [InlineData("disabled")]
+    [InlineData("ineligible")]
+    public void InterruptedTrackingRequiresANewFullInterval(string kind)
+    {
+        var policy = new MemoryProtectionPolicy();
+        var configuration = Configuration();
+        Assert.False(policy.Observe(High(0), configuration, true));
+        configuration.MemoryProtectionEnabled = kind != "disabled";
+        var interrupted = kind == "low" ? High(30) with { HostBytes = 0 } : High(30, kind == "partial");
+        Assert.False(policy.Observe(interrupted, configuration, kind != "ineligible"));
+        configuration.MemoryProtectionEnabled = true;
+        Assert.False(policy.Observe(High(60), configuration, true));
+        Assert.False(policy.Observe(High(90), configuration, true));
+        Assert.True(policy.Observe(High(120), configuration, true));
+    }
+
+    [Fact]
+    public void ExactlyNinetySecondsAndDuplicateTimestampsDoNotBreakContinuity()
+    {
+        var configuration = Configuration();
+        configuration.MemoryProtectionSustainedMinutes = 2;
+        var policy = new MemoryProtectionPolicy();
+        Assert.False(policy.Observe(High(0), configuration, true));
+        Assert.False(policy.Observe(High(90), configuration, true));
+        Assert.True(policy.Observe(High(120), configuration, true));
+        configuration.MemoryProtectionSustainedMinutes = 1;
+        policy = new MemoryProtectionPolicy();
+        Assert.False(policy.Observe(High(0), configuration, true));
+        Assert.False(policy.Observe(High(30), configuration, true));
+        Assert.False(policy.Observe(High(30), configuration, true));
+        Assert.True(policy.Observe(High(60), configuration, true));
+    }
 }

@@ -45,6 +45,10 @@ The default remains warning-only. Enable **Memory protection** in Settings only 
 
 ## Diagnostics Collection
 
+**Inicio** releases dashboards and shows the configured home URL; **Wallboard** reloads the last layout/page. This stops actual dashboard timers, not just visibility. The home page still consumes resources, and working sets remain estimates. Refresh/retry affect the selected view. Diagnostics shows current view, startup preference and raw Home URL: treat Copy as private; Export Report retains its allowlist without this URL.
+
+Unreleased diagnostics reports requested/effective WebView2 data folders separately and reads the actual Runtime version from the running environment. Check the effective folder when investigating authentication/profile issues, especially with environment overrides. Pending/exhausted retry counts, reconnect state and memory-protection attempts are also shown. Refresh updates these providers; raw paths/browser strings are not added to safe support export.
+
 Collect:
 
 - App version.
