@@ -149,6 +149,8 @@ At least one end-to-end pass must use the exact package intended for distributio
 
 ## 9. Regression Testing
 
+TV/recovery regressions cover editor-only URL completion and malformed-host rejection, international-domain validation, unchanged legacy read bytes, local/file URL compatibility, an additional 500-case completion/idempotence property, and Settings warnings before writes. Desktop/browser tests exercise top-edge reveal without mouse events, out-of-window/inactive exclusion, toolbar/dialog/error pinning, actual window command bounds at 1280/1024/800 widths, current-monitor fullscreen bounds, normal/maximized restoration, startup fullscreen/close cleanup, F11 forwarding, no-browser native error actions and Edit/Cancel/Back behavior. They use isolated profiles and synthetic pages. Available-monitor bounds tests are not proof of every Windows/taskbar/DPI configuration; separate deployment-device visual acceptance remains required.
+
 The dialog regression checks all three themes, minimum Settings size, synthetic 100/150/200% control scaling, pending-profile/save state, folder target and forward keyboard traversal. Set `NETWATCH_UI_SCREENSHOTS` to a new local evidence directory to capture Settings bitmaps. These scaling checks do not emulate a real monitor DPI change; separate Windows device/DPI acceptance remains required. A real WebView2 test confirms an environment-overridden profile folder and actual Runtime version are reported correctly, with no operator profile used.
 
 Retest previously fragile behavior:

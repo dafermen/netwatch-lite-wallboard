@@ -8,6 +8,8 @@ GitHub repository: [https://github.com/dafermen/netwatch-lite-wallboard](https:/
 
 ## Current Scope
 
+The rc.7 candidate adds reliable top-edge toolbar reveal, monitor-sized fullscreen with visible exit/close commands, editor-only URL completion/validation, and native Home error actions. The user authorized a new rc.7 portable and GitHub draft only, with no profile migration or replacement of earlier packages. See [candidate validation](docs/releases/v0.4.0-rc.7.md).
+
 The rc.6 candidate adds optional Inicio/Wallboard views, extends themes to Settings/Diagnostics, distinguishes the editing profile from a pending switch, adds a configuration-folder command and effective browser diagnostics, and includes deeper logic tests plus verification/promotion of existing drafts. The user authorized a new rc.6 draft only; these changes do not replace the existing rc.5 ZIP or approve public/stable publication. See [current status](CURRENT_STATUS.md).
 
 This project is now focused on displaying and refreshing web pages. It does not scrape web pages, inspect DOM elements, run selector rules, or trigger alarms from page content.
@@ -96,7 +98,7 @@ dotnet build
 
 ## Publish Portable
 
-The current build is **v0.4.0-rc.6**, an evaluation candidate adding Inicio/Wallboard views and the UI/diagnostics/testing improvements above. Long-running production validation remains pending. See [candidate validation](docs/releases/v0.4.0-rc.6.md). The maintainer authorized only a draft for rc.6, not public publication or stable promotion. Older packages retain their original source and assets.
+The current build is **v0.4.0-rc.7**, an evaluation candidate correcting TV toolbar recovery, fullscreen, Settings URL input and Home error actions. Packaged visual, other-device and long-running production validation remain pending. See [candidate validation](docs/releases/v0.4.0-rc.7.md). The maintainer authorized only a draft for rc.7, not public publication or stable promotion. Older packages retain their original source and assets.
 
 Download the tested ZIP and its SHA-256 sidecar from the [v0.4.0-rc.4 prerelease](https://github.com/dafermen/netwatch-lite-wallboard/releases/tag/v0.4.0-rc.4). The release tag identifies the existing binary's source commit (`9f30c6b`); newer documentation on `main` does not rebuild or replace that archive. This is an evaluation prerelease, not a stable release.
 
@@ -243,7 +245,13 @@ When saving, the app creates a backup of the previous JSON file, writes through 
 
 In Settings, enable **Home page > Enable Inicio view**, enter a URL, choose **Startup view** (`Wallboard` or `Inicio`) and save. The top bar then offers **Inicio | Wallboard**. Existing profiles default to disabled/Wallboard and are never rewritten at startup.
 
-Inicio releases wallboard controls and stops their refresh/retry/rotation/scheduled timers; only the home browser remains. **Refresh page** and error-page **Retry** affect only Inicio. Returning disposes Home, restores the last wallboard layout/page and starts fresh rotation/restart intervals. Pages reload, so unsaved page state is lost; cookies/authentication data are not cleared.
+Inicio releases wallboard controls and stops their refresh/retry/rotation/scheduled timers; only the home browser remains. **Refresh page** and error-page **Retry** affect only Inicio. A failed Home page keeps the toolbar visible and offers **Edit URL** (Settings focused on Home, no automatic save) and **Back to Wallboard** (explicit non-writing mode switch). Returning disposes Home, restores the last wallboard layout/page and starts fresh rotation/restart intervals. Pages reload, so unsaved page state is lost; cookies/authentication data are not cleared.
+
+For a newly entered website such as `www.google.com`, Settings completes HTTPS when validating the edit; malformed hosts such as `www.google,com` block saving. Existing unchanged URL values and startup resolution retain their old meaning. Explicit HTTP/HTTPS/file URLs and local page paths remain supported. See [URL input rules](docs/CONFIGURATION.md#url-input-in-settings).
+
+With auto-hide enabled, move the pointer into the top 24 client pixels to reveal the toolbar, even over browser content. It stays visible while pointing at its controls, using Settings or handling a Home error. **Fullscreen** / **Exit fullscreen** uses the current monitor's full bounds rather than maximization; **Close** follows the configured confirmation. Windows taskbar settings are never changed.
+
+On narrower displays, layout/page controls move to a second toolbar row so the global and window commands remain reachable.
 
 Optional fields: `homePageEnabled` (default `false`), `homePageUrl` (default empty), `startupView` (`wallboard` or `home`). An invalid/missing URL cannot activate Inicio. Startup preference applies at launch or explicit profile switch, not every save. Fullscreen/exit confirmation/themes/auto-hide remain independent. See [configuration](docs/CONFIGURATION.md) and the [user guide](docs/user-guide.md).
 
@@ -278,7 +286,7 @@ $env:NETWATCH_WALLBOARD_ENV = "production"
 
 | Key | Action |
 |---|---|
-| `F` | Toggle fullscreen. |
+| `F` or `F11` | Toggle fullscreen. |
 | `R` | Refresh visible panels. |
 | `C` | Open settings. |
 | `ESC` | Exit fullscreen, or close the app when fullscreen is not active. |

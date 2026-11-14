@@ -4,7 +4,17 @@ All notable changes to NetWatch Lite Wallboard are documented here.
 
 ## Unreleased
 
-No pending source changes beyond the rc.6 evaluation candidate.
+No pending source changes beyond the rc.7 evaluation candidate.
+
+## v0.4.0-rc.7 - 2026-11-14
+
+Evaluation candidate; the user authorized a new portable/ZIP/SHA-256, source synchronization and **GitHub draft only**. Packaged visual, other-device and production/24-hour acceptance remain pending; this is not public/stable approval.
+
+- Fixed auto-hidden toolbar recovery over hosted browsers using bounded active-window cursor sampling; pin controls for toolbar interaction, Settings/owned dialogs and Home failures.
+- Replaced fullscreen maximization with current-monitor bounds, restoring previous bounds/state/border/minimum size/TopMost. Added fullscreen/exit and close commands plus F11 while retaining existing shortcuts and close confirmation.
+- Added editor-only HTTPS completion and malformed-host validation, without startup migration or reinterpretation of unchanged legacy/local URL values. Kept typing input stable and existing save/backup paths.
+- Added native Home error Edit URL and Back to Wallboard actions alongside Retry, with explicit non-writing mode transitions and proper event cleanup.
+- Added 43 focused URL/property/desktop/browser cases and updated operator/developer/handoff documentation. These fixes are delivered as a separate rc.7 candidate, never by replacing rc.6 or earlier assets.
 
 ## v0.4.0-rc.6 - 2026-11-14
 

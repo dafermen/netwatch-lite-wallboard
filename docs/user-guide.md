@@ -55,6 +55,8 @@ The top bar gives quick access to the most common actions:
 | Button | What it does |
 |---|---|
 | `Settings` | Opens the configuration window. |
+| `Fullscreen` / `Exit fullscreen` | Enters the current monitor's full screen or restores the previous window. |
+| `Close` | Closes the application, respecting Confirm exit. |
 | `Diagnostics` | Opens runtime information useful for support. |
 | `Refresh All` | Refreshes the visible panels. |
 | `Restart All` | Recreates all visible browser panels. |
@@ -73,7 +75,7 @@ Use **Restart** when a page gets stuck or looks heavier than usual. Use **Refres
 
 | Key | Action |
 |---|---|
-| `F` | Toggle fullscreen. |
+| `F` or `F11` | Toggle fullscreen. |
 | `R` | Refresh visible panels. |
 | `C` | Open settings. |
 | `ESC` | Exit fullscreen, or close the app if fullscreen is not active. |
@@ -156,6 +158,8 @@ Panel URLs can be:
 
 Most users should use normal `https://` URLs.
 
+For a new or changed value, Settings also accepts `www.google.com` and completes it to `https://www.google.com` when validated. It rejects a mistyped host such as `www.google,com` before saving. It does not guess the intended domain or guarantee a site is reachable. Existing unchanged URL values keep their meaning; startup does not rewrite your files. Prefer explicit `file:///` or root-relative local paths for ambiguous dotted local names.
+
 ## Inicio And Wallboard Modes
 
 1. In **Settings > Home page**, check **Enable Inicio view**.
@@ -163,7 +167,7 @@ Most users should use normal `https://` URLs.
 3. Choose **Startup view**: **Wallboard** or **Inicio**.
 4. Save. Use the **Inicio | Wallboard** selector in the top bar.
 
-**Inicio** fills the content area without panel headers/divisions. It does not change website zoom or enable fullscreen automatically. Layout commands and **Restart All** are hidden; **Refresh page** affects only Home. Failure stays in Inicio with **Retry**, never starting dashboards unexpectedly.
+**Inicio** fills the content area without panel headers/divisions. It does not change website zoom or enable fullscreen automatically. Layout commands and **Restart All** are hidden; **Refresh page** affects only Home. On failure, the toolbar stays visible and native actions remain available even if the browser cannot initialize: **Retry** recreates only Home, **Edit URL** opens Settings focused on the Home URL, and **Back to Wallboard** explicitly returns to dashboards. Editing/canceling does not save or switch modes automatically.
 
 **Wallboard** disposes Home and restores the previous layout and wallboard page. Pages reload, so scroll positions, unsaved forms and page-local state may be lost. Cookies/authentication data are not deleted, although sites can expire sessions independently. Mode switching never saves JSON.
 
@@ -229,6 +233,8 @@ Enable **Start fullscreen** when the wallboard is used on a TV or shared display
 
 Enable **Confirm exit** to prevent accidental closes from `ESC`, the window close button, or keyboard shortcuts.
 
+Use **Fullscreen** or `F`/`F11` for a borderless window covering the entire current monitor, including the taskbar area. This is different from clicking Windows' maximize button. **Exit fullscreen** or `Esc` restores the prior window size/state; outside fullscreen, `Esc` retains its existing close behavior. The application never hides the Windows taskbar globally or changes its settings. System UI may still appear when Windows is deliberately invoked.
+
 ## Memory Monitor
 
 The memory monitor shows estimated combined memory for the application and its associated WebView2 processes in the top bar. Each process is counted once, even when several panels share it.
@@ -241,9 +247,11 @@ When memory crosses the configured threshold, the label recommends restart. It d
 
 ## Auto-Hide Top Bar
 
-Auto-hide hides the top bar after a short idle delay. Move the mouse to the top edge of the window to show it again.
+Auto-hide hides the top bar after three seconds away from its controls. Move the mouse into the top 24 pixels of the content area to show it again, including over the embedded browser. It stays visible while the pointer is on the toolbar, Settings/owned dialogs are open, or Inicio shows a load error. Hidden controls are not dependent on a successful website load. Inactive/minimized windows do not react to the global pointer location.
 
 This is useful for TV displays where the browser panels should use almost the full screen.
+
+On narrower screens, layout/page controls use a second row; Settings, fullscreen/exit and Close remain together in the first command row.
 
 ## Themes
 

@@ -27,6 +27,7 @@ internal sealed class WebViewPanelControl : UserControl
     private int _scheduledRecoveryGeneration;
 
     public bool BrowserProcessFailed { get; private set; }
+    public bool HasHomeLoadError { get; private set; }
 
     /// <summary>
     /// Builds the panel title bar, refresh/restart buttons, hosted WebView2 control, and refresh timer.
@@ -106,16 +107,24 @@ internal sealed class WebViewPanelControl : UserControl
         titleBar.Visible = !isHomePage;
         if (isHomePage)
         {
-            var error = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 1, RowCount = 4, Visible = false, Name = "HomeLoadError" };
+            var error = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 1, RowCount = 6, Visible = false, Name = "HomeLoadError", Padding = new Padding(16) };
             error.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
             error.RowStyles.Add(new RowStyle(SizeType.Percent, 50));
             error.RowStyles.Add(new RowStyle(SizeType.Absolute, 36));
             error.RowStyles.Add(new RowStyle(SizeType.Absolute, 44));
+            error.RowStyles.Add(new RowStyle(SizeType.Absolute, 44));
+            error.RowStyles.Add(new RowStyle(SizeType.Absolute, 44));
             error.RowStyles.Add(new RowStyle(SizeType.Percent, 50));
             error.Controls.Add(new Label { Text = "Unable to load home page.", AutoSize = true, Anchor = AnchorStyles.None }, 0, 1);
-            var retry = new ThemeButton { Text = "Retry", Name = "RetryHomePage", Width = 110, Height = 34, Anchor = AnchorStyles.None, FlatStyle = FlatStyle.Flat };
+            var retry = new ThemeButton { Text = "Retry", Name = "RetryHomePage", Width = 180, Height = 34, Anchor = AnchorStyles.None, FlatStyle = FlatStyle.Flat };
             retry.Click += (_, _) => RestartRequested?.Invoke(this, EventArgs.Empty);
             error.Controls.Add(retry, 0, 2);
+            var edit = new ThemeButton { Text = "Edit URL", Name = "EditHomeUrl", Width = 180, Height = 34, Anchor = AnchorStyles.None, FlatStyle = FlatStyle.Flat };
+            edit.Click += (_, _) => EditHomeUrlRequested?.Invoke(this, EventArgs.Empty);
+            error.Controls.Add(edit, 0, 3);
+            var wallboard = new ThemeButton { Text = "Back to Wallboard", Name = "BackToWallboard", Width = 180, Height = 34, Anchor = AnchorStyles.None, FlatStyle = FlatStyle.Flat };
+            wallboard.Click += (_, _) => WallboardRequested?.Invoke(this, EventArgs.Empty);
+            error.Controls.Add(wallboard, 0, 4);
             NativeTheme.Apply(error, theme);
             _homeErrorSurface = error;
             Controls.Add(error);
@@ -146,6 +155,9 @@ internal sealed class WebViewPanelControl : UserControl
     /// Raised when the operator asks the main form to destroy and recreate this panel.
     /// </summary>
     public event EventHandler? RestartRequested;
+    public event EventHandler? EditHomeUrlRequested;
+    public event EventHandler? WallboardRequested;
+    public event EventHandler? HomeErrorChanged;
 
     public event EventHandler<RecoveryRequestedEventArgs>? AutomaticRestartRequested;
 
@@ -293,7 +305,7 @@ internal sealed class WebViewPanelControl : UserControl
         var modifiers = e.Modifiers;
 
         if ((modifiers == Keys.Control && keyCode is (Keys.F or Keys.R or Keys.S)) ||
-            (modifiers == Keys.None && keyCode is (Keys.F or Keys.R or Keys.C or Keys.Escape)))
+            (modifiers == Keys.None && keyCode is (Keys.F or Keys.F11 or Keys.R or Keys.C or Keys.Escape)))
         {
             ShortcutRequested?.Invoke(this, new PanelShortcutRequestedEventArgs(keyCode, modifiers));
             e.Handled = true;
@@ -499,6 +511,11 @@ internal sealed class WebViewPanelControl : UserControl
         _webView.Visible = false;
         _homeErrorSurface.Visible = true;
         _homeErrorSurface.BringToFront();
+        if (!HasHomeLoadError)
+        {
+            HasHomeLoadError = true;
+            HomeErrorChanged?.Invoke(this, EventArgs.Empty);
+        }
     }
 
     private void HideHomeError()
@@ -506,6 +523,11 @@ internal sealed class WebViewPanelControl : UserControl
         if (_homeErrorSurface is null) return;
         _homeErrorSurface.Visible = false;
         _webView.Visible = true;
+        if (HasHomeLoadError)
+        {
+            HasHomeLoadError = false;
+            HomeErrorChanged?.Invoke(this, EventArgs.Empty);
+        }
     }
 
     private void ScheduleRecovery()

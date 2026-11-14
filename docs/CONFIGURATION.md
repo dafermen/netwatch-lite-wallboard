@@ -84,7 +84,7 @@ Optional field excerpt, not a replacement for your profile:
 
 Keep your existing title, panels and settings. See the complete [home-view fixture](../tests/fixtures/wallboard-home.json). Existing `Data/` profiles are deliberately unchanged to preserve bytes/behavior. Startup never migrates or saves them.
 
-Invalid/missing URLs disable Inicio and normalize startup to `wallboard`, without substituting a sample URL. Valid URLs can be retained while disabled. Settings refuses enabling with an invalid URL. URL handling follows the existing panel contract, not a new general URL sanitizer.
+Invalid/missing URLs disable Inicio and normalize startup to `wallboard`, without substituting a sample URL. Valid URLs can be retained while disabled. The reader retains the existing panel URL contract. Settings applies the editor-only input rules below; these do not migrate existing files or silently reinterpret stored URLs at startup.
 
 The runtime selection is session-only. Startup applies at launch or explicit profile switch; saving/reloading the same profile preserves Inicio if still valid. Disabling Inicio returns to Wallboard. Mode-only switches do not save, clear browser data, reset recovery budgets or alter the last wallboard layout/page. Configuration reload keeps its existing layout/page reset.
 
@@ -113,6 +113,14 @@ Supported URL forms include:
 - New fields must be optional and have defaults.
 - Existing field meaning must not change silently.
 - A breaking schema change requires an ADR, migration notes, a major version decision, and contract tests.
+
+## URL Input In Settings
+
+New or changed Home/panel input such as `www.google.com` or `example.org/status` is completed to HTTPS when validated. Explicit `http://` remains HTTP; domains, commas and other typing errors are never guessed or silently repaired. Web hosts are validated using `Uri`; `www.google,com`, unsupported schemes and malformed HTTP/HTTPS addresses block Save with a warning and focus on the field. The check does not prove network reachability or repair TLS/site errors.
+
+Existing unchanged values retain their original interpretation after validation, including relative paths with dotted directory names. No completion is applied by the configuration reader, import cloning or startup. Saving still requires explicit operator action and uses the same active profile/backup path. Disabled Home retains its value without forcing URL completion.
+
+File URLs, root-relative local paths, nested local paths and common local page filenames such as `home.html` remain supported. For an ambiguous new dotted filename/directory that looks like a web host, use an explicit `file:///` or documented root-relative local path. URL text is not rewritten on each typing event; accepted completion is shown during explicit validation. No new JSON field or browser profile is introduced.
 
 ## Validation
 

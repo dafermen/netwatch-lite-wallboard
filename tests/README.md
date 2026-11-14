@@ -18,6 +18,8 @@ Do not create empty test projects to make the repository look covered. Each proj
 
 ## Automated Coverage
 
+TV/recovery coverage adds editor-only URL/host validation, unchanged legacy/local paths and 500 generated idempotence cases; desktop checks model cursor polling without moving the operator's mouse, command fit, dialogs/error pinning, full monitor bounds/restoration/startup/close and native error Edit/Cancel/Back/Retry behavior. Available monitors are exercised without claiming other-device/DPI or long-session acceptance.
+
 Inicio/Wallboard adds optional-field compatibility/properties/save/backup/privacy tests and isolated Home startup, stop/disposal/timer/cookie/resource, rapid switching, stale queued restart, minimize/restore, reload/profile-startup, failure/retry and close-during-transition cases. Existing Data profiles are untouched; tests use disposable files/profiles and a neutral fixture.
 
 1. Configuration defaults, numeric invariants, invalid panels, missing and unknown fields.

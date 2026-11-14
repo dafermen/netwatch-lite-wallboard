@@ -42,6 +42,8 @@ The default remains warning-only. Enable **Memory protection** in Settings only 
 | Memory warning appears | Restart All | Identify a heavy page and review refresh intervals |
 | Window is unresponsive | Wait for current navigation | Close and restart the app, then inspect logs |
 | Repeated browser failure | Test the URL in Edge | Update WebView2 Runtime and collect Diagnostics |
+| Inicio cannot load | Edit URL or Retry on the native error surface | Back to Wallboard explicitly resumes dashboards; no profile write |
+| TV controls are hidden | Move the pointer into the top 24 client pixels | Use C for Settings or F/F11 for fullscreen; error states keep controls visible |
 
 ## Diagnostics Collection
 

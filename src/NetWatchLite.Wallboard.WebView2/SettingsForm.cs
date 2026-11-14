@@ -47,6 +47,7 @@ internal sealed class SettingsForm : Form
     private readonly Action<string> _openFolder;
     private bool _hasUnsavedChanges;
     private readonly Func<bool> _confirmDiscardProfile;
+    private readonly Action<string>? _validationMessage;
     internal string? RequestedProfileName { get; private set; }
     private readonly ComboBox _defaultLayoutComboBox = new();
     private readonly ComboBox _themeComboBox = new() { Name = "ThemeSelector", AccessibleName = "Native window theme" };
@@ -77,10 +78,12 @@ internal sealed class SettingsForm : Form
     /// </summary>
     /// <param name="configuration">Current runtime configuration.</param>
     public SettingsForm(WallboardConfiguration configuration, Action<IWin32Window> showDiagnostics,
-        Func<bool>? confirmDiscardProfile = null, Action<string>? openFolder = null)
+        Func<bool>? confirmDiscardProfile = null, Action<string>? openFolder = null,
+        Action<string>? validationMessage = null)
     {
         _configuration = CloneConfiguration(configuration);
         _showDiagnostics = showDiagnostics;
+        _validationMessage = validationMessage;
         _openFolder = openFolder ?? (path =>
         {
             var start = new ProcessStartInfo(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Windows), "explorer.exe"))
@@ -979,14 +982,16 @@ internal sealed class SettingsForm : Form
             return false;
         }
 
-        if (_homePageCheckBox.Checked && !WallboardConfigReader.IsValidHomePageUrl(_homeUrlTextBox.Text))
+        var homeUrl = _homeUrlTextBox.Text.Trim();
+        if (_homePageCheckBox.Checked && !UrlInput.TryNormalize(homeUrl, out homeUrl, _configuration.HomePageUrl))
         {
-            ShowValidationMessage("Enter a valid home page URL or trusted local page path before enabling Inicio.");
+            ShowValidationMessage("Enter a valid website address, such as https://www.google.com, or a trusted local page path. Check the domain for typing errors.");
             _homeUrlTextBox.Focus();
             return false;
         }
         _configuration.HomePageEnabled = _homePageCheckBox.Checked;
-        _configuration.HomePageUrl = _homeUrlTextBox.Text.Trim();
+        _configuration.HomePageUrl = homeUrl;
+        _homeUrlTextBox.Text = homeUrl;
         _configuration.StartupView = _startupViewComboBox.SelectedItem as string == "Inicio" ? "home" : "wallboard";
         _configuration.AppTitle = title;
         _configuration.RotationEnabled = _rotationCheckBox.Checked;
@@ -1036,11 +1041,14 @@ internal sealed class SettingsForm : Form
             return false;
         }
 
-        if (!IsValidPanelUrl(url))
+        var selectedIndex = GetSelectedPanelIndex();
+        var existingUrl = selectedIndex >= 0 && selectedIndex < _configuration.Panels.Count
+            ? _configuration.Panels[selectedIndex].Url : null;
+        if (!UrlInput.TryNormalize(url, out url, existingUrl))
         {
             if (showValidation)
             {
-                ShowValidationMessage("Enter an HTTP/HTTPS URL, a file:/// URL, or a local path such as pages/status.html or /status/index.html.");
+                ShowValidationMessage("Enter a valid website address, such as https://www.google.com, a file:/// URL, or a local path such as pages/status.html. Check the domain for typing errors.");
                 _panelUrlTextBox.Focus();
             }
 
@@ -1053,6 +1061,7 @@ internal sealed class SettingsForm : Form
             Url = url,
             RefreshSeconds = (int)_panelRefreshInput.Value
         };
+        if (showValidation) _panelUrlTextBox.Text = url;
         return true;
     }
 
@@ -1652,6 +1661,17 @@ internal sealed class SettingsForm : Form
     /// <param name="message">Warning text.</param>
     private void ShowValidationMessage(string message)
     {
+        if (_validationMessage is not null)
+        {
+            _validationMessage(message);
+            return;
+        }
         MessageBox.Show(this, message, "Settings", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+    }
+
+    internal void FocusHomePageUrl()
+    {
+        _homeUrlTextBox.Focus();
+        _homeUrlTextBox.SelectAll();
     }
 }

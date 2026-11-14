@@ -31,6 +31,7 @@ This is the documentation home for NetWatch Lite Wallboard. The project is a nat
 8. [v0.4.0-rc.4 startup integrity validation](releases/v0.4.0-rc.4.md)
 9. [v0.4.0-rc.5 operational safety validation](releases/v0.4.0-rc.5.md)
 10. [v0.4.0-rc.6 Inicio/Wallboard and dialog validation](releases/v0.4.0-rc.6.md)
+11. [v0.4.0-rc.7 TV recovery validation](releases/v0.4.0-rc.7.md)
 
 ## Engineering
 

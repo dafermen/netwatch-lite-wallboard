@@ -21,11 +21,12 @@ internal sealed class WallboardForm : Form
     private FlowLayoutPanel _wallboardControls = null!;
     private readonly Label _titleLabel = new();
     private readonly Label _pageLabel = new();
-    private readonly Label _shortcutLabel = new();
     private readonly Dictionary<int, Button> _layoutButtons = [];
     private readonly Button _refreshButton = new();
     private readonly Button _restartAllButton = new();
     private readonly Button _settingsButton = new();
+    private readonly Button _fullscreenButton = new() { Name = "ToggleFullscreen", AccessibleName = "Toggle fullscreen" };
+    private readonly Button _closeButton = new() { Name = "CloseWallboard", AccessibleName = "Close wallboard" };
     private readonly Button _previousPageButton = new();
     private readonly Button _nextPageButton = new();
     private readonly CheckBox _rotationCheckBox = new();
@@ -67,6 +68,10 @@ internal sealed class WallboardForm : Form
     private FormBorderStyle _previousBorderStyle;
     private FormWindowState _previousWindowState;
     private Rectangle _previousBounds;
+    private Size _previousMinimumSize;
+    private bool _previousTopMost;
+    private long _lastTopBarInteraction;
+    private bool _updatingToolbarLayout;
     private ThemePalette _theme = ThemePalette.FromName("dark");
 
     /// <summary>
@@ -132,6 +137,7 @@ internal sealed class WallboardForm : Form
     /// </summary>
     private void BuildTopBar()
     {
+        _topBar.Name = "TopBar";
         _topBar.Dock = DockStyle.Top;
         _topBar.Height = 48;
         _topBar.Padding = new Padding(8, 6, 8, 6);
@@ -141,12 +147,14 @@ internal sealed class WallboardForm : Form
         {
             ColumnCount = 3,
             Dock = DockStyle.Fill,
-            RowCount = 1
+            RowCount = 2
         };
         _topLayout = topLayout;
         topLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 610));
         topLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
         topLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 640));
+        topLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 36));
+        topLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 0));
 
         var leftPanel = new FlowLayoutPanel
         {
@@ -168,20 +176,27 @@ internal sealed class WallboardForm : Form
 
         ConfigureButton(_previousPageButton, "<", 42);
         ConfigureButton(_nextPageButton, ">", 42);
-        ConfigureButton(_refreshButton, "Refresh All", 112);
-        ConfigureButton(_restartAllButton, "Restart All", 112);
-        ConfigureButton(_settingsButton, "Settings", 110);
+        ConfigureButton(_refreshButton, "Refresh All", 96);
+        ConfigureButton(_restartAllButton, "Restart All", 96);
+        ConfigureButton(_settingsButton, "Settings", 82);
+        ConfigureButton(_fullscreenButton, "Fullscreen", 118);
+        ConfigureButton(_closeButton, "Close", 52);
+        _closeButton.Margin = Padding.Empty;
 
         _previousPageButton.Click += (_, _) => NavigatePage(-1);
         _nextPageButton.Click += (_, _) => NavigatePage(1);
         _refreshButton.Click += (_, _) => RefreshVisiblePanels();
         _restartAllButton.Click += (_, _) => _ = RunSafelyAsync(RestartVisiblePanelsAsync, "restarting visible panels");
         _settingsButton.Click += (_, _) => _ = RunSafelyAsync(OpenSettingsAsync, "opening settings");
+        _fullscreenButton.Click += (_, _) => ToggleFullscreen();
+        _closeButton.Click += (_, _) => Close();
         _topBarToolTip.SetToolTip(_previousPageButton, "Previous page");
         _topBarToolTip.SetToolTip(_nextPageButton, "Next page");
         _topBarToolTip.SetToolTip(_refreshButton, "Refresh all visible panels");
         _topBarToolTip.SetToolTip(_restartAllButton, "Restart all visible panels");
         _topBarToolTip.SetToolTip(_settingsButton, "Open wallboard settings");
+        _topBarToolTip.SetToolTip(_fullscreenButton, "Enter or exit fullscreen (F or F11)");
+        _topBarToolTip.SetToolTip(_closeButton, "Close wallboard; configured exit confirmation still applies");
 
         _rotationCheckBox.Text = "Auto";
         _rotationCheckBox.AutoSize = true;
@@ -207,17 +222,12 @@ internal sealed class WallboardForm : Form
 
         var rightPanel = new FlowLayoutPanel
         {
+            Name = "GlobalCommands",
             Dock = DockStyle.Fill,
             FlowDirection = FlowDirection.LeftToRight,
             WrapContents = false,
             Margin = Padding.Empty
         };
-
-        _shortcutLabel.AutoSize = false;
-        _shortcutLabel.Margin = new Padding(0, 8, 18, 0);
-        _shortcutLabel.Text = "F/R/C/ESC";
-        _shortcutLabel.TextAlign = ContentAlignment.MiddleLeft;
-        _shortcutLabel.Width = 86;
 
         _memoryLabel.AutoSize = false;
         _memoryLabel.Margin = new Padding(0, 8, 12, 0);
@@ -225,11 +235,12 @@ internal sealed class WallboardForm : Form
         _memoryLabel.Width = 150;
         _memoryLabel.Visible = false;
 
-        rightPanel.Controls.Add(_shortcutLabel);
         rightPanel.Controls.Add(_memoryLabel);
         rightPanel.Controls.Add(_refreshButton);
         rightPanel.Controls.Add(_restartAllButton);
         rightPanel.Controls.Add(_settingsButton);
+        rightPanel.Controls.Add(_fullscreenButton);
+        rightPanel.Controls.Add(_closeButton);
 
         topLayout.Controls.Add(leftPanel, 0, 0);
         topLayout.Controls.Add(_titleLabel, 1, 0);
@@ -254,6 +265,7 @@ internal sealed class WallboardForm : Form
         _topBarToolTip.SetToolTip(_homeModeButton, "Show the home page and release wallboard panels");
         _topBarToolTip.SetToolTip(_wallboardModeButton, "Show the divided wallboard");
         _topBar.Controls.Add(_modeStrip);
+        topLayout.SizeChanged += (_, _) => UpdateToolbarLayout();
     }
 
     /// <summary>
@@ -299,10 +311,8 @@ internal sealed class WallboardForm : Form
         var available = WallboardViewOptions.CanShowHome(_configuration);
         var home = _viewMode == WallboardViewMode.Home;
         _modeStrip.Visible = available;
-        _topBar.Height = available ? 84 : 48;
         _wallboardControls.Visible = !home;
-        _topLayout.ColumnStyles[0].Width = home ? 0 : 610;
-        _topLayout.ColumnStyles[2].Width = home ? 520 : 640;
+        UpdateToolbarLayout();
         _homeModeButton.Checked = home;
         _wallboardModeButton.Checked = !home;
         foreach (var mode in new[] { _homeModeButton, _wallboardModeButton })
@@ -320,6 +330,29 @@ internal sealed class WallboardForm : Form
         _topBarToolTip.SetToolTip(_refreshButton, home ? "Refresh the Inicio page" : "Refresh all visible panels");
     }
 
+    private void UpdateToolbarLayout()
+    {
+        if (_updatingToolbarLayout || _topLayout.ClientSize.Width <= 0) return;
+        _updatingToolbarLayout = true;
+        _topLayout.SuspendLayout();
+        try
+        {
+            var home = _viewMode == WallboardViewMode.Home;
+            var compact = !home && _topLayout.ClientSize.Width < 1250;
+            _topLayout.SetColumnSpan(_wallboardControls, compact ? 3 : 1);
+            _topLayout.SetCellPosition(_wallboardControls, new TableLayoutPanelCellPosition(0, compact ? 1 : 0));
+            _topLayout.ColumnStyles[0].Width = home || compact ? 0 : 610;
+            _topLayout.ColumnStyles[2].Width = 640;
+            _topLayout.RowStyles[1].Height = compact ? 36 : 0;
+            _topBar.Height = (WallboardViewOptions.CanShowHome(_configuration) ? 84 : 48) + (compact ? 36 : 0);
+        }
+        finally
+        {
+            _topLayout.ResumeLayout();
+            _updatingToolbarLayout = false;
+        }
+    }
+
     private void DisposeHomePanel()
     {
         if (_homePanel is not { } home) return;
@@ -327,6 +360,9 @@ internal sealed class WallboardForm : Form
         _browserEnvironmentNeedsReconnect |= home.BrowserProcessFailed;
         home.ShortcutRequested -= OnPanelShortcutRequested;
         home.RestartRequested -= OnPanelRestartRequested;
+        home.EditHomeUrlRequested -= OnEditHomeUrlRequested;
+        home.WallboardRequested -= OnHomeWallboardRequested;
+        home.HomeErrorChanged -= OnHomeErrorChanged;
         home.StopTimers();
         home.Dispose();
     }
@@ -379,8 +415,11 @@ internal sealed class WallboardForm : Form
     /// Opens the visual settings editor and reloads the wallboard when changes are saved.
     /// SettingsForm works on a cloned configuration, so canceling the dialog leaves this live form untouched.
     /// </summary>
-    private async Task OpenSettingsAsync()
+    private Task OpenSettingsAsync() => OpenSettingsAsync(focusHomeUrl: false);
+
+    private async Task OpenSettingsAsync(bool focusHomeUrl)
     {
+        if (_closing || _settingsOpen) return;
         ExitFullscreen();
 
         ShowTopBar();
@@ -389,7 +428,12 @@ internal sealed class WallboardForm : Form
         try
         {
             using var settingsForm = new SettingsForm(_configuration, OpenDiagnostics);
-            settingsForm.Shown += (_, _) => { settingsForm.BringToFront(); settingsForm.Activate(); };
+            settingsForm.Shown += (_, _) =>
+            {
+                settingsForm.BringToFront();
+                settingsForm.Activate();
+                if (focusHomeUrl) settingsForm.FocusHomePageUrl();
+            };
             var result = settingsForm.ShowDialog(this);
             if (result == DialogResult.Ignore && settingsForm.RequestedProfileName is { } profile)
             {
@@ -501,6 +545,9 @@ internal sealed class WallboardForm : Form
                 _homePanel = home;
                 home.ShortcutRequested += OnPanelShortcutRequested;
                 home.RestartRequested += OnPanelRestartRequested;
+                home.EditHomeUrlRequested += OnEditHomeUrlRequested;
+                home.WallboardRequested += OnHomeWallboardRequested;
+                home.HomeErrorChanged += OnHomeErrorChanged;
                 _grid.Controls.Add(home, 0, 0);
                 try
                 {
@@ -671,7 +718,8 @@ internal sealed class WallboardForm : Form
             return;
         }
 
-        _topBarAutoHideTimer.Interval = 3000;
+        _lastTopBarInteraction = Environment.TickCount64;
+        _topBarAutoHideTimer.Interval = 200;
         _topBarAutoHideTimer.Start();
     }
 
@@ -690,6 +738,24 @@ internal sealed class WallboardForm : Form
         {
             _ = RunSafelyAsync(() => RestartPanelAsync(control), "restarting panel");
         }
+    }
+
+    private void OnEditHomeUrlRequested(object? sender, EventArgs e)
+    {
+        if (ReferenceEquals(sender, _homePanel) && _viewMode == WallboardViewMode.Home)
+            _ = RunSafelyAsync(() => OpenSettingsAsync(focusHomeUrl: true), "editing Inicio URL");
+    }
+
+    private void OnHomeWallboardRequested(object? sender, EventArgs e)
+    {
+        if (ReferenceEquals(sender, _homePanel) && _viewMode == WallboardViewMode.Home)
+            _ = RunSafelyAsync(() => SetViewModeAsync(WallboardViewMode.Wallboard), "returning to Wallboard");
+    }
+
+    private void OnHomeErrorChanged(object? sender, EventArgs e)
+    {
+        if (!_closing && ReferenceEquals(sender, _homePanel) && _homePanel?.HasHomeLoadError == true)
+            ShowTopBar();
     }
 
     private void OnPanelAutomaticRestartRequested(object? sender, WebViewPanelControl.RecoveryRequestedEventArgs e)
@@ -1029,7 +1095,6 @@ internal sealed class WallboardForm : Form
         _grid.BackColor = _theme.WindowBackColor;
         _titleLabel.ForeColor = _theme.PrimaryTextColor;
         _pageLabel.ForeColor = _theme.SecondaryTextColor;
-        _shortcutLabel.ForeColor = _theme.SecondaryTextColor;
         _rotationCheckBox.ForeColor = _theme.PrimaryTextColor;
         _memoryLabel.ForeColor = _theme.SecondaryTextColor;
 
@@ -1043,6 +1108,8 @@ internal sealed class WallboardForm : Form
         ApplyButtonTheme(_refreshButton);
         ApplyButtonTheme(_restartAllButton);
         ApplyButtonTheme(_settingsButton);
+        ApplyButtonTheme(_fullscreenButton);
+        ApplyButtonTheme(_closeButton);
         UpdateLayoutButtons();
         UpdateModeControls();
     }
@@ -1068,21 +1135,30 @@ internal sealed class WallboardForm : Form
         {
             _previousBorderStyle = FormBorderStyle;
             _previousWindowState = WindowState;
-            _previousBounds = Bounds;
+            var monitorBounds = Screen.FromHandle(Handle).Bounds;
+            _previousBounds = WindowState == FormWindowState.Normal ? Bounds : RestoreBounds;
+            _previousMinimumSize = MinimumSize;
+            _previousTopMost = TopMost;
+            WindowState = FormWindowState.Normal;
             FormBorderStyle = FormBorderStyle.None;
-            WindowState = FormWindowState.Maximized;
+            MinimumSize = Size.Empty;
+            Bounds = monitorBounds;
             TopMost = true;
             _isFullscreen = true;
+            _fullscreenButton.Text = "Exit fullscreen";
             ScheduleTopBarAutoHide();
             return;
         }
 
-        TopMost = false;
+        TopMost = _previousTopMost;
         _topBar.Visible = true;
+        WindowState = FormWindowState.Normal;
         FormBorderStyle = _previousBorderStyle;
-        WindowState = _previousWindowState;
+        MinimumSize = _previousMinimumSize;
         Bounds = _previousBounds;
+        WindowState = _previousWindowState;
         _isFullscreen = false;
+        _fullscreenButton.Text = "Fullscreen";
         ScheduleTopBarAutoHide();
     }
 
@@ -1140,7 +1216,7 @@ internal sealed class WallboardForm : Form
             return false;
         }
 
-        if (keyCode == Keys.F)
+        if (keyCode is Keys.F or Keys.F11)
         {
             HandleShortcut(Keys.F);
             return true;
@@ -1311,7 +1387,7 @@ internal sealed class WallboardForm : Form
             : PointToScreen(e.Location);
         var clientPoint = PointToClient(screenPoint);
 
-        if (clientPoint.Y <= 8)
+        if (ClientRectangle.Contains(clientPoint) && clientPoint.Y < 24)
         {
             ShowTopBar();
         }
@@ -1323,12 +1399,7 @@ internal sealed class WallboardForm : Form
     private void ShowTopBar()
     {
         _topBar.Visible = true;
-
-        if (_configuration.AutoHideTopBarEnabled)
-        {
-            _topBarAutoHideTimer.Stop();
-            _topBarAutoHideTimer.Start();
-        }
+        _lastTopBarInteraction = Environment.TickCount64;
     }
 
     /// <summary>
@@ -1336,17 +1407,27 @@ internal sealed class WallboardForm : Form
     /// </summary>
     private void HideTopBarIfIdle()
     {
-        if (!_configuration.AutoHideTopBarEnabled)
+        UpdateTopBarVisibility(Cursor.Position, Environment.TickCount64, ContainsFocus || ActiveForm == this);
+    }
+
+    internal void UpdateTopBarVisibility(Point screenPoint, long now, bool isActive)
+    {
+        if (_closing || !_configuration.AutoHideTopBarEnabled) return;
+        if (!isActive || !Visible || WindowState == FormWindowState.Minimized)
         {
+            _lastTopBarInteraction = now;
             return;
         }
-
-        var clientPoint = PointToClient(Cursor.Position);
-
-        if (clientPoint.Y > _topBar.Height + 8)
+        var point = PointToClient(screenPoint);
+        var overControls = ClientRectangle.Contains(point) &&
+            (point.Y < 24 || (_topBar.Visible && point.Y < _topBar.Bottom));
+        if (_settingsOpen || OwnedForms.Any(form => form.Visible) || _homePanel?.HasHomeLoadError == true || overControls)
         {
-            _topBar.Visible = false;
+            _topBar.Visible = true;
+            _lastTopBarInteraction = now;
         }
+        else if (_topBar.Visible && now - _lastTopBarInteraction >= 3000)
+            _topBar.Visible = false;
     }
 
     /// <summary>

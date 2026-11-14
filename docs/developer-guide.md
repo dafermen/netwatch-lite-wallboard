@@ -281,6 +281,8 @@ The timer lives in `WallboardForm`. When it fires, it calls the same visible-pan
 
 The confirmation is intentionally in `FormClosing` so it catches the window close button, `ESC`, and other normal user close paths.
 
+Fullscreen saves normal/restore bounds, window state, border, minimum size and TopMost. It uses borderless `Normal` state with `Screen.FromHandle(Handle).Bounds`, not `Maximized`/working-area bounds. Minimum size is temporarily lifted for smaller displays and restored on exit. The toolbar's fullscreen/close commands use this same path and `FormClosing`; `F11` supplements existing shortcuts, including WebView forwarding. No taskbar API or Windows preference is changed.
+
 ## Memory Monitor
 
 `memoryMonitorEnabled` starts a timer that checks the host and associated WebView2 working sets about once per minute. `MemoryMonitor` deduplicates process IDs from `CoreWebView2Environment.GetProcessInfos()`, records a lifetime peak, and retains at most 1,440 samples. Exited or inaccessible processes result in a clearly marked partial sample. Shared pages can be counted in multiple working sets, so this is an estimate rather than exact private RAM.
@@ -293,9 +295,11 @@ Support export deliberately does not sanitize a raw text dump with regular expre
 
 ## Auto-Hide Top Bar
 
-`autoHideTopBarEnabled` hides the top bar after a short idle delay. Moving the mouse to the top edge shows it again.
+`autoHideTopBarEnabled` uses the existing owned UI timer at 200 ms and monotonic `Environment.TickCount64` for a three-second hide delay. Sampling `Cursor.Position` avoids relying on mouse events bubbling out of WebView2's hosted window. `UpdateTopBarVisibility` accepts a screen point/time/active-state for deterministic desktop tests without moving the operator's cursor. Hit testing is constrained to the client rectangle and top 24 pixels; controls/Settings/owned dialogs/Home error pin the bar. Inactive/minimized/closing paths do not reveal it. The timer is stopped/disposed with the existing lifecycle; no global hook or browser script is added.
 
-The top bar is shown before opening Settings so the operator does not lose access to controls.
+`UpdateToolbarLayout` uses a second grid row for wallboard layout/page tools below the combined fixed-column width; global/window commands keep their own first row. Tests check both parent and actual window bounds at 1280/1024/800 pixel widths, avoiding a false pass where a button fits its panel but that panel extends outside the window.
+
+Home reports native error state through `HasHomeLoadError`/`HomeErrorChanged`. The form wires and detaches Edit URL/Back to Wallboard events when creating/disposing Home. They reuse Settings and `SetViewModeAsync`, preserving the render lock, generation cancellation, cookies, profiles and timers. Edit focuses the Home field without saving; it is guarded against duplicate dialogs. Error actions work before CoreWebView2 exists.
 
 ## Themes
 
@@ -322,6 +326,8 @@ The project uses the ICO both as `ApplicationIcon` and an explicitly named embed
 Keep the master, derived ICO, embedded resource name, launcher input, and icon tests consistent when changing the design. Native message-box status symbols and WebView2 website favicons are deliberately unchanged.
 
 ## URL Resolution
+
+`UrlInput.TryNormalize` is Settings-only. It validates web hosts with `Uri`, completes new/changed host input to HTTPS and rejects malformed/unsupported input without guessing a replacement. The optional existing value prevents silently reinterpreting unchanged local/legacy URLs. Home/panel fields share it; validation warnings are owned dialogs (an injected callback isolates tests). Panel typing retains the existing non-writing clone updates and does not rewrite the input on each keystroke. Explicit validation can display the completed value. Reader normalization and `ResolvePanelUri` deliberately do not call this helper; no migration or startup write is introduced.
 
 Panels support:
 

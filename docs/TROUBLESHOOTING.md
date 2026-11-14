@@ -50,10 +50,17 @@ Sustained growth after repeated panel disposal is a defect candidate. Include up
 
 ## Fullscreen Or Top Bar Behavior Is Unexpected
 
-- Press `F` to toggle fullscreen.
-- Move the pointer to the top edge to reveal an auto-hidden top bar.
+- Press `F`/`F11` or use Fullscreen to enter the current monitor's entire display, rather than Windows maximize. Use Exit fullscreen or Esc to restore it; Esc outside fullscreen can close the app.
+- Move the pointer into the top 24 client pixels to reveal an auto-hidden toolbar. It must also work over browser content; keep the pointer on the controls while using them.
 - Open Settings with `C`.
 - Verify `startFullscreen`, `confirmExit`, and `autoHideTopBarEnabled`.
+- The application does not change Windows taskbar settings. Report the monitor/DPI/taskbar arrangement if the bar still overlays true fullscreen without deliberately invoking Windows UI.
+
+## Inicio Cannot Load And Controls Are Hidden
+
+The rc.7 correction pins the toolbar on a Home load error and offers native Retry, Edit URL and Back to Wallboard actions. Edit URL opens Settings with the field selected; it does not save until requested. Back is an explicit mode change, not an automatic failure fallback. These corrections are not in the existing rc.6 archive.
+
+For rc.6, use `C` to open Settings. Enter a complete URL such as `https://www.google.com`; `www.google,com` contains a domain typo. The correction validates new URL input and can add HTTPS, but does not guess misspelled domains or rewrite old files at startup. Test the intended site in Edge if navigation still fails.
 
 ## The Portable Package Does Not Start
 

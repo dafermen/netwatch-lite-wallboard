@@ -8,7 +8,7 @@ NetWatch Lite Wallboard is distributed as a portable Windows folder and ZIP. It 
 
 At the user's explicit request, `0.4.0-rc.4` is provided as an [evaluation prerelease with ZIP and checksum](https://github.com/dafermen/netwatch-lite-wallboard/releases/tag/v0.4.0-rc.4) while long-session and full acceptance checks remain pending. Its [validation record](releases/v0.4.0-rc.4.md) is not stable-release approval. All previous packages are retained and are not moved or overwritten. Stable publication still requires the prerequisites below.
 
-The current source candidate is `0.4.0-rc.6`; see its [validation record](releases/v0.4.0-rc.6.md). The user authorized a new portable/ZIP/checksum, source synchronization and a **draft only**, not public publication. Preserve the rc.5 draft, rc.4 and stable Latest. The same tested local ZIP can be uploaded using the guarded local publisher in Draft mode; download/hash verification must then prove local/remote identity. If a hosted workflow instead builds the deliverable, retain its exact downloaded bytes locally rather than replacing its assets with a different local rebuild.
+The current source candidate is `0.4.0-rc.7`; see its [validation record](releases/v0.4.0-rc.7.md). The user authorized a new portable/ZIP/checksum, source synchronization and a **draft only**, not public publication. Preserve rc.6/rc.5 drafts, rc.4 and stable Latest. The same tested local ZIP can be uploaded using the guarded local publisher in Draft mode; download/hash verification must then prove local/remote identity. If a hosted workflow instead builds the deliverable, retain its exact downloaded bytes locally rather than replacing its assets with a different local rebuild.
 
 ## Release Prerequisites
 
@@ -142,7 +142,7 @@ The previously approved ZIP hash is the trust anchor, not a signature. GitHub do
 
 ### Manual Prerelease Workflow
 
-Run **Actions > Prepare Portable Prerelease > Run workflow** from `main`, entering the exact project tag (currently `v0.4.0-rc.6`). The workflow never runs publication on an ordinary push or pull request. Do not dispatch creation for a version that already has a draft or assets.
+Run **Actions > Prepare Portable Prerelease > Run workflow** from `main`, entering the exact project tag (currently `v0.4.0-rc.7`). The workflow never runs publication on an ordinary push or pull request. Do not dispatch creation for a version that already has a draft or assets.
 
 | Mode | Result |
 |---|---|

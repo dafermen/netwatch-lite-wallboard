@@ -86,6 +86,8 @@ Transitions stop timers, suspend memory tracking without resetting attempts, can
 
 ## WebView2 Lifecycle
 
+Native TV controls are independent of browser navigation. An owned 200 ms UI timer samples the cursor for bounded toolbar reveal/idle decisions; Home error state pins it. Native error actions send explicit Settings/mode requests back to the owner and are detached on disposal. Fullscreen uses the current display bounds and restores prior window state without changing Windows taskbar settings. URL completion/host validation is an editor boundary in `UrlInput`, not a change to stored-profile loading or runtime path resolution.
+
 All visible panels share one `CoreWebView2Environment` so cookies, authentication, and browser profile data behave like one browser session.
 
 Each panel still owns its own WebView2 control. When layouts change, pages rotate, low-power mode activates, settings reload, or the app closes, panel controls must be disposed. Disposal stops timers, removes event handlers, and releases browser controls. This lifecycle is a critical memory-safety boundary.
